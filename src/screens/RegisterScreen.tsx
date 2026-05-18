@@ -25,7 +25,7 @@ import { authRadius, authSpacing } from '../theme/spacing';
 type RegisterScreenProps = AuthStackScreenProps<'Register'>;
 
 const features = [
-  { label: 'Spielstaende speichern', icon: Calculator },
+  { label: 'Spielstände speichern', icon: Calculator },
   { label: 'Freunde einladen', icon: Users },
   { label: 'Automatisch abrechnen', icon: UserPlus },
   { label: 'Statistiken verfolgen', icon: BarChart3 },
@@ -42,16 +42,16 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   async function handleRegister() {
     if (!username.trim() || !email.trim() || !password || !confirmPassword) {
       Alert.alert(
-        'Registrierung unvollstaendig',
-        'Bitte alle Felder ausfuellen.',
+        'Registrierung unvollständig',
+        'Bitte alle Felder ausfüllen.',
       );
       return;
     }
 
     if (password !== confirmPassword) {
       Alert.alert(
-        'Passwoerter stimmen nicht ueberein',
-        'Bitte pruefe deine Eingabe.',
+        'Passwörter stimmen nicht überein',
+        'Bitte prüfe deine Eingabe.',
       );
       return;
     }
@@ -72,7 +72,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
     Alert.alert(
       'Account erstellt',
-      'Bitte bestaetige deine E-Mail-Adresse, bevor du dich anmeldest.',
+      'Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.',
       [{ text: 'Zum Login', onPress: () => navigation.navigate('Login') }],
     );
   }
@@ -87,7 +87,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   return (
     <AuthShell
       title="Neuen Account erstellen"
-      subtitle="Speichere Spielstaende, Statistiken und Abrechnungen."
+      subtitle="Speichere Spielstände, Statistiken und Abrechnungen."
       footer={
         <Pressable
           accessibilityRole="button"
@@ -139,7 +139,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
           editable={!isSubmitting}
           icon={Lock}
           isPassword
-          placeholder="Passwort bestaetigen"
+          placeholder="Passwort bestätigen"
           textContentType="newPassword"
           value={confirmPassword}
           onChangeText={setConfirmPassword}

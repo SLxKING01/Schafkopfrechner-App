@@ -156,7 +156,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
         {hasInvalidEditGame ? (
           <EmptyState
             title="Spiel nicht gefunden"
-            message="Das ausgewaehlte Spiel existiert nicht mehr. Du kannst stattdessen ein neues Spiel erfassen."
+            message="Das ausgewählte Spiel existiert nicht mehr. Du kannst stattdessen ein neues Spiel erfassen."
             actionLabel="Neues Spiel starten"
             onAction={() => navigation.setParams({ gameId: undefined })}
           />
@@ -268,7 +268,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
           <AppText variant="subtitle">{calculatedAmount} \u20ac</AppText>
         </View>
         <AppButton
-          title={isEditMode ? 'Aenderungen speichern' : 'Spiel speichern'}
+          title={isEditMode ? 'Änderungen speichern' : 'Spiel speichern'}
           onPress={handleSaveGame}
           disabled={!canSave}
           style={styles.saveButton}

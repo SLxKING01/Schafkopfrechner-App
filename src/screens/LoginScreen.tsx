@@ -23,10 +23,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
   async function handleLogin() {
     if (!email.trim() || !password) {
-      Alert.alert(
-        'Login unvollstaendig',
-        'Bitte E-Mail und Passwort eingeben.',
-      );
+      Alert.alert('Login unvollständig', 'Bitte E-Mail und Passwort eingeben.');
       return;
     }
 
@@ -44,7 +41,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <AuthShell
-      title="Willkommen zurueck"
+      title="Willkommen zurück"
       subtitle="Melde dich an und spiele mit deinen Freunden."
       footer={
         <Pressable
@@ -103,8 +100,8 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
             accessibilityRole="button"
             onPress={() =>
               Alert.alert(
-                'Passwort zuruecksetzen',
-                'Der Reset-Flow wird als naechstes mit Supabase OTP ergaenzt.',
+                'Passwort zurücksetzen',
+                'Der Reset-Flow wird als nächstes mit Supabase OTP ergänzt.',
               )
             }
           >

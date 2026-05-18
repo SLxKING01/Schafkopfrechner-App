@@ -82,7 +82,7 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
         <AppText>
           Basisbetrag: {formatAmount(calculateBaseAmount(item.gameTypeId))}
         </AppText>
-        <AppText>Tatsaechlicher Betrag: {formatAmount(item.amount)}</AppText>
+        <AppText>Tatsächlicher Betrag: {formatAmount(item.amount)}</AppText>
         <AppText>
           {calculatedAmountSummary} = {formatAmount(item.amount)}
         </AppText>
@@ -145,7 +145,7 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
         {summary.games.length === 0 ? (
           <EmptyState
             title="Keine Spiele"
-            message="Dieser abgeschlossene Spieltag enthaelt keine Spiele."
+            message="Dieser abgeschlossene Spieltag enthält keine Spiele."
           />
         ) : (
           <FlatList

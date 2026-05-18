@@ -116,7 +116,7 @@ export function HomeScreen() {
               disabled={activeMatchDay?.isClosed}
             />
             <AppButton
-              title="Loeschen"
+              title="Löschen"
               variant="danger"
               onPress={() => removeGame(item.id)}
               disabled={activeMatchDay?.isClosed}
@@ -126,7 +126,7 @@ export function HomeScreen() {
         <AppText>
           Basisbetrag: {formatAmount(calculateBaseAmount(item.gameTypeId))}
         </AppText>
-        <AppText>Tatsaechlicher Betrag: {formatAmount(item.amount)}</AppText>
+        <AppText>Tatsächlicher Betrag: {formatAmount(item.amount)}</AppText>
         <AppText>
           {calculatedAmountSummary} = {formatAmount(item.amount)}
         </AppText>
@@ -150,7 +150,7 @@ export function HomeScreen() {
       </AppCard>
 
       <AppButton
-        title="Spieltag abschliessen"
+        title="Spieltag abschließen"
         onPress={() => navigation.navigate('CloseMatchDay')}
         disabled={!activeMatchDay || activeMatchDay.isClosed}
       />
@@ -159,7 +159,7 @@ export function HomeScreen() {
         {players.length === 0 ? (
           <EmptyState
             title="Noch keine Spieler"
-            message="Lege zuerst Spieler an, damit Salden berechnet werden koennen."
+            message="Lege zuerst Spieler an, damit Salden berechnet werden können."
             actionLabel="Spieler anlegen"
             onAction={() => navigation.navigate('Players')}
           />
@@ -193,7 +193,7 @@ export function HomeScreen() {
 
       <AppSection title="Spiele">
         <AppButton
-          title="Letztes Spiel rueckgaengig"
+          title="Letztes Spiel rückgängig"
           variant="secondary"
           onPress={undoLastGame}
           disabled={!activeMatchDay || activeMatchDay.isClosed}

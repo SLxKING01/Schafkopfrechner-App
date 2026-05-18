@@ -24,9 +24,15 @@ export function AuthBackground({ children }: AuthBackgroundProps) {
       />
       <View style={styles.vignette} pointerEvents="none" />
       <View style={styles.patternLayer} pointerEvents="none">
-        <AppText style={[styles.patternSuit, styles.patternTop]}>♥</AppText>
-        <AppText style={[styles.patternSuit, styles.patternMiddle]}>♣</AppText>
-        <AppText style={[styles.patternSuit, styles.patternBottom]}>♦</AppText>
+        <AppText style={[styles.patternSuit, styles.patternTop]}>
+          {'\u2665'}
+        </AppText>
+        <AppText style={[styles.patternSuit, styles.patternMiddle]}>
+          {'\u2663'}
+        </AppText>
+        <AppText style={[styles.patternSuit, styles.patternBottom]}>
+          {'\u2666'}
+        </AppText>
       </View>
       <BlurView intensity={12} tint="dark" style={styles.blurWash} />
       <SafeAreaView style={styles.safeArea}>{children}</SafeAreaView>

@@ -1,5 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationOptions,
+} from '@react-navigation/native-stack';
 import { useEffect } from 'react';
 
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
@@ -17,6 +20,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { authColors } from '../theme/colors';
 import { AppTabs } from './AppTabs';
 import { TabNavigator } from './TabNavigator';
 import type {
@@ -29,9 +33,28 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 
+const sharedStackScreenOptions: NativeStackNavigationOptions = {
+  contentStyle: {
+    backgroundColor: authColors.background,
+  },
+  headerStyle: {
+    backgroundColor: authColors.background,
+  },
+  headerTintColor: authColors.textPrimary,
+  statusBarStyle: 'light',
+};
+
+const rootStackScreenOptions: NativeStackNavigationOptions = {
+  ...sharedStackScreenOptions,
+  headerShown: false,
+};
+
 function AuthStackNavigator() {
   return (
-    <AuthStack.Navigator initialRouteName="Onboarding">
+    <AuthStack.Navigator
+      initialRouteName="Onboarding"
+      screenOptions={sharedStackScreenOptions}
+    >
       <AuthStack.Screen
         name="Onboarding"
         component={OnboardingScreen}
@@ -55,7 +78,7 @@ function AuthStackNavigator() {
       <AuthStack.Screen
         name="CloseMatchDay"
         component={CloseMatchDayScreen}
-        options={{ title: 'Spieltag abschliessen' }}
+        options={{ title: 'Spieltag abschließen' }}
       />
       <AuthStack.Screen
         name="MatchDayDetails"
@@ -74,6 +97,7 @@ function AppStackNavigator() {
   return (
     <AppStack.Navigator
       initialRouteName={activeGame ? 'ActiveGame' : 'AppTabs'}
+      screenOptions={sharedStackScreenOptions}
     >
       <AppStack.Screen
         name="AppTabs"
@@ -138,7 +162,7 @@ export function RootNavigator() {
   return (
     <AppErrorBoundary>
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={rootStackScreenOptions}>
           <Stack.Screen
             name={isAuthenticated ? 'AppStack' : 'AuthStack'}
             component={isAuthenticated ? AppStackNavigator : AuthStackNavigator}

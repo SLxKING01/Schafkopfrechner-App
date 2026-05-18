@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { StatusBar } from 'expo-status-bar';
 import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '../components/ui/AppText';
@@ -27,7 +26,6 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar style="light" />
       <View style={styles.backgroundPattern} pointerEvents="none">
         <AppText style={[styles.patternSuit, styles.patternSuitTop]}>♥</AppText>
         <AppText style={[styles.patternSuit, styles.patternSuitMiddle]}>

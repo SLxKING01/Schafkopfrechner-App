@@ -7,7 +7,10 @@ import { DEFAULT_GAME_TYPE_ID } from '../constants/gameTypes';
 import type { CreateGameInput, Game } from '../models/Game';
 import { createLocalPlayer } from '../services/game/addPlayer';
 import { createGameRound } from '../services/game/createRound';
-import { createGameTable } from '../services/game/createTable';
+import {
+  createGameTable,
+  generateTableHashCode,
+} from '../services/game/createTable';
 import { finishGameDay as finishGameDayService } from '../services/game/finishGameDay';
 import { clearGameState } from '../services/persistence/clearGameState';
 import { restoreGameState } from '../services/persistence/restoreGameState';
@@ -119,6 +122,18 @@ function toPersistedGameState(state: GameStore) {
     activeGame: state.activeGame,
     savedAt: new Date().toISOString(),
     schemaVersion: 1 as const,
+  };
+}
+
+function normalizeGameTable(table: GameTable | null): GameTable | null {
+  if (!table) {
+    return null;
+  }
+
+  return {
+    ...table,
+    hashCode: table.hashCode || generateTableHashCode(),
+    createdAt: table.createdAt || new Date().toISOString(),
   };
 }
 
@@ -270,8 +285,11 @@ export const useGameStore = create<GameStore>()(
           return false;
         }
 
-        set({
+        set((state) => ({
           currentTable: createGameTable({
+            existingHashCodes: state.currentTable?.hashCode
+              ? [state.currentTable.hashCode]
+              : [],
             name: tableName,
             players: uniquePlayers,
           }),
@@ -281,7 +299,7 @@ export const useGameStore = create<GameStore>()(
           settlements: [],
           activeGame: true,
           isOffline: false,
-        });
+        }));
 
         return true;
       },
@@ -419,7 +437,7 @@ export const useGameStore = create<GameStore>()(
         }
 
         set({
-          currentTable: restoredState.currentTable,
+          currentTable: normalizeGameTable(restoredState.currentTable),
           players: restoredState.players,
           rounds: restoredState.rounds,
           balances: restoredState.balances,

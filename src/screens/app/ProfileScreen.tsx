@@ -1,17 +1,32 @@
 import { CreditCard, LogOut, Mail, Settings, User } from 'lucide-react-native';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
+import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { AppText } from '../../components/ui/AppText';
+import {
+  ANIMAL_AVATAR_IDS,
+  DEFAULT_USER_APPEARANCE,
+  PROFILE_ACCENTS,
+} from '../../constants/profileCustomization';
 import { useAuthStore } from '../../store/authStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import type { AnimalAvatarId, ProfileAccentId } from '../../types/profile';
 
 export function ProfileScreen() {
+  const [avatarId, setAvatarId] = useState<AnimalAvatarId>(
+    DEFAULT_USER_APPEARANCE.avatarId,
+  );
+  const [accentId, setAccentId] = useState<ProfileAccentId>(
+    DEFAULT_USER_APPEARANCE.accentId,
+  );
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
+  const accentColor = PROFILE_ACCENTS[accentId];
   const username =
     typeof user?.user_metadata.username === 'string'
       ? user.user_metadata.username
@@ -28,7 +43,7 @@ export function ProfileScreen() {
   function showPrepared() {
     Alert.alert(
       'Profil vorbereitet',
-      'Diese Einstellung wird spaeter mit Supabase Profil-Daten verbunden.',
+      'Diese Einstellung wird später mit Supabase Profil-Daten verbunden.',
     );
   }
 
@@ -38,14 +53,69 @@ export function ProfileScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <AppText style={styles.avatarText}>{username.charAt(0)}</AppText>
-          </View>
+        <View style={[styles.profileCard, { borderColor: accentColor }]}>
+          <AnimalAvatar
+            accentColor={accentColor}
+            animalId={avatarId}
+            highlighted
+            size={88}
+          />
           <AppText style={styles.name}>{username}</AppText>
           <AppText style={styles.email}>
             {user?.email ?? 'Account aktiv'}
           </AppText>
+        </View>
+
+        <View style={styles.customizeCard}>
+          <AppText style={styles.customizeTitle}>Profil-Look</AppText>
+          <AppText style={styles.customizeCopy}>
+            Wähle deinen Avatar und eine dezente persönliche Farbe.
+          </AppText>
+
+          <View style={styles.avatarOptions}>
+            {ANIMAL_AVATAR_IDS.map((option) => (
+              <Pressable
+                key={option}
+                accessibilityRole="button"
+                onPress={() => setAvatarId(option)}
+                style={({ pressed }) => [
+                  styles.avatarOption,
+                  avatarId === option && { borderColor: accentColor },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <AnimalAvatar
+                  accentColor={accentColor}
+                  animalId={option}
+                  highlighted={avatarId === option}
+                  size={44}
+                />
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.colorOptions}>
+            {(Object.keys(PROFILE_ACCENTS) as ProfileAccentId[]).map(
+              (option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  onPress={() => setAccentId(option)}
+                  style={({ pressed }) => [
+                    styles.colorOption,
+                    {
+                      backgroundColor: PROFILE_ACCENTS[option],
+                      borderColor:
+                        accentId === option
+                          ? authColors.textPrimary
+                          : 'rgba(245, 245, 245, 0.12)',
+                    },
+                    pressed && styles.pressed,
+                  ]}
+                />
+              ),
+            )}
+          </View>
         </View>
 
         <View style={styles.settingsCard}>
@@ -109,19 +179,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: authSpacing.xxl,
   },
-  avatar: {
-    alignItems: 'center',
-    backgroundColor: authColors.gold,
-    borderRadius: 42,
-    height: 84,
-    justifyContent: 'center',
-    width: 84,
-  },
-  avatarText: {
-    color: authColors.background,
-    fontSize: 34,
-    fontWeight: '900',
-  },
   name: {
     color: authColors.textPrimary,
     fontSize: authTypography.title,
@@ -132,6 +189,46 @@ const styles = StyleSheet.create({
     color: authColors.textSecondary,
     fontSize: authTypography.caption,
     marginTop: authSpacing.xs,
+  },
+  customizeCard: {
+    backgroundColor: 'rgba(13, 27, 19, 0.72)',
+    borderColor: authColors.borderSoft,
+    borderRadius: authRadius.xl,
+    borderWidth: 1,
+    gap: authSpacing.md,
+    padding: authSpacing.lg,
+  },
+  customizeTitle: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.subtitle,
+    fontWeight: '900',
+  },
+  customizeCopy: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 20,
+  },
+  avatarOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: authSpacing.sm,
+  },
+  avatarOption: {
+    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderRadius: authRadius.pill,
+    borderWidth: 1,
+    padding: 3,
+  },
+  colorOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: authSpacing.sm,
+  },
+  colorOption: {
+    borderRadius: authRadius.pill,
+    borderWidth: 2,
+    height: 34,
+    width: 34,
   },
   settingsCard: {
     backgroundColor: 'rgba(13, 27, 19, 0.72)',

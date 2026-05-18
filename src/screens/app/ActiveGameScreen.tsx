@@ -22,7 +22,7 @@ import type { GameType } from '../../types/game';
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 
 function formatAmount(amount: number) {
-  return `${amount.toFixed(2).replace('.', ',')} €`;
+  return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
 }
 
 function formatGameType(gameType: GameType) {
@@ -82,8 +82,8 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
 
     if (!didAdd) {
       Alert.alert(
-        'Runde unvollstaendig',
-        'Bitte Gewinner, mindestens einen Verlierer und Betrag > 0 waehlen.',
+        'Runde unvollständig',
+        'Bitte Gewinner, mindestens einen Verlierer und Betrag > 0 wählen.',
       );
       return;
     }
@@ -140,7 +140,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           />
         </View>
 
-        <SectionHeader title="Kontostaende" />
+        <SectionHeader title="Kontostände" />
         <View style={styles.balanceStack}>
           {balances.map((balance) => (
             <PlayerBalanceCard
@@ -227,7 +227,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       </ScrollView>
 
       <View style={styles.floatingCta}>
-        <GoldButton title="Spieltag abschliessen" onPress={finishDay} />
+        <GoldButton title="Spieltag abschließen" onPress={finishDay} />
       </View>
     </AuthBackground>
   );

@@ -113,7 +113,7 @@ export function StatisticsScreen() {
         ) : activeGames.length === 0 ? (
           <EmptyState
             title="Noch keine Spiele"
-            message="Statistiken fuer diesen Spieltag erscheinen nach dem ersten Spiel."
+            message="Statistiken für diesen Spieltag erscheinen nach dem ersten Spiel."
           />
         ) : (
           <FlatList

@@ -15,7 +15,7 @@ export function DashboardHeader({ username, email }: DashboardHeaderProps) {
   return (
     <View style={styles.container}>
       <View>
-        <AppText style={styles.caption}>Schoen, dass du da bist</AppText>
+        <AppText style={styles.caption}>Schön, dass du da bist</AppText>
         <AppText style={styles.title}>Servus, {username}</AppText>
         {email ? <AppText style={styles.email}>{email}</AppText> : null}
       </View>

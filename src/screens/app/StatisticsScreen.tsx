@@ -13,7 +13,12 @@ const stats = [
   { label: 'Gesamtspiele', value: '128', icon: Trophy, progress: 0.82 },
   { label: 'Gewinnrate', value: '61,4 %', icon: TrendingUp, progress: 0.61 },
   { label: 'Bestes Spiel', value: 'Solo', icon: Crown, progress: 0.74 },
-  { label: 'Ø Gewinn', value: '+7,80 €', icon: BarChart3, progress: 0.68 },
+  {
+    label: '\u00d8 Gewinn',
+    value: '+7,80 \u20ac',
+    icon: BarChart3,
+    progress: 0.68,
+  },
 ];
 
 export function StatisticsScreen() {
@@ -26,7 +31,7 @@ export function StatisticsScreen() {
         <AppText style={styles.kicker}>Statistik</AppText>
         <AppText style={styles.title}>Deine Performance</AppText>
         <AppText style={styles.subtitle}>
-          Verdichtete Spielanalyse fuer schnelle Entscheidungen am Tisch.
+          Verdichtete Spielanalyse für schnelle Entscheidungen am Tisch.
         </AppText>
 
         <View style={styles.grid}>
@@ -65,7 +70,7 @@ export function StatisticsScreen() {
             ))}
           </View>
           <AppText style={styles.chartCopy}>
-            Mini-Chart Platzhalter fuer echte Supabase Spielhistorie.
+            Mini-Chart Platzhalter für echte Supabase Spielhistorie.
           </AppText>
         </View>
       </ScrollView>

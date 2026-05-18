@@ -29,29 +29,29 @@ const recentGames = [
   {
     gameType: 'Sauspiel',
     date: 'Heute',
-    amount: '18,00 €',
+    amount: '18,00 \u20ac',
     players: 4,
     result: 'win' as const,
   },
   {
     gameType: 'Wenz',
     date: 'Gestern',
-    amount: '12,00 €',
+    amount: '12,00 \u20ac',
     players: 4,
     result: 'loss' as const,
   },
   {
     gameType: 'Solo',
     date: 'Samstag',
-    amount: '42,00 €',
+    amount: '42,00 \u20ac',
     players: 5,
     result: 'win' as const,
   },
 ];
 
 const settlements = [
-  { from: 'Max', to: 'Simon', amount: '10,00 €' },
-  { from: 'Lukas', to: 'Anna', amount: '6,50 €' },
+  { from: 'Max', to: 'Simon', amount: '10,00 \u20ac' },
+  { from: 'Lukas', to: 'Anna', amount: '6,50 \u20ac' },
 ];
 type DashboardNavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -71,7 +71,7 @@ export function DashboardScreen() {
   function showPrepared() {
     Alert.alert(
       'Vorbereitet',
-      'Diese Aktion wird im naechsten Schritt mit echten Supabase Daten verbunden.',
+      'Diese Aktion wird im nächsten Schritt mit echten Supabase Daten verbunden.',
     );
   }
 
@@ -91,12 +91,12 @@ export function DashboardScreen() {
         <Animated.View entering={FadeInDown.duration(520).delay(80)}>
           <StatsCard
             title="Dein Spieltag"
-            subtitle="Premium Ueberblick fuer die Runde"
+            subtitle="Premium Überblick für die Runde"
             stats={[
               { label: 'Gespielte Runden', value: '24' },
               { label: 'Gewinnrate', value: '62 %', tone: 'green' },
-              { label: 'Offen', value: '16,50 €', tone: 'gold' },
-              { label: 'Heute', value: '+28 €', tone: 'green' },
+              { label: 'Offen', value: '16,50 \u20ac', tone: 'gold' },
+              { label: 'Heute', value: '+28 \u20ac', tone: 'green' },
             ]}
           />
         </Animated.View>
@@ -132,7 +132,7 @@ export function DashboardScreen() {
           <QuickActionCard
             icon={ReceiptText}
             title="Abrechnung"
-            subtitle="Zahlungen klaeren"
+            subtitle="Zahlungen klären"
             onPress={showPrepared}
           />
         </View>

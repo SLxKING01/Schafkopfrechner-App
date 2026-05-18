@@ -57,7 +57,7 @@ export function AppTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: authColors.goldHighlight,
-        tabBarInactiveTintColor: 'rgba(245, 245, 245, 0.48)',
+        tabBarInactiveTintColor: 'rgba(139, 161, 148, 0.68)',
         tabBarLabelStyle: styles.label,
         tabBarStyle: styles.tabBar,
         tabBarBackground: () => (
@@ -89,7 +89,7 @@ export function AppTabs() {
         name="GameLobby"
         component={GameLobbyScreen}
         options={{
-          title: 'Spiel',
+          title: 'Spielen',
           tabBarIcon: ({ focused, color }) => (
             <AnimatedTabIcon focused={focused} color={color} icon={Spade} />
           ),
@@ -111,8 +111,8 @@ export function AppTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(13, 27, 19, 0.76)',
-    borderColor: 'rgba(212, 175, 55, 0.18)',
+    backgroundColor: 'rgba(16, 36, 28, 0.82)',
+    borderColor: 'rgba(231, 198, 92, 0.18)',
     borderRadius: authRadius.xl,
     borderTopWidth: 1,
     bottom: 22,
@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
     width: 42,
   },
   iconActive: {
-    backgroundColor: 'rgba(212, 175, 55, 0.14)',
+    backgroundColor: 'rgba(231, 198, 92, 0.15)',
   },
 });

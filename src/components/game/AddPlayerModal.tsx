@@ -38,7 +38,7 @@ export function AddPlayerModal({
     <Modal transparent animationType="fade" visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <AppText style={styles.title}>Spieler hinzufuegen</AppText>
+          <AppText style={styles.title}>Spieler hinzufügen</AppText>
           <TextInput
             autoFocus
             placeholder="Name"
@@ -52,7 +52,7 @@ export function AddPlayerModal({
             }}
           />
           {error ? <AppText style={styles.error}>{error}</AppText> : null}
-          <GoldButton title="Hinzufuegen" onPress={handleAdd} />
+          <GoldButton title="Hinzufügen" onPress={handleAdd} />
           <Pressable onPress={onClose} style={styles.cancel}>
             <AppText style={styles.cancelText}>Abbrechen</AppText>
           </Pressable>

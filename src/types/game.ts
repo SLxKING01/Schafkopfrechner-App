@@ -9,9 +9,12 @@ export type GameType = 'sauspiel' | 'solo' | 'wenz' | 'ramsch' | 'custom';
 
 export type GameTable = {
   id: string;
+  hashCode: string;
   name: string;
   createdAt: string;
   isActive: boolean;
+  isFavorite?: boolean;
+  sortOrder?: number;
 };
 
 export type GameRound = {
@@ -38,6 +41,7 @@ export type Settlement = {
 };
 
 export type CreateTablePayload = {
+  existingHashCodes?: string[];
   name: string;
   players: Player[];
 };
