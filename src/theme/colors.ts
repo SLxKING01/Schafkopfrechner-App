@@ -1,0 +1,16 @@
+export const authColors = {
+  background: '#07110B',
+  backgroundSoft: '#0A1710',
+  surface: '#0D1B13',
+  surfaceElevated: 'rgba(13, 27, 19, 0.78)',
+  gold: '#D4AF37',
+  goldHighlight: '#F2C94C',
+  textPrimary: '#F5F5F5',
+  textSecondary: '#A1A1A1',
+  accentGreen: '#6BA36E',
+  borderGold: 'rgba(212, 175, 55, 0.42)',
+  borderSoft: 'rgba(245, 245, 245, 0.08)',
+  inputFill: 'rgba(13, 27, 19, 0.72)',
+  inputFocused: 'rgba(212, 175, 55, 0.72)',
+  shadow: '#000000',
+};
