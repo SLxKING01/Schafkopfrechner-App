@@ -1,6 +1,6 @@
 import { Eye, EyeOff, type LucideProps } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -19,10 +19,12 @@ import { authRadius, authSpacing } from '../../theme/spacing';
 
 type AuthInputProps = TextInputProps & {
   icon: ComponentType<LucideProps>;
+  hasError?: boolean;
   isPassword?: boolean;
 };
 
 export function AuthInput({
+  hasError = false,
   icon: Icon,
   isPassword = false,
   onBlur,
@@ -31,15 +33,28 @@ export function AuthInput({
   ...props
 }: AuthInputProps) {
   const [isHidden, setIsHidden] = useState(isPassword);
+  const error = useSharedValue(hasError ? 1 : 0);
   const focus = useSharedValue(0);
 
+  useEffect(() => {
+    error.value = withTiming(hasError ? 1 : 0, { duration: 180 });
+  }, [error, hasError]);
+
   const animatedStyle = useAnimatedStyle(() => ({
-    borderColor: interpolateColor(
-      focus.value,
+    borderColor:
+      error.value > 0
+        ? authColors.errorBorder
+        : interpolateColor(
+            focus.value,
+            [0, 1],
+            [authColors.borderGold, authColors.inputFocused],
+          ),
+    shadowColor: interpolateColor(
+      error.value,
       [0, 1],
-      [authColors.borderGold, authColors.inputFocused],
+      [authColors.gold, authColors.error],
     ),
-    shadowOpacity: 0.1 + focus.value * 0.16,
+    shadowOpacity: 0.1 + focus.value * 0.16 + error.value * 0.08,
   }));
 
   return (

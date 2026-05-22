@@ -1,6 +1,12 @@
 import { Lock, Mail } from 'lucide-react-native';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
@@ -14,16 +20,67 @@ import { authSpacing } from '../theme/spacing';
 
 type LoginScreenProps = AuthStackScreenProps<'Login'>;
 
+const LOGIN_ERROR_MESSAGE = 'Anmeldedaten sind falsch. Bitte erneut versuchen.';
+
 export function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
+  const errorOpacity = useSharedValue(0);
+  const errorTranslateX = useSharedValue(0);
+  const hasLoginError = Boolean(loginError);
+
+  const clearLoginError = useCallback(() => {
+    setLoginError(null);
+  }, []);
+
+  const handleEmailChange = useCallback(
+    (value: string) => {
+      clearLoginError();
+      setEmail(value);
+    },
+    [clearLoginError],
+  );
+
+  const handlePasswordChange = useCallback(
+    (value: string) => {
+      clearLoginError();
+      setPassword(value);
+    },
+    [clearLoginError],
+  );
+
+  useEffect(() => {
+    if (!loginError) {
+      errorOpacity.value = withTiming(0, { duration: 120 });
+      errorTranslateX.value = withTiming(0, { duration: 120 });
+      return;
+    }
+
+    errorOpacity.value = withTiming(1, { duration: 160 });
+    errorTranslateX.value = withSequence(
+      withTiming(-7, { duration: 45 }),
+      withTiming(7, { duration: 70 }),
+      withTiming(-4, { duration: 55 }),
+      withTiming(0, { duration: 55 }),
+    );
+  }, [errorOpacity, errorTranslateX, loginError]);
+
+  const errorAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: errorOpacity.value,
+    transform: [{ translateX: errorTranslateX.value }],
+  }));
 
   async function handleLogin() {
+    if (isSubmitting) {
+      return;
+    }
+
     if (!email.trim() || !password) {
-      Alert.alert('Login unvollständig', 'Bitte E-Mail und Passwort eingeben.');
+      setLoginError(LOGIN_ERROR_MESSAGE);
       return;
     }
 
@@ -31,8 +88,8 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     const result = await login({ email, password });
     setIsSubmitting(false);
 
-    if (result.error) {
-      Alert.alert('Anmeldung fehlgeschlagen', result.error.message);
+    if (result.error || !result.session) {
+      setLoginError(LOGIN_ERROR_MESSAGE);
       return;
     }
 
@@ -62,23 +119,34 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           autoCapitalize="none"
           autoComplete="email"
           editable={!isSubmitting}
+          hasError={hasLoginError}
           icon={Mail}
           keyboardType="email-address"
           placeholder="E-Mail"
           textContentType="emailAddress"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={handleEmailChange}
         />
         <AuthInput
           autoComplete="password"
           editable={!isSubmitting}
+          hasError={hasLoginError}
           icon={Lock}
           isPassword
           placeholder="Passwort"
           textContentType="password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={handlePasswordChange}
         />
+
+        {loginError ? (
+          <Animated.View
+            accessibilityLiveRegion="polite"
+            style={[styles.errorBox, errorAnimatedStyle]}
+          >
+            <AppText style={styles.errorText}>{loginError}</AppText>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.optionsRow}>
           <View style={styles.rememberRow}>
@@ -98,19 +166,18 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
           <Pressable
             accessibilityRole="button"
-            onPress={() =>
-              Alert.alert(
-                'Passwort zurücksetzen',
-                'Der Reset-Flow wird als nächstes mit Supabase OTP ergänzt.',
-              )
-            }
+            accessibilityState={{ disabled: true }}
+            disabled
+            style={styles.disabledLink}
           >
             <AppText style={styles.forgotText}>Passwort vergessen?</AppText>
           </Pressable>
         </View>
 
         <GoldButton
-          title={isSubmitting ? 'Anmelden...' : 'Anmelden'}
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          title="Anmelden"
           onPress={handleLogin}
         />
       </View>
@@ -133,6 +200,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: authSpacing.sm,
+  },
+  disabledLink: {
+    opacity: 0.62,
+  },
+  errorBox: {
+    backgroundColor: authColors.errorBackground,
+    borderColor: 'rgba(248, 113, 113, 0.24)',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: -authSpacing.xs,
+    paddingHorizontal: authSpacing.md,
+    paddingVertical: authSpacing.sm,
+  },
+  errorText: {
+    color: authColors.errorText,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   optionText: {
     color: authColors.textSecondary,

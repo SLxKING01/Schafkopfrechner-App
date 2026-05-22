@@ -2,7 +2,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -50,13 +50,18 @@ export function HomeScreen() {
     [players, activeGames],
   );
   const settlements = useMemo(() => calculateSettlements(balances), [balances]);
+  const playerNameById = useMemo(
+    () => new Map(players.map((player) => [player.id, player.name])),
+    [players],
+  );
 
-  function getPlayerName(id: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
+  const getPlayerName = useCallback(
+    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    [playerNameById],
+  );
 
   function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
+    return `${amount.toFixed(2).replace('.', ',')} €`;
   }
 
   function getBalanceStyle(amount: number) {

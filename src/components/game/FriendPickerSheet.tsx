@@ -1,4 +1,4 @@
-import { Check, Plus, Search, X } from 'lucide-react-native';
+import { Minus, Plus, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -26,6 +26,7 @@ import { AnimalAvatar } from './AnimalAvatar';
 
 type FriendPickerSheetProps = {
   friends: FriendProfile[];
+  maxPlayersReached?: boolean;
   selectedFriendIds: string[];
   visible: boolean;
   onClose: () => void;
@@ -43,12 +44,17 @@ const colors = {
 
 export function FriendPickerSheet({
   friends,
+  maxPlayersReached = false,
   selectedFriendIds,
   visible,
   onClose,
   onToggleFriend,
 }: FriendPickerSheetProps) {
   const [query, setQuery] = useState('');
+  const selectedFriendIdSet = useMemo(
+    () => new Set(selectedFriendIds),
+    [selectedFriendIds],
+  );
 
   const filteredFriends = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -130,11 +136,20 @@ export function FriendPickerSheet({
             keyExtractor={(friend) => friend.id}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
-              const isSelected = selectedFriendIds.includes(item.id);
+              const isSelected = selectedFriendIdSet.has(item.id);
+              const isDisabled = maxPlayersReached && !isSelected;
 
               return (
                 <Pressable
+                  accessibilityLabel={`${item.username} ${
+                    isSelected ? 'entfernen' : 'hinzufuegen'
+                  }`}
                   accessibilityRole="button"
+                  accessibilityState={{
+                    disabled: isDisabled,
+                    selected: isSelected,
+                  }}
+                  disabled={isDisabled}
                   onPress={() => onToggleFriend(item)}
                   style={({ pressed }) => [
                     styles.friendRow,
@@ -142,6 +157,7 @@ export function FriendPickerSheet({
                       borderColor: item.accentColor,
                       shadowColor: item.accentColor,
                     },
+                    isDisabled && styles.friendRowDisabled,
                     pressed && styles.rowPressed,
                   ]}
                 >
@@ -166,12 +182,19 @@ export function FriendPickerSheet({
                     style={[
                       styles.toggleButton,
                       isSelected && { backgroundColor: item.accentColor },
+                      isDisabled && styles.toggleButtonDisabled,
                     ]}
                   >
                     {isSelected ? (
-                      <Check color="#17150B" size={18} strokeWidth={2.8} />
+                      <Minus color="#17150B" size={18} strokeWidth={3} />
                     ) : (
-                      <Plus color={colors.gold} size={18} strokeWidth={2.8} />
+                      <Plus
+                        color={
+                          isDisabled ? 'rgba(245, 245, 245, 0.36)' : colors.gold
+                        }
+                        size={18}
+                        strokeWidth={2.8}
+                      />
                     )}
                   </View>
                 </Pressable>
@@ -284,6 +307,9 @@ const styles = StyleSheet.create({
     opacity: 0.84,
     transform: [{ scale: 0.985 }],
   },
+  friendRowDisabled: {
+    opacity: 0.45,
+  },
   onlineDot: {
     backgroundColor: '#5BBE63',
     borderColor: colors.card,
@@ -316,5 +342,8 @@ const styles = StyleSheet.create({
     height: 38,
     justifyContent: 'center',
     width: 38,
+  },
+  toggleButtonDisabled: {
+    backgroundColor: 'rgba(245, 245, 245, 0.08)',
   },
 });

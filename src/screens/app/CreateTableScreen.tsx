@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Plus, Spade, UserPlus, X } from 'lucide-react-native';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -71,50 +71,77 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   const canAddPlayer =
     playerName.trim().length > 0 && players.length < maxPlayers;
   const canCreateTable = tableName.trim().length > 0 && players.length >= 2;
-  const selectedFriendIds = players
-    .map((player) => player.friendId)
-    .filter((friendId): friendId is string => Boolean(friendId));
+  const selectedFriendIds = useMemo(
+    () =>
+      players
+        .map((player) => player.friendId)
+        .filter((friendId): friendId is string => Boolean(friendId)),
+    [players],
+  );
+  const selectedFriendIdSet = useMemo(
+    () => new Set(selectedFriendIds),
+    [selectedFriendIds],
+  );
+  const hasReachedMaxPlayers = players.length >= maxPlayers;
 
   function addPlayer() {
     const nextName = playerName.trim();
 
-    if (!nextName || players.length >= maxPlayers) {
+    if (!nextName) {
       return;
     }
 
-    const exists = players.some(
-      (player) => player.name.trim().toLowerCase() === nextName.toLowerCase(),
-    );
+    let didAdd = false;
+    let didHitDuplicate = false;
 
-    if (exists) {
+    setPlayers((currentPlayers) => {
+      if (currentPlayers.length >= maxPlayers) {
+        return currentPlayers;
+      }
+
+      const exists = currentPlayers.some(
+        (player) => player.name.trim().toLowerCase() === nextName.toLowerCase(),
+      );
+
+      if (exists) {
+        didHitDuplicate = true;
+        return currentPlayers;
+      }
+
+      didAdd = true;
+
+      return [
+        ...currentPlayers,
+        {
+          ...createLocalPlayer(nextName),
+          accentColor: getManualPlayerAccent(currentPlayers.length),
+          animalId: getManualPlayerAnimal(currentPlayers.length),
+          isCurrentUser: currentPlayers.length === 0,
+        },
+      ];
+    });
+
+    if (didHitDuplicate) {
       Alert.alert(
         'Name bereits vorhanden',
         'Dieser Spieler ist schon am Tisch.',
       );
-      return;
     }
 
-    setPlayers((currentPlayers) => [
-      ...currentPlayers,
-      {
-        ...createLocalPlayer(nextName),
-        accentColor: getManualPlayerAccent(currentPlayers.length),
-        animalId: getManualPlayerAnimal(currentPlayers.length),
-        isCurrentUser: currentPlayers.length === 0,
-      },
-    ]);
-    setPlayerName('');
+    if (didAdd) {
+      setPlayerName('');
+    }
   }
 
-  function toggleFriend(friend: FriendProfile) {
+  const toggleFriend = useCallback((friend: FriendProfile) => {
     setPlayers((currentPlayers) => {
-      const existingFriend = currentPlayers.find(
+      const existingFriendPlayer = currentPlayers.find(
         (player) => player.friendId === friend.id,
       );
 
-      if (existingFriend) {
+      if (existingFriendPlayer) {
         return currentPlayers.filter(
-          (player) => player.id !== existingFriend.id,
+          (player) => player.id !== existingFriendPlayer.id,
         );
       }
 
@@ -138,7 +165,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
         },
       ];
     });
-  }
+  }, []);
 
   function removePlayer(id: string) {
     setPlayers((currentPlayers) =>
@@ -206,10 +233,10 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
 
           <View style={styles.headerSymbols} pointerEvents="none">
             <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
-              {'\u2663'}
+              {'♣'}
             </AppText>
             <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
-              {'\u2665'}
+              {'♥'}
             </AppText>
           </View>
 
@@ -323,7 +350,11 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                   <FriendChip
                     key={friend.id}
                     friend={friend}
-                    isSelected={selectedFriendIds.includes(friend.id)}
+                    isDisabled={
+                      hasReachedMaxPlayers &&
+                      !selectedFriendIdSet.has(friend.id)
+                    }
+                    isSelected={selectedFriendIdSet.has(friend.id)}
                     onPress={toggleFriend}
                   />
                 ))}
@@ -393,6 +424,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
 
       <FriendPickerSheet
         friends={FRIEND_PREVIEWS}
+        maxPlayersReached={hasReachedMaxPlayers}
         selectedFriendIds={selectedFriendIds}
         visible={friendPickerVisible}
         onClose={() => setFriendPickerVisible(false)}

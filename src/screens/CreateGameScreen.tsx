@@ -173,9 +173,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
 
         <AppCard style={styles.amountCard}>
           <AppText variant="caption">Live-Betrag</AppText>
-          <AppText style={styles.amountValue}>
-            {calculatedAmount} \u20ac
-          </AppText>
+          <AppText style={styles.amountValue}>{calculatedAmount} €</AppText>
           {isEditMode ? (
             <AppText variant="caption">Bearbeitungsmodus</AppText>
           ) : null}
@@ -265,7 +263,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
       <View style={styles.footer}>
         <View>
           <AppText variant="caption">Zu speichern</AppText>
-          <AppText variant="subtitle">{calculatedAmount} \u20ac</AppText>
+          <AppText variant="subtitle">{calculatedAmount} €</AppText>
         </View>
         <AppButton
           title={isEditMode ? 'Änderungen speichern' : 'Spiel speichern'}

@@ -35,7 +35,7 @@ export function GameTypeCard({
         variant="caption"
         style={isSelected ? styles.selectedText : undefined}
       >
-        {gameType.baseAmount} \u20ac
+        {gameType.baseAmount} €
       </AppText>
     </Pressable>
   );

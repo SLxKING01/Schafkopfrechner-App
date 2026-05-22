@@ -1,11 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   ChevronRight,
   Copy,
+  GripVertical,
   Heart,
   Leaf,
   LogOut,
@@ -18,10 +20,9 @@ import {
   Spade,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -31,18 +32,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import DraggableFlatList, {
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Animated, {
   FadeIn,
   FadeInDown,
   FadeOut,
   FadeOutLeft,
-  LinearTransition,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
   ZoomIn,
   ZoomOut,
 } from 'react-native-reanimated';
@@ -54,6 +52,10 @@ import type { AppStackParamList } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import {
+  areTableOrderIdsEqual,
+  sanitizeTableOrderIds,
+} from '../../utils/tableOrder';
 
 const screenColors = {
   background: '#0B1D16',
@@ -67,8 +69,6 @@ const screenColors = {
   border: 'rgba(231, 198, 92, 0.28)',
   shadow: '#000000',
 };
-
-const TABLE_REORDER_STEP = 124;
 
 const suitTheme = {
   eichel: {
@@ -132,7 +132,7 @@ const tablePreviews: TablePreview[] = [
   {
     id: 'friday',
     name: 'Freitagsrunde',
-    players: 'Simon \u2022 Berkay \u2022 Flo \u2022 Alessandro',
+    players: 'Simon • Berkay • Flo • Alessandro',
     lastPlayed: 'Zuletzt gespielt: gestern',
     sortOrder: 10,
     suit: 'eichel',
@@ -140,7 +140,7 @@ const tablePreviews: TablePreview[] = [
   {
     id: 'stammtisch',
     name: 'Stammtisch',
-    players: 'Max \u2022 Anna \u2022 Lukas \u2022 Simon',
+    players: 'Max • Anna • Lukas • Simon',
     lastPlayed: 'Heute gespielt',
     sortOrder: 20,
     suit: 'gras',
@@ -148,7 +148,7 @@ const tablePreviews: TablePreview[] = [
   {
     id: 'family',
     name: 'Familientisch',
-    players: 'Opa Hans \u2022 Julia \u2022 Tom \u2022 Simon',
+    players: 'Opa Hans • Julia • Tom • Simon',
     lastPlayed: 'Zuletzt gespielt: vor 2 Wochen',
     sortOrder: 30,
     suit: 'herz',
@@ -167,10 +167,32 @@ function getTableOrder(table: TablePreview, orderedIds: string[]) {
   return table.sortOrder ?? Number.MAX_SAFE_INTEGER;
 }
 
+function createUniqueTables(tables: TablePreview[]) {
+  const seenTableIds = new Set<string>();
+  const uniqueTables: TablePreview[] = [];
+
+  tables.forEach((table) => {
+    const tableId = table.id.trim();
+
+    if (!tableId || seenTableIds.has(tableId)) {
+      return;
+    }
+
+    seenTableIds.add(tableId);
+    uniqueTables.push({ ...table, id: tableId });
+  });
+
+  return uniqueTables;
+}
+
 export function GameLobbyScreen() {
   const navigation = useNavigation<GameLobbyNavigationProp>();
   const currentTable = useGameStore((state) => state.currentTable);
   const activeGame = useGameStore((state) => state.activeGame);
+  const tableOrderIds = useGameStore((state) => state.tableOrderIds);
+  const setPersistedTableOrderIds = useGameStore(
+    (state) => state.setTableOrderIds,
+  );
   const [renamedTables, setRenamedTables] = useState<Record<string, string>>(
     {},
   );
@@ -181,163 +203,164 @@ export function GameLobbyScreen() {
     useState<TablePreview | null>(null);
   const [removedTableIds, setRemovedTableIds] = useState<string[]>([]);
   const [favoriteTableIds, setFavoriteTableIds] = useState<string[]>([]);
-  const [tableOrderIds, setTableOrderIds] = useState<string[]>([]);
   const [activeReorderTableId, setActiveReorderTableId] = useState<
     string | null
   >(null);
-  const dragStartIndexRef = useRef(0);
 
-  const tables = currentTable
-    ? [
-        {
-          id: currentTable.id,
-          isCurrent: true,
-          lastPlayed: 'Heute gespielt',
-          name: currentTable.name,
-          players: 'Aktueller Spielabend',
-          isFavorite: currentTable.isFavorite,
-          sortOrder: currentTable.sortOrder ?? 0,
-          suit: 'schelle' as const,
-        },
-        ...tablePreviews,
-      ]
-    : tablePreviews;
-  const visibleTables = tables
-    .map((table) => ({
-      ...table,
-      isFavorite: favoriteTableIds.includes(table.id) || table.isFavorite,
-      name: renamedTables[table.id] ?? table.name,
-      sortOrder: getTableOrder(table, tableOrderIds),
-    }))
-    .filter((table) => !removedTableIds.includes(table.id))
-    .sort((firstTable, secondTable) => {
-      if (firstTable.isFavorite === secondTable.isFavorite) {
-        return firstTable.sortOrder - secondTable.sortOrder;
-      }
+  const baseTables = useMemo(() => {
+    const tables: TablePreview[] = currentTable
+      ? [
+          {
+            id: currentTable.id,
+            isCurrent: true,
+            lastPlayed: 'Heute gespielt',
+            name: currentTable.name,
+            players: 'Aktueller Spielabend',
+            isFavorite: currentTable.isFavorite,
+            sortOrder: currentTable.sortOrder ?? 0,
+            suit: 'schelle' as const,
+          },
+          ...tablePreviews,
+        ]
+      : tablePreviews;
 
-      return firstTable.isFavorite ? -1 : 1;
-    });
+    return createUniqueTables(tables);
+  }, [currentTable]);
 
-  function openCreateTable() {
+  const availableTableIds = useMemo(
+    () => baseTables.map((table) => table.id),
+    [baseTables],
+  );
+  const safeTableOrderIds = useMemo(
+    () => sanitizeTableOrderIds(tableOrderIds, availableTableIds),
+    [availableTableIds, tableOrderIds],
+  );
+
+  useEffect(() => {
+    if (
+      !Array.isArray(tableOrderIds) ||
+      !areTableOrderIdsEqual(tableOrderIds, safeTableOrderIds)
+    ) {
+      setPersistedTableOrderIds(safeTableOrderIds);
+    }
+  }, [safeTableOrderIds, setPersistedTableOrderIds, tableOrderIds]);
+
+  const visibleTables = useMemo(() => {
+    return baseTables
+      .map((table) => ({
+        ...table,
+        isFavorite: favoriteTableIds.includes(table.id) || table.isFavorite,
+        name: renamedTables[table.id] ?? table.name,
+        sortOrder: getTableOrder(table, safeTableOrderIds),
+      }))
+      .filter((table) => !removedTableIds.includes(table.id))
+      .sort((firstTable, secondTable) => {
+        if (firstTable.isFavorite === secondTable.isFavorite) {
+          return firstTable.sortOrder - secondTable.sortOrder;
+        }
+
+        return firstTable.isFavorite ? -1 : 1;
+      });
+  }, [
+    baseTables,
+    favoriteTableIds,
+    removedTableIds,
+    renamedTables,
+    safeTableOrderIds,
+  ]);
+
+  const visibleTableIds = useMemo(
+    () => visibleTables.map((table) => table.id),
+    [visibleTables],
+  );
+
+  const openCreateTable = useCallback(() => {
     navigation.navigate(
       activeGame && currentTable ? 'ActiveGame' : 'CreateTable',
     );
-  }
+  }, [activeGame, currentTable, navigation]);
 
-  function openTable(table: TablePreview) {
-    if (table.isCurrent && activeGame) {
-      navigation.navigate('ActiveGame');
-    }
-  }
+  const openTable = useCallback(
+    (table: TablePreview) => {
+      if (table.isCurrent && activeGame) {
+        navigation.navigate('ActiveGame');
+      }
+    },
+    [activeGame, navigation],
+  );
 
-  function openSettings() {
+  const openSettings = useCallback(() => {
     Alert.alert(
       'Einstellungen vorbereitet',
       'Tisch- und Freundesgruppen-Einstellungen werden hier später ergänzt.',
     );
-  }
+  }, []);
 
-  function copyTable(table: TablePreview) {
+  const copyTable = useCallback((table: TablePreview) => {
     Alert.alert(
       'Tisch kopieren',
       `${table.name} wird später als Vorlage für neue Runden verwendet.`,
     );
-  }
+  }, []);
 
-  function leaveTable(table: TablePreview) {
+  const leaveTable = useCallback((table: TablePreview) => {
     setLeaveTableCandidate(table);
-  }
+  }, []);
 
-  function toggleFavoriteTable(table: TablePreview) {
+  const toggleFavoriteTable = useCallback((table: TablePreview) => {
     setFavoriteTableIds((current) =>
       current.includes(table.id)
         ? current.filter((tableId) => tableId !== table.id)
         : [...current, table.id],
     );
-  }
+  }, []);
 
-  function reorderTables(nextTables: TablePreview[]) {
-    const favoriteIds = nextTables
-      .filter((table) => table.isFavorite)
-      .map((table) => table.id);
-    const regularIds = nextTables
-      .filter((table) => !table.isFavorite)
-      .map((table) => table.id);
+  const reorderTables = useCallback(
+    (nextTables: TablePreview[]) => {
+      const favoriteIds = nextTables
+        .filter((table) => table.isFavorite)
+        .map((table) => table.id);
+      const regularIds = nextTables
+        .filter((table) => !table.isFavorite)
+        .map((table) => table.id);
+      const nextTableOrderIds = sanitizeTableOrderIds(
+        [...favoriteIds, ...regularIds],
+        visibleTableIds,
+      );
 
-    setTableOrderIds([...favoriteIds, ...regularIds]);
-  }
+      setPersistedTableOrderIds(nextTableOrderIds);
+    },
+    [setPersistedTableOrderIds, visibleTableIds],
+  );
 
-  function moveTableToIndex(table: TablePreview, targetIndex: number) {
-    const groupTables = visibleTables.filter(
-      (visibleTable) =>
-        Boolean(visibleTable.isFavorite) === Boolean(table.isFavorite),
-    );
-    const currentIndex = groupTables.findIndex(
-      (visibleTable) => visibleTable.id === table.id,
-    );
-    const nextIndex = Math.max(
-      0,
-      Math.min(groupTables.length - 1, targetIndex),
-    );
+  const handleDragBegin = useCallback(
+    (index: number) => {
+      const table = visibleTables[index];
 
-    if (currentIndex < 0 || nextIndex === currentIndex) {
-      return;
-    }
+      if (table) {
+        setActiveReorderTableId(table.id);
+      }
 
-    const nextGroupTables = [...groupTables];
-    const [movedTable] = nextGroupTables.splice(currentIndex, 1);
-    nextGroupTables.splice(nextIndex, 0, movedTable);
+      if (Platform.OS !== 'web') {
+        void Haptics.selectionAsync();
+      }
+    },
+    [visibleTables],
+  );
 
-    const favoriteTables = table.isFavorite
-      ? nextGroupTables
-      : visibleTables.filter((visibleTable) => visibleTable.isFavorite);
-    const regularTables = table.isFavorite
-      ? visibleTables.filter((visibleTable) => !visibleTable.isFavorite)
-      : nextGroupTables;
+  const handleDragEnd = useCallback(
+    (data: TablePreview[]) => {
+      reorderTables(data);
+      setActiveReorderTableId(null);
+    },
+    [reorderTables],
+  );
 
-    reorderTables([...favoriteTables, ...regularTables]);
-  }
-
-  function moveTableByDrag(tableId: string, offsetY: number) {
-    const table = visibleTables.find(
-      (visibleTable) => visibleTable.id === tableId,
-    );
-
-    if (!table) {
-      return;
-    }
-
-    const targetIndex =
-      dragStartIndexRef.current + Math.round(offsetY / TABLE_REORDER_STEP);
-    moveTableToIndex(table, targetIndex);
-  }
-
-  function startTableDrag(tableId: string) {
-    const table = visibleTables.find(
-      (visibleTable) => visibleTable.id === tableId,
-    );
-
-    if (!table) {
-      return;
-    }
-
-    const groupTables = visibleTables.filter(
-      (visibleTable) =>
-        Boolean(visibleTable.isFavorite) === Boolean(table.isFavorite),
-    );
-    const currentIndex = groupTables.findIndex(
-      (visibleTable) => visibleTable.id === table.id,
-    );
-
-    dragStartIndexRef.current = Math.max(0, currentIndex);
-    setActiveReorderTableId(tableId);
-  }
-
-  function closeLeaveTable() {
+  const closeLeaveTable = useCallback(() => {
     setLeaveTableCandidate(null);
-  }
+  }, []);
 
-  function confirmLeaveTable() {
+  const confirmLeaveTable = useCallback(() => {
     if (!leaveTableCandidate) {
       return;
     }
@@ -347,20 +370,20 @@ export function GameLobbyScreen() {
     setRemovedTableIds((current) =>
       current.includes(tableId) ? current : [...current, tableId],
     );
-  }
+  }, [leaveTableCandidate]);
 
-  function openRenameTable(table: TablePreview) {
+  const openRenameTable = useCallback((table: TablePreview) => {
     setRenameTable(table);
     setRenameValue(table.name);
-  }
+  }, []);
 
-  function closeRenameTable() {
+  const closeRenameTable = useCallback(() => {
     setRenameTable(null);
     setRenameValue('');
     setIsRenameFocused(false);
-  }
+  }, []);
 
-  function saveRenameTable() {
+  const saveRenameTable = useCallback(() => {
     if (!renameTable) {
       return;
     }
@@ -376,7 +399,33 @@ export function GameLobbyScreen() {
       [renameTable.id]: nextName,
     }));
     closeRenameTable();
-  }
+  }, [closeRenameTable, renameTable, renameValue]);
+
+  const renderTableItem = useCallback(
+    (params: RenderItemParams<TablePreview>) => (
+      <View style={styles.tableListItem}>
+        <TableCard
+          table={params.item}
+          isDraggingAny={activeReorderTableId !== null}
+          isReordering={params.isActive}
+          onCopy={copyTable}
+          onDrag={params.drag}
+          onLeave={leaveTable}
+          onPress={openTable}
+          onToggleFavorite={toggleFavoriteTable}
+          onRename={openRenameTable}
+        />
+      </View>
+    ),
+    [
+      activeReorderTableId,
+      copyTable,
+      leaveTable,
+      openRenameTable,
+      openTable,
+      toggleFavoriteTable,
+    ],
+  );
 
   return (
     <AuthBackground>
@@ -390,13 +439,20 @@ export function GameLobbyScreen() {
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
       />
-      <FlatList
+      <DraggableFlatList
+        activationDistance={8}
+        animationConfig={{ damping: 22, mass: 0.72, stiffness: 185 }}
+        autoscrollSpeed={110}
+        autoscrollThreshold={120}
         contentContainerStyle={styles.content}
         data={visibleTables}
+        dragItemOverflow
         extraData={activeReorderTableId}
         keyExtractor={(table) => table.id}
-        scrollEnabled={activeReorderTableId === null}
         showsVerticalScrollIndicator={false}
+        onDragBegin={handleDragBegin}
+        onDragEnd={({ data }) => handleDragEnd(data)}
+        onRelease={() => setActiveReorderTableId(null)}
         ListHeaderComponent={
           <>
             <View style={styles.header}>
@@ -422,10 +478,10 @@ export function GameLobbyScreen() {
 
             <View style={styles.headerSymbols} pointerEvents="none">
               <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
-                {'\u2663'}
+                {'♣'}
               </AppText>
               <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
-                {'\u2665'}
+                {'♥'}
               </AppText>
             </View>
 
@@ -470,23 +526,7 @@ export function GameLobbyScreen() {
             </View>
           </>
         }
-        renderItem={(params) => (
-          <View style={styles.tableListItem}>
-            <TableCard
-              index={params.index}
-              table={params.item}
-              isReordering={activeReorderTableId === params.item.id}
-              onCopy={copyTable}
-              onDragEnd={() => setActiveReorderTableId(null)}
-              onDragMove={moveTableByDrag}
-              onDragStart={startTableDrag}
-              onLeave={leaveTable}
-              onPress={openTable}
-              onToggleFavorite={toggleFavoriteTable}
-              onRename={openRenameTable}
-            />
-          </View>
-        )}
+        renderItem={renderTableItem}
       />
 
       <Pressable
@@ -518,27 +558,23 @@ export function GameLobbyScreen() {
 }
 
 type TableCardProps = {
-  index: number;
+  isDraggingAny: boolean;
   isReordering: boolean;
   table: TablePreview;
   onCopy: (table: TablePreview) => void;
-  onDragEnd: () => void;
-  onDragMove: (tableId: string, offsetY: number) => void;
-  onDragStart: (tableId: string) => void;
+  onDrag: () => void;
   onLeave: (table: TablePreview) => void;
   onPress: (table: TablePreview) => void;
   onRename: (table: TablePreview) => void;
   onToggleFavorite: (table: TablePreview) => void;
 };
 
-function TableCard({
-  index,
+const TableCard = memo(function TableCard({
+  isDraggingAny,
   isReordering,
   table,
   onCopy,
-  onDragEnd,
-  onDragMove,
-  onDragStart,
+  onDrag,
   onLeave,
   onPress,
   onRename,
@@ -546,148 +582,118 @@ function TableCard({
 }: TableCardProps) {
   const suit = suitTheme[table.suit];
   const SuitIcon = suit.icon;
-  const dragY = useSharedValue(0);
-  const isDragging = useSharedValue(false);
-  const dragGesture = Gesture.Pan()
-    .activateAfterLongPress(260)
-    .onStart(() => {
-      isDragging.value = true;
-      runOnJS(onDragStart)(table.id);
-    })
-    .onUpdate((event) => {
-      dragY.value = event.translationY;
-      runOnJS(onDragMove)(table.id, event.translationY);
-    })
-    .onFinalize(() => {
-      dragY.value = withSpring(0, {
-        damping: 18,
-        mass: 0.6,
-        stiffness: 220,
-      });
-      isDragging.value = false;
-      runOnJS(onDragEnd)();
-    });
-  const dragStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: dragY.value },
-      { scale: withSpring(isDragging.value ? 1.018 : 1) },
-    ],
-    zIndex: isDragging.value ? 20 : 1,
-  }));
 
   return (
     <Animated.View
-      entering={FadeInDown.duration(380).delay(index * 70)}
       exiting={FadeOutLeft.duration(260)}
-      layout={LinearTransition.springify().damping(18).stiffness(180)}
-      style={[isReordering && styles.draggingCardWrap, dragStyle]}
+      style={isReordering && styles.draggingCardWrap}
     >
-      <GestureDetector gesture={dragGesture}>
-        <View>
-          <ReanimatedSwipeable
-            friction={1.7}
-            leftThreshold={42}
-            overshootFriction={8}
-            rightThreshold={52}
-            onSwipeableOpen={(direction) => {
-              if (direction === 'right') {
+      <View>
+        <ReanimatedSwipeable
+          enabled={!isDraggingAny}
+          friction={1.7}
+          leftThreshold={42}
+          overshootFriction={8}
+          rightThreshold={52}
+          onSwipeableOpen={(direction) => {
+            if (direction === 'right') {
+              onToggleFavorite(table);
+            }
+          }}
+          renderLeftActions={(_, __, swipeableMethods) => (
+            <Pressable
+              accessibilityLabel={`${table.name} favorisieren`}
+              accessibilityRole="button"
+              onPress={() => {
+                swipeableMethods.close();
                 onToggleFavorite(table);
-              }
-            }}
-            renderLeftActions={(_, __, swipeableMethods) => (
+              }}
+              style={({ pressed }) => [
+                styles.favoriteAction,
+                pressed && styles.swipePressed,
+              ]}
+            >
+              <Pin
+                color="#17150B"
+                fill={table.isFavorite ? '#17150B' : 'transparent'}
+                size={22}
+                strokeWidth={2.5}
+              />
+              <AppText style={styles.favoriteActionText}>
+                {table.isFavorite ? 'Gepinnt' : 'Pinnen'}
+              </AppText>
+            </Pressable>
+          )}
+          renderRightActions={(_, __, swipeableMethods) => (
+            <View style={styles.swipeActions}>
               <Pressable
-                accessibilityLabel={`${table.name} favorisieren`}
+                accessibilityLabel={`${table.name} kopieren`}
                 accessibilityRole="button"
                 onPress={() => {
                   swipeableMethods.close();
-                  onToggleFavorite(table);
+                  onCopy(table);
                 }}
                 style={({ pressed }) => [
-                  styles.favoriteAction,
+                  styles.swipeAction,
+                  styles.copyAction,
                   pressed && styles.swipePressed,
                 ]}
               >
-                <Pin
-                  color="#17150B"
-                  fill={table.isFavorite ? '#17150B' : 'transparent'}
-                  size={22}
-                  strokeWidth={2.5}
-                />
-                <AppText style={styles.favoriteActionText}>
-                  {table.isFavorite ? 'Gepinnt' : 'Pinnen'}
-                </AppText>
+                <Copy color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppText style={styles.swipeText}>Kopieren</AppText>
               </Pressable>
-            )}
-            renderRightActions={(_, __, swipeableMethods) => (
-              <View style={styles.swipeActions}>
-                <Pressable
-                  accessibilityLabel={`${table.name} kopieren`}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    swipeableMethods.close();
-                    onCopy(table);
-                  }}
-                  style={({ pressed }) => [
-                    styles.swipeAction,
-                    styles.copyAction,
-                    pressed && styles.swipePressed,
-                  ]}
-                >
-                  <Copy color={screenColors.text} size={20} strokeWidth={2.4} />
-                  <AppText style={styles.swipeText}>Kopieren</AppText>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel={`${table.name} umbenennen`}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    swipeableMethods.close();
-                    onRename(table);
-                  }}
-                  style={({ pressed }) => [
-                    styles.swipeAction,
-                    styles.renameAction,
-                    pressed && styles.swipePressed,
-                  ]}
-                >
-                  <Pencil
-                    color={screenColors.text}
-                    size={20}
-                    strokeWidth={2.4}
-                  />
-                  <AppText style={styles.swipeText}>Umbennen</AppText>
-                </Pressable>
-                <Pressable
-                  accessibilityLabel={`${table.name} verlassen`}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    swipeableMethods.close();
-                    onLeave(table);
-                  }}
-                  style={({ pressed }) => [
-                    styles.swipeAction,
-                    styles.leaveAction,
-                    pressed && styles.swipePressed,
-                  ]}
-                >
-                  <LogOut
-                    color={screenColors.text}
-                    size={20}
-                    strokeWidth={2.4}
-                  />
-                  <AppText style={styles.swipeText}>Verlassen</AppText>
-                </Pressable>
-              </View>
-            )}
-            containerStyle={styles.swipeContainer}
+              <Pressable
+                accessibilityLabel={`${table.name} umbenennen`}
+                accessibilityRole="button"
+                onPress={() => {
+                  swipeableMethods.close();
+                  onRename(table);
+                }}
+                style={({ pressed }) => [
+                  styles.swipeAction,
+                  styles.renameAction,
+                  pressed && styles.swipePressed,
+                ]}
+              >
+                <Pencil color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppText style={styles.swipeText}>Umbennen</AppText>
+              </Pressable>
+              <Pressable
+                accessibilityLabel={`${table.name} verlassen`}
+                accessibilityRole="button"
+                onPress={() => {
+                  swipeableMethods.close();
+                  onLeave(table);
+                }}
+                style={({ pressed }) => [
+                  styles.swipeAction,
+                  styles.leaveAction,
+                  pressed && styles.swipePressed,
+                ]}
+              >
+                <LogOut color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppText style={styles.swipeText}>Verlassen</AppText>
+              </Pressable>
+            </View>
+          )}
+          containerStyle={styles.swipeContainer}
+        >
+          <View
+            style={[
+              styles.tableCard,
+              table.isFavorite && styles.tableCardFavorite,
+              isReordering && styles.tableCardDragging,
+            ]}
           >
             <Pressable
               accessibilityRole="button"
+              disabled={isDraggingAny && !isReordering}
               onPress={() => onPress(table)}
               style={({ pressed }) => [
-                styles.tableCard,
-                table.isFavorite && styles.tableCardFavorite,
-                isReordering && styles.tableCardDragging,
-                pressed && !isReordering && styles.tablePressed,
+                styles.tableTapTarget,
+                pressed &&
+                  (!isDraggingAny || isReordering) &&
+                  styles.tablePressed,
               ]}
             >
               <View
@@ -733,16 +739,34 @@ function TableCard({
               </View>
               <ChevronRight
                 color={screenColors.soft}
-                size={22}
+                size={20}
                 strokeWidth={2.2}
               />
             </Pressable>
-          </ReanimatedSwipeable>
-        </View>
-      </GestureDetector>
+            <Pressable
+              accessibilityLabel={`${table.name} verschieben`}
+              accessibilityRole="button"
+              disabled={isDraggingAny && !isReordering}
+              hitSlop={8}
+              delayLongPress={180}
+              onLongPress={onDrag}
+              style={({ pressed }) => [
+                styles.dragHandle,
+                pressed && styles.dragHandlePressed,
+              ]}
+            >
+              <GripVertical
+                color={screenColors.gold}
+                size={20}
+                strokeWidth={2.3}
+              />
+            </Pressable>
+          </View>
+        </ReanimatedSwipeable>
+      </View>
     </Animated.View>
   );
-}
+});
 
 type RenameTableSheetProps = {
   isFocused: boolean;
@@ -1056,10 +1080,13 @@ const styles = StyleSheet.create({
     marginTop: authSpacing.md,
   },
   draggingCardWrap: {
+    elevation: 18,
     shadowColor: screenColors.gold,
-    shadowOffset: { height: 18, width: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 26,
+    shadowOffset: { height: 22, width: 0 },
+    shadowOpacity: 0.36,
+    shadowRadius: 30,
+    transform: [{ scale: 1.02 }],
+    zIndex: 50,
   },
   swipeContainer: {
     borderRadius: 28,
@@ -1129,14 +1156,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 24,
   },
+  tableTapTarget: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: authSpacing.md,
+    minWidth: 0,
+  },
   tablePressed: {
     opacity: 0.88,
     transform: [{ scale: 0.982 }],
   },
   tableCardDragging: {
-    borderColor: 'rgba(231, 198, 92, 0.34)',
+    borderColor: 'rgba(231, 198, 92, 0.52)',
+    elevation: 18,
     shadowColor: screenColors.gold,
-    shadowOpacity: 0.26,
+    shadowOffset: { height: 20, width: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 30,
   },
   tableCardFavorite: {
     borderColor: 'rgba(231, 198, 92, 0.28)',
@@ -1174,6 +1211,20 @@ const styles = StyleSheet.create({
   tableBody: {
     flex: 1,
     minWidth: 0,
+  },
+  dragHandle: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(231, 198, 92, 0.1)',
+    borderColor: 'rgba(231, 198, 92, 0.2)',
+    borderRadius: 15,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: 'center',
+    width: 34,
+  },
+  dragHandlePressed: {
+    backgroundColor: 'rgba(231, 198, 92, 0.18)',
+    transform: [{ scale: 0.96 }],
   },
   tableTitleRow: {
     alignItems: 'center',

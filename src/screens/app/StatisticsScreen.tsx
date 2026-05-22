@@ -14,8 +14,8 @@ const stats = [
   { label: 'Gewinnrate', value: '61,4 %', icon: TrendingUp, progress: 0.61 },
   { label: 'Bestes Spiel', value: 'Solo', icon: Crown, progress: 0.74 },
   {
-    label: '\u00d8 Gewinn',
-    value: '+7,80 \u20ac',
+    label: 'Ø Gewinn',
+    value: '+7,80 €',
     icon: BarChart3,
     progress: 0.68,
   },

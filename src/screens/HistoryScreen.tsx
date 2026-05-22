@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -23,13 +24,19 @@ export function HistoryScreen() {
     (state) => state.getClosedMatchDays,
   );
   const closedMatchDays = getClosedMatchDays();
+  const playerNameById = useMemo(
+    () => new Map(players.map((player) => [player.id, player.name])),
+    [players],
+  );
 
-  function getPlayerName(id?: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Keine Spiele';
-  }
+  const getPlayerName = useCallback(
+    (id?: string) =>
+      id ? (playerNameById.get(id) ?? 'Keine Spiele') : 'Keine Spiele',
+    [playerNameById],
+  );
 
   function formatAmount(amount?: number) {
-    return `${(amount ?? 0).toFixed(2).replace('.', ',')} \u20ac`;
+    return `${(amount ?? 0).toFixed(2).replace('.', ',')} €`;
   }
 
   function formatDate(value?: string) {

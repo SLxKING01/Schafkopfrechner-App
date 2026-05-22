@@ -29,29 +29,29 @@ const recentGames = [
   {
     gameType: 'Sauspiel',
     date: 'Heute',
-    amount: '18,00 \u20ac',
+    amount: '18,00 €',
     players: 4,
     result: 'win' as const,
   },
   {
     gameType: 'Wenz',
     date: 'Gestern',
-    amount: '12,00 \u20ac',
+    amount: '12,00 €',
     players: 4,
     result: 'loss' as const,
   },
   {
     gameType: 'Solo',
     date: 'Samstag',
-    amount: '42,00 \u20ac',
+    amount: '42,00 €',
     players: 5,
     result: 'win' as const,
   },
 ];
 
 const settlements = [
-  { from: 'Max', to: 'Simon', amount: '10,00 \u20ac' },
-  { from: 'Lukas', to: 'Anna', amount: '6,50 \u20ac' },
+  { from: 'Max', to: 'Simon', amount: '10,00 €' },
+  { from: 'Lukas', to: 'Anna', amount: '6,50 €' },
 ];
 type DashboardNavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
@@ -95,8 +95,8 @@ export function DashboardScreen() {
             stats={[
               { label: 'Gespielte Runden', value: '24' },
               { label: 'Gewinnrate', value: '62 %', tone: 'green' },
-              { label: 'Offen', value: '16,50 \u20ac', tone: 'gold' },
-              { label: 'Heute', value: '+28 \u20ac', tone: 'green' },
+              { label: 'Offen', value: '16,50 €', tone: 'gold' },
+              { label: 'Heute', value: '+28 €', tone: 'green' },
             ]}
           />
         </Animated.View>

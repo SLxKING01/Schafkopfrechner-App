@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -30,13 +30,18 @@ export function StatisticsScreen() {
     () => calculatePlayerStats(players, activeGames),
     [players, activeGames],
   );
+  const playerNameById = useMemo(
+    () => new Map(players.map((player) => [player.id, player.name])),
+    [players],
+  );
 
-  function getPlayerName(id: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
+  const getPlayerName = useCallback(
+    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    [playerNameById],
+  );
 
   function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
+    return `${amount.toFixed(2).replace('.', ',')} €`;
   }
 
   function formatWinRate(winRate: number) {

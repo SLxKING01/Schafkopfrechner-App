@@ -1,4 +1,5 @@
 import { Handshake } from 'lucide-react-native';
+import { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
@@ -24,14 +25,19 @@ export function SettlementScreen({ navigation }: SettlementScreenProps) {
   const settlements = useGameStore((state) => state.settlements);
   const markSettlementPaid = useGameStore((state) => state.markSettlementPaid);
   const resetGame = useGameStore((state) => state.resetGame);
-  const total = settlements.reduce(
-    (sum, settlement) => sum + settlement.amount,
-    0,
+  const total = useMemo(
+    () => settlements.reduce((sum, settlement) => sum + settlement.amount, 0),
+    [settlements],
+  );
+  const playerNameById = useMemo(
+    () => new Map(players.map((player) => [player.id, player.name])),
+    [players],
   );
 
-  function getPlayerName(id: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
+  const getPlayerName = useCallback(
+    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    [playerNameById],
+  );
 
   function startNewTable() {
     resetGame();

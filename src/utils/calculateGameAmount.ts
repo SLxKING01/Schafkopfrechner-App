@@ -41,5 +41,5 @@ export function formatGameAmountSummary(
     parts.push('Schwarz');
   }
 
-  return parts.join(' \u2022 ');
+  return parts.join(' • ');
 }

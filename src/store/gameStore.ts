@@ -27,6 +27,10 @@ import type {
   Settlement,
 } from '../types/game';
 import { normalizeGameOptions } from '../utils/formatGameOptions';
+import {
+  areTableOrderIdsEqual,
+  sanitizeTableOrderIds,
+} from '../utils/tableOrder';
 import { useMatchDayStore } from './matchDayStore';
 
 type GameStore = {
@@ -37,6 +41,7 @@ type GameStore = {
   balances: PlayerBalance[];
   settlements: Settlement[];
   activeGame: boolean;
+  tableOrderIds: string[];
   hydrated: boolean;
   syncing: boolean;
   lastSyncedAt: string | null;
@@ -52,6 +57,7 @@ type GameStore = {
   finishGameDay: () => boolean;
   markSettlementPaid: (id: string) => void;
   resetGame: () => void;
+  setTableOrderIds: (tableOrderIds: string[]) => void;
   hydrateGame: () => Promise<void>;
   persistGame: () => Promise<void>;
   clearPersistedGame: () => Promise<void>;
@@ -62,6 +68,7 @@ function isValidGame(game: Pick<Game, 'winnerId' | 'loserIds' | 'amount'>) {
   return (
     Boolean(game.winnerId) &&
     game.loserIds.length > 0 &&
+    Number.isFinite(game.amount) &&
     game.amount > 0 &&
     !game.loserIds.includes(game.winnerId)
   );
@@ -74,6 +81,10 @@ function calculateMvpBalances(
   const centsByPlayer = new Map(players.map((player) => [player.id, 0]));
 
   rounds.forEach((round) => {
+    if (!Number.isFinite(round.amount)) {
+      return;
+    }
+
     const amountInCents = Math.round(round.amount * 100);
     const loserCount = round.loserIds.length;
 
@@ -147,6 +158,7 @@ export const useGameStore = create<GameStore>()(
       balances: [],
       settlements: [],
       activeGame: false,
+      tableOrderIds: [],
       hydrated: false,
       syncing: false,
       lastSyncedAt: null,
@@ -365,6 +377,7 @@ export const useGameStore = create<GameStore>()(
             !round.winnerId ||
             round.loserIds.length === 0 ||
             round.loserIds.includes(round.winnerId) ||
+            !Number.isFinite(round.amount) ||
             round.amount <= 0
           ) {
             return state;
@@ -428,6 +441,17 @@ export const useGameStore = create<GameStore>()(
           isOffline: false,
         });
       },
+      setTableOrderIds: (tableOrderIds) => {
+        const nextTableOrderIds = sanitizeTableOrderIds(tableOrderIds);
+
+        set((state) => {
+          if (areTableOrderIdsEqual(state.tableOrderIds, nextTableOrderIds)) {
+            return state;
+          }
+
+          return { tableOrderIds: nextTableOrderIds };
+        });
+      },
       hydrateGame: async () => {
         const restoredState = await restoreGameState();
 
@@ -489,9 +513,25 @@ export const useGameStore = create<GameStore>()(
         balances: state.balances,
         settlements: state.settlements,
         activeGame: state.activeGame,
+        tableOrderIds: state.tableOrderIds,
         lastSyncedAt: state.lastSyncedAt,
         isOffline: state.isOffline,
       }),
+      merge: (persistedState, currentState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return currentState;
+        }
+
+        const nextState = {
+          ...currentState,
+          ...(persistedState as Partial<GameStore>),
+        };
+
+        return {
+          ...nextState,
+          tableOrderIds: sanitizeTableOrderIds(nextState.tableOrderIds),
+        };
+      },
     },
   ),
 );

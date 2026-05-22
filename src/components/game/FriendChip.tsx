@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react-native';
+import { Minus, Plus } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { authRadius, authSpacing } from '../../theme/spacing';
@@ -8,14 +8,25 @@ import { AnimalAvatar } from './AnimalAvatar';
 
 type FriendChipProps = {
   friend: FriendProfile;
+  isDisabled?: boolean;
   isSelected: boolean;
   onPress: (friend: FriendProfile) => void;
 };
 
-export function FriendChip({ friend, isSelected, onPress }: FriendChipProps) {
+export function FriendChip({
+  friend,
+  isDisabled = false,
+  isSelected,
+  onPress,
+}: FriendChipProps) {
+  const actionLabel = isSelected ? 'entfernen' : 'hinzufuegen';
+
   return (
     <Pressable
+      accessibilityLabel={`${friend.username} ${actionLabel}`}
       accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, selected: isSelected }}
+      disabled={isDisabled}
       onPress={() => onPress(friend)}
       style={({ pressed }) => [
         styles.card,
@@ -23,6 +34,7 @@ export function FriendChip({ friend, isSelected, onPress }: FriendChipProps) {
           borderColor: friend.accentColor,
           shadowColor: friend.accentColor,
         },
+        isDisabled && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
@@ -42,11 +54,22 @@ export function FriendChip({ friend, isSelected, onPress }: FriendChipProps) {
         style={[
           styles.addBadge,
           isSelected && { backgroundColor: friend.accentColor },
+          isDisabled && styles.addBadgeDisabled,
         ]}
       >
-        <Plus color={isSelected ? '#17150B' : '#E7C65C'} size={14} />
+        {isSelected ? (
+          <Minus color="#17150B" size={14} strokeWidth={3} />
+        ) : (
+          <Plus
+            color={isDisabled ? 'rgba(245, 245, 245, 0.36)' : '#E7C65C'}
+            size={14}
+            strokeWidth={3}
+          />
+        )}
       </View>
-      <AppText style={styles.caption}>{isSelected ? 'Dabei' : 'Add'}</AppText>
+      <AppText style={[styles.caption, isSelected && styles.captionSelected]}>
+        {isSelected ? 'Entfernen' : 'Add'}
+      </AppText>
     </Pressable>
   );
 }
@@ -73,6 +96,9 @@ const styles = StyleSheet.create({
     opacity: 0.84,
     transform: [{ scale: 0.97 }],
   },
+  disabled: {
+    opacity: 0.42,
+  },
   onlineDot: {
     backgroundColor: '#5BBE63',
     borderColor: '#1A2D24',
@@ -98,9 +124,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 24,
   },
+  addBadgeDisabled: {
+    backgroundColor: 'rgba(245, 245, 245, 0.08)',
+  },
   caption: {
     color: 'rgba(245, 245, 245, 0.46)',
     fontSize: 10,
     fontWeight: '800',
+  },
+  captionSelected: {
+    color: '#E7C65C',
   },
 });

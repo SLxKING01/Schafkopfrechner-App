@@ -1,4 +1,5 @@
 import { X } from 'lucide-react-native';
+import { memo } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 
@@ -9,14 +10,20 @@ import { AppText } from '../ui/AppText';
 
 type PlayerChipProps = {
   name: string;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
+  disabled?: boolean;
   selected?: boolean;
   removable?: boolean;
   onPress?: () => void;
   onRemove?: () => void;
 };
 
-export function PlayerChip({
+export const PlayerChip = memo(function PlayerChip({
   name,
+  accessibilityHint,
+  accessibilityLabel,
+  disabled = false,
   selected = false,
   removable = false,
   onPress,
@@ -25,15 +32,24 @@ export function PlayerChip({
   return (
     <Animated.View entering={FadeIn.duration(220)} layout={Layout.springify()}>
       <Pressable
+        accessibilityHint={accessibilityHint}
+        accessibilityLabel={accessibilityLabel ?? name}
         accessibilityRole="button"
+        accessibilityState={{ disabled, selected }}
+        disabled={disabled}
         onPress={onPress}
-        style={[styles.chip, selected && styles.selected]}
+        style={[
+          styles.chip,
+          selected && styles.selected,
+          disabled && styles.disabled,
+        ]}
       >
         <AppText style={[styles.text, selected && styles.selectedText]}>
           {name}
         </AppText>
         {removable ? (
           <Pressable
+            accessibilityLabel={`${name} entfernen`}
             accessibilityRole="button"
             onPress={onRemove}
             style={styles.remove}
@@ -44,7 +60,7 @@ export function PlayerChip({
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   chip: {
@@ -55,12 +71,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: authSpacing.sm,
+    minHeight: 44,
     paddingHorizontal: authSpacing.md,
     paddingVertical: authSpacing.sm,
   },
   selected: {
     backgroundColor: 'rgba(212, 175, 55, 0.18)',
     borderColor: authColors.gold,
+  },
+  disabled: {
+    opacity: 0.42,
   },
   text: {
     color: authColors.textSecondary,

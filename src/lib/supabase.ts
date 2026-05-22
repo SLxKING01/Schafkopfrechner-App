@@ -22,12 +22,26 @@ type SupabaseStorageAdapter = {
 
 export const ExpoSecureStoreAdapter: SupabaseStorageAdapter = {
   async getItem(key: string) {
+    if (Platform.OS === 'web') {
+      return window.localStorage.getItem(key);
+    }
+
     return SecureStore.getItemAsync(key);
   },
   async setItem(key: string, value: string) {
+    if (Platform.OS === 'web') {
+      window.localStorage.setItem(key, value);
+      return;
+    }
+
     await SecureStore.setItemAsync(key, value);
   },
   async removeItem(key: string) {
+    if (Platform.OS === 'web') {
+      window.localStorage.removeItem(key);
+      return;
+    }
+
     await SecureStore.deleteItemAsync(key);
   },
 };

@@ -1,6 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,11 +19,24 @@ import { AppText } from '../ui/AppText';
 type GoldButtonProps = {
   title: string;
   onPress: () => void;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
+  disabled?: boolean;
   icon?: ReactNode;
+  loading?: boolean;
   style?: ViewStyle;
 };
 
-export function GoldButton({ title, onPress, icon, style }: GoldButtonProps) {
+export function GoldButton({
+  title,
+  onPress,
+  accessibilityHint,
+  accessibilityLabel,
+  disabled = false,
+  icon,
+  loading = false,
+  style,
+}: GoldButtonProps) {
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -26,11 +44,21 @@ export function GoldButton({ title, onPress, icon, style }: GoldButtonProps) {
   }));
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
+    <Animated.View
+      style={[animatedStyle, disabled && styles.disabledContainer, style]}
+    >
       <Pressable
+        accessibilityHint={accessibilityHint}
+        accessibilityLabel={accessibilityLabel ?? title}
         accessibilityRole="button"
+        accessibilityState={{ disabled: disabled || loading, busy: loading }}
+        disabled={disabled}
         onPress={onPress}
         onPressIn={() => {
+          if (disabled) {
+            return;
+          }
+
           scale.value = withSpring(0.975, { damping: 18, stiffness: 280 });
         }}
         onPressOut={() => {
@@ -43,7 +71,7 @@ export function GoldButton({ title, onPress, icon, style }: GoldButtonProps) {
           end={{ x: 1, y: 1 }}
           style={styles.button}
         >
-          {icon}
+          {loading ? <ActivityIndicator color="#17150B" size="small" /> : icon}
           <AppText style={styles.text}>{title}</AppText>
         </LinearGradient>
       </Pressable>
@@ -65,6 +93,9 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 10, width: 0 },
     shadowOpacity: 0.24,
     shadowRadius: 18,
+  },
+  disabledContainer: {
+    opacity: 0.68,
   },
   text: {
     color: '#17150B',

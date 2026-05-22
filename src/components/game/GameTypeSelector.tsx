@@ -31,7 +31,9 @@ export function GameTypeSelector({
         return (
           <Pressable
             key={gameType.id}
+            accessibilityLabel={`Spieltyp ${gameType.label}`}
             accessibilityRole="button"
+            accessibilityState={{ selected }}
             onPress={() => onSelect(gameType.id)}
             style={[styles.card, selected && styles.selected]}
           >
@@ -56,6 +58,8 @@ const styles = StyleSheet.create({
     borderColor: authColors.borderSoft,
     borderRadius: authRadius.lg,
     borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: authSpacing.md,
     paddingVertical: authSpacing.md,
   },
