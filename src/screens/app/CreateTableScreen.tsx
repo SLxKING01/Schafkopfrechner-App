@@ -18,17 +18,22 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { FriendChip } from '../../components/game/FriendChip';
 import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
+import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import {
   DEFAULT_USER_APPEARANCE,
   FRIEND_PREVIEWS,
+  PROFILE_ACCENTS,
 } from '../../constants/profileCustomization';
+import { createDefaultTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
-import type { Player } from '../../types/game';
+import type { Player, TableSettings } from '../../types/game';
 import type { AnimalAvatarId, FriendProfile } from '../../types/profile';
 
 type CreateTableScreenProps = AppStackScreenProps<'CreateTable'>;
@@ -37,7 +42,6 @@ type TablePlayer = Player & {
   accentColor: string;
   animalId: AnimalAvatarId;
   friendId?: string;
-  isCurrentUser?: boolean;
 };
 
 const screenColors = {
@@ -59,10 +63,32 @@ const screenColors = {
 const maxPlayers = 8;
 
 export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
+  const user = useAuthStore((state) => state.user);
+  const accentId = useProfileAppearanceStore((state) => state.accentId);
+  const avatarId = useProfileAppearanceStore((state) => state.avatarId);
+  const currentUserProfile = useMemo<FriendProfile>(
+    () => ({
+      accentColor: PROFILE_ACCENTS[accentId],
+      avatarId,
+      id: user?.id ?? 'current-user',
+      isOnline: true,
+      username: getCurrentUserName(user),
+    }),
+    [accentId, avatarId, user],
+  );
+  const selectableProfiles = useMemo(
+    () => [currentUserProfile, ...FRIEND_PREVIEWS],
+    [currentUserProfile],
+  );
   const [tableName, setTableName] = useState('');
   const [playerName, setPlayerName] = useState('');
-  const [players, setPlayers] = useState<TablePlayer[]>([]);
+  const [players, setPlayers] = useState<TablePlayer[]>(() => [
+    createProfilePlayer(currentUserProfile),
+  ]);
   const [friendPickerVisible, setFriendPickerVisible] = useState(false);
+  const [tableSettings, setTableSettings] = useState<TableSettings>(() =>
+    createDefaultTableSettings(),
+  );
   const [focusedInput, setFocusedInput] = useState<'table' | 'player' | null>(
     null,
   );
@@ -116,7 +142,6 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           ...createLocalPlayer(nextName),
           accentColor: getManualPlayerAccent(currentPlayers.length),
           animalId: getManualPlayerAnimal(currentPlayers.length),
-          isCurrentUser: currentPlayers.length === 0,
         },
       ];
     });
@@ -174,7 +199,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   }
 
   function startGame() {
-    const didCreate = createTable(tableName, players);
+    const didCreate = createTable(tableName, players, tableSettings);
 
     if (!didCreate) {
       Alert.alert(
@@ -346,7 +371,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                 horizontal
                 showsHorizontalScrollIndicator={false}
               >
-                {FRIEND_PREVIEWS.map((friend) => (
+                {selectableProfiles.map((friend) => (
                   <FriendChip
                     key={friend.id}
                     friend={friend}
@@ -380,7 +405,6 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                     <PlayerPill
                       accentColor={player.accentColor}
                       animalId={player.animalId}
-                      isCurrentUser={player.isCurrentUser}
                       name={player.name}
                       onRemove={() => removePlayer(player.id)}
                     />
@@ -388,6 +412,24 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                 ))}
               </View>
             )}
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.duration(460).delay(120)}
+            style={styles.settingsCard}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderText}>
+                <AppText style={styles.cardTitle}>Regeln & Tarife</AppText>
+                <AppText style={styles.cardCopy}>
+                  Lege fest, welche Spielarten und Boni an diesem Tisch gelten.
+                </AppText>
+              </View>
+            </View>
+            <TableSettingsEditor
+              settings={tableSettings}
+              onChange={setTableSettings}
+            />
           </Animated.View>
         </ScrollView>
 
@@ -423,7 +465,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
       </KeyboardAvoidingView>
 
       <FriendPickerSheet
-        friends={FRIEND_PREVIEWS}
+        friends={selectableProfiles}
         maxPlayersReached={hasReachedMaxPlayers}
         selectedFriendIds={selectedFriendIds}
         visible={friendPickerVisible}
@@ -437,7 +479,6 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
 type PlayerPillProps = {
   accentColor: string;
   animalId: AnimalAvatarId;
-  isCurrentUser?: boolean;
   name: string;
   onRemove: () => void;
 };
@@ -445,30 +486,15 @@ type PlayerPillProps = {
 function PlayerPill({
   accentColor,
   animalId,
-  isCurrentUser = false,
   name,
   onRemove,
 }: PlayerPillProps) {
   return (
-    <View
-      style={[
-        styles.playerPill,
-        isCurrentUser && {
-          borderColor: accentColor,
-          shadowColor: accentColor,
-        },
-      ]}
-    >
-      <AnimalAvatar
-        accentColor={accentColor}
-        animalId={animalId}
-        highlighted={isCurrentUser}
-        size={38}
-      />
+    <View style={styles.playerPill}>
+      <AnimalAvatar accentColor={accentColor} animalId={animalId} size={38} />
       <Text numberOfLines={1} style={styles.playerName}>
         {name}
       </Text>
-      {isCurrentUser ? <AppText style={styles.youBadge}>Du</AppText> : null}
       <Pressable
         accessibilityLabel={`${name} entfernen`}
         accessibilityRole="button"
@@ -482,6 +508,29 @@ function PlayerPill({
       </Pressable>
     </View>
   );
+}
+
+function createProfilePlayer(profile: FriendProfile): TablePlayer {
+  return {
+    ...createLocalPlayer(profile.username),
+    accentColor: profile.accentColor,
+    animalId: profile.avatarId,
+    friendId: profile.id,
+  };
+}
+
+function getCurrentUserName(
+  user: ReturnType<typeof useAuthStore.getState>['user'],
+) {
+  if (typeof user?.user_metadata.username === 'string') {
+    return user.user_metadata.username;
+  }
+
+  if (user?.email) {
+    return user.email.split('@')[0];
+  }
+
+  return 'Simon';
 }
 
 function getManualPlayerAnimal(index: number): AnimalAvatarId {
@@ -605,6 +654,20 @@ const styles = StyleSheet.create({
     gap: authSpacing.lg,
     marginTop: authSpacing.xl,
     padding: authSpacing.xl,
+    shadowColor: screenColors.shadow,
+    shadowOffset: { height: 20, width: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+  },
+  settingsCard: {
+    backgroundColor: 'rgba(26, 45, 36, 0.96)',
+    borderColor: screenColors.border,
+    borderRadius: 32,
+    borderWidth: 1,
+    elevation: 12,
+    gap: authSpacing.xl,
+    marginTop: authSpacing.xl,
+    padding: authSpacing.lg,
     shadowColor: screenColors.shadow,
     shadowOffset: { height: 20, width: 0 },
     shadowOpacity: 0.35,
@@ -811,11 +874,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     maxWidth: 160,
-  },
-  youBadge: {
-    color: screenColors.gold,
-    fontSize: 10,
-    fontWeight: '900',
   },
   removeButton: {
     alignItems: 'center',

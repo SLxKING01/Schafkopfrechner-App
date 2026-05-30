@@ -7,25 +7,38 @@ import type { GameType } from '../../types/game';
 import { AppText } from '../ui/AppText';
 
 const gameTypes: { id: GameType; label: string }[] = [
-  { id: 'sauspiel', label: 'Sauspiel' },
+  { id: 'rufspiel', label: 'Rufspiel' },
   { id: 'solo', label: 'Solo' },
   { id: 'wenz', label: 'Wenz' },
+  { id: 'farbwenz', label: 'FarbWenz' },
+  { id: 'geier', label: 'Geier' },
+  { id: 'farbgeier', label: 'Farbgeier' },
   { id: 'ramsch', label: 'Ramsch' },
-  { id: 'custom', label: 'Custom' },
+  { id: 'bettel', label: 'Bettel' },
+  { id: 'hochzeit', label: 'Hochzeit' },
+  { id: 'kreuzbock', label: 'Kreuzbock' },
+  { id: 'stock', label: 'Stock' },
 ];
 
 type GameTypeSelectorProps = {
+  enabledTypes?: GameType[];
   selectedType: GameType;
   onSelect: (gameType: GameType) => void;
 };
 
 export function GameTypeSelector({
+  enabledTypes,
   selectedType,
   onSelect,
 }: GameTypeSelectorProps) {
+  const enabledTypeSet = enabledTypes ? new Set(enabledTypes) : null;
+  const visibleGameTypes = enabledTypeSet
+    ? gameTypes.filter((gameType) => enabledTypeSet.has(gameType.id))
+    : gameTypes;
+
   return (
     <View style={styles.grid}>
-      {gameTypes.map((gameType) => {
+      {visibleGameTypes.map((gameType) => {
         const selected = selectedType === gameType.id;
 
         return (

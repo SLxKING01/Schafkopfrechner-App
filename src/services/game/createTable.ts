@@ -1,5 +1,6 @@
 import * as crypto from 'expo-crypto';
 
+import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { CreateTablePayload, GameTable } from '../../types/game';
 
 const TABLE_CODE_PREFIXES = ['SKF', 'TBL', 'SCH'] as const;
@@ -28,6 +29,7 @@ export function createGameTable(payload: CreateTablePayload): GameTable {
     name: payload.name.trim(),
     createdAt: new Date().toISOString(),
     isActive: true,
+    settings: normalizeTableSettings(payload.settings),
   };
 }
 

@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type AuthStackParamList = {
@@ -10,8 +11,9 @@ export type AuthStackParamList = {
 };
 
 export type AppStackParamList = {
-  AppTabs: undefined;
+  AppTabs: NavigatorScreenParams<AppTabParamList> | undefined;
   CreateTable: undefined;
+  EditTable: undefined;
   ActiveGame: undefined;
   Settlement: undefined;
 };

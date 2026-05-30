@@ -1,5 +1,6 @@
 import * as crypto from 'expo-crypto';
 
+import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { CreateRoundPayload, GameRound } from '../../types/game';
 
 export function createGameRound(
@@ -14,6 +15,7 @@ export function createGameRound(
     loserIds: payload.loserIds,
     amount: payload.amount,
     gameType: payload.gameType,
+    settingsSnapshot: normalizeTableSettings(payload.settingsSnapshot),
     createdAt: new Date().toISOString(),
   };
 }

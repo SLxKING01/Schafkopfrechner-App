@@ -23,7 +23,9 @@ import type { ComponentType } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  type ListRenderItemInfo,
   Modal,
   Platform,
   Pressable,
@@ -156,6 +158,9 @@ const tablePreviews: TablePreview[] = [
 ];
 
 type GameLobbyNavigationProp = NativeStackNavigationProp<AppStackParamList>;
+type TableRenderParams =
+  | RenderItemParams<TablePreview>
+  | ListRenderItemInfo<TablePreview>;
 
 function getTableOrder(table: TablePreview, orderedIds: string[]) {
   const orderIndex = orderedIds.indexOf(table.id);
@@ -213,7 +218,7 @@ export function GameLobbyScreen() {
           {
             id: currentTable.id,
             isCurrent: true,
-            lastPlayed: 'Heute gespielt',
+            lastPlayed: 'Zuletzt gespielt: gerade eben',
             name: currentTable.name,
             players: 'Aktueller Spielabend',
             isFavorite: currentTable.isFavorite,
@@ -402,14 +407,15 @@ export function GameLobbyScreen() {
   }, [closeRenameTable, renameTable, renameValue]);
 
   const renderTableItem = useCallback(
-    (params: RenderItemParams<TablePreview>) => (
+    (params: TableRenderParams) => (
       <View style={styles.tableListItem}>
         <TableCard
           table={params.item}
+          canReorder={'drag' in params}
           isDraggingAny={activeReorderTableId !== null}
-          isReordering={params.isActive}
+          isReordering={'isActive' in params ? params.isActive : false}
           onCopy={copyTable}
-          onDrag={params.drag}
+          onDrag={'drag' in params ? params.drag : undefined}
           onLeave={leaveTable}
           onPress={openTable}
           onToggleFavorite={toggleFavoriteTable}
@@ -427,6 +433,67 @@ export function GameLobbyScreen() {
     ],
   );
 
+  const listHeader = (
+    <>
+      <View style={styles.header}>
+        <View>
+          <AppText style={styles.kicker}>Spiel</AppText>
+          <AppText style={styles.title}>Tische</AppText>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={openSettings}
+          style={({ pressed }) => [
+            styles.settingsButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Settings color={screenColors.gold} size={20} strokeWidth={2.2} />
+        </Pressable>
+      </View>
+
+      <View style={styles.headerSymbols} pointerEvents="none">
+        <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
+          {'\u2663'}
+        </AppText>
+        <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
+          {'\u2665'}
+        </AppText>
+      </View>
+
+      <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
+        <BlurView intensity={18} tint="dark" style={styles.heroBlur}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroIcon}>
+              <Spade color={screenColors.gold} size={26} strokeWidth={2.3} />
+            </View>
+            <View style={styles.heroCopyWrap}>
+              <AppText style={styles.heroTitle}>Neue Runde starten</AppText>
+              <AppText style={styles.heroCopy}>
+                Erstelle einen neuen Tisch fuer deinen Spielabend.
+              </AppText>
+            </View>
+          </View>
+          <GoldButton
+            title={
+              activeGame && currentTable
+                ? 'Aktiven Tisch oeffnen'
+                : 'Tisch erstellen'
+            }
+            onPress={openCreateTable}
+          />
+        </BlurView>
+      </Animated.View>
+
+      <View style={styles.sectionHeader}>
+        <AppText style={styles.sectionTitle}>Deine Tische</AppText>
+        <AppText style={styles.sectionHint}>
+          {visibleTables.length} Runden
+        </AppText>
+      </View>
+    </>
+  );
+
   return (
     <AuthBackground>
       <LinearGradient
@@ -439,95 +506,40 @@ export function GameLobbyScreen() {
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
       />
-      <DraggableFlatList
-        activationDistance={8}
-        animationConfig={{ damping: 22, mass: 0.72, stiffness: 185 }}
-        autoscrollSpeed={110}
-        autoscrollThreshold={120}
-        contentContainerStyle={styles.content}
-        data={visibleTables}
-        dragItemOverflow
-        extraData={activeReorderTableId}
-        keyExtractor={(table) => table.id}
-        showsVerticalScrollIndicator={false}
-        onDragBegin={handleDragBegin}
-        onDragEnd={({ data }) => handleDragEnd(data)}
-        onRelease={() => setActiveReorderTableId(null)}
-        ListHeaderComponent={
-          <>
-            <View style={styles.header}>
-              <View>
-                <AppText style={styles.kicker}>Spiel</AppText>
-                <AppText style={styles.title}>Tische</AppText>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                onPress={openSettings}
-                style={({ pressed }) => [
-                  styles.settingsButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Settings
-                  color={screenColors.gold}
-                  size={20}
-                  strokeWidth={2.2}
-                />
-              </Pressable>
-            </View>
-
-            <View style={styles.headerSymbols} pointerEvents="none">
-              <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
-                {'♣'}
-              </AppText>
-              <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
-                {'♥'}
-              </AppText>
-            </View>
-
-            <Animated.View
-              entering={FadeInDown.duration(420)}
-              style={styles.hero}
-            >
-              <BlurView intensity={18} tint="dark" style={styles.heroBlur}>
-                <View style={styles.heroTop}>
-                  <View style={styles.heroIcon}>
-                    <Spade
-                      color={screenColors.gold}
-                      size={26}
-                      strokeWidth={2.3}
-                    />
-                  </View>
-                  <View style={styles.heroCopyWrap}>
-                    <AppText style={styles.heroTitle}>
-                      Neue Runde starten
-                    </AppText>
-                    <AppText style={styles.heroCopy}>
-                      Erstelle einen neuen Tisch für deinen Spielabend.
-                    </AppText>
-                  </View>
-                </View>
-                <GoldButton
-                  title={
-                    activeGame && currentTable
-                      ? 'Aktiven Tisch öffnen'
-                      : 'Tisch erstellen'
-                  }
-                  onPress={openCreateTable}
-                />
-              </BlurView>
-            </Animated.View>
-
-            <View style={styles.sectionHeader}>
-              <AppText style={styles.sectionTitle}>Deine Tische</AppText>
-              <AppText style={styles.sectionHint}>
-                {visibleTables.length} Runden
-              </AppText>
-            </View>
-          </>
-        }
-        renderItem={renderTableItem}
-      />
+      {Platform.OS === 'web' ? (
+        <FlatList
+          contentContainerStyle={styles.content}
+          data={visibleTables}
+          keyExtractor={(table) => table.id}
+          keyboardShouldPersistTaps="handled"
+          renderItem={renderTableItem}
+          showsVerticalScrollIndicator={false}
+          style={styles.scroller}
+          ListHeaderComponent={listHeader}
+        />
+      ) : (
+        <DraggableFlatList
+          activationDistance={16}
+          animationConfig={{ damping: 22, mass: 0.72, stiffness: 185 }}
+          autoscrollSpeed={110}
+          autoscrollThreshold={120}
+          contentContainerStyle={styles.content}
+          data={visibleTables}
+          dragItemOverflow
+          extraData={activeReorderTableId}
+          keyExtractor={(table) => table.id}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          renderItem={renderTableItem}
+          scrollEnabled={activeReorderTableId === null}
+          showsVerticalScrollIndicator={false}
+          style={styles.scroller}
+          onDragBegin={handleDragBegin}
+          onDragEnd={({ data }) => handleDragEnd(data)}
+          onRelease={() => setActiveReorderTableId(null)}
+          ListHeaderComponent={listHeader}
+        />
+      )}
 
       <Pressable
         accessibilityRole="button"
@@ -558,11 +570,12 @@ export function GameLobbyScreen() {
 }
 
 type TableCardProps = {
+  canReorder?: boolean;
   isDraggingAny: boolean;
   isReordering: boolean;
   table: TablePreview;
   onCopy: (table: TablePreview) => void;
-  onDrag: () => void;
+  onDrag?: () => void;
   onLeave: (table: TablePreview) => void;
   onPress: (table: TablePreview) => void;
   onRename: (table: TablePreview) => void;
@@ -570,6 +583,7 @@ type TableCardProps = {
 };
 
 const TableCard = memo(function TableCard({
+  canReorder = true,
   isDraggingAny,
   isReordering,
   table,
@@ -590,7 +604,7 @@ const TableCard = memo(function TableCard({
     >
       <View>
         <ReanimatedSwipeable
-          enabled={!isDraggingAny}
+          enabled={Platform.OS !== 'web' && !isDraggingAny}
           friction={1.7}
           leftThreshold={42}
           overshootFriction={8}
@@ -681,6 +695,7 @@ const TableCard = memo(function TableCard({
           <View
             style={[
               styles.tableCard,
+              table.isCurrent && styles.tableCardCurrent,
               table.isFavorite && styles.tableCardFavorite,
               isReordering && styles.tableCardDragging,
             ]}
@@ -743,24 +758,26 @@ const TableCard = memo(function TableCard({
                 strokeWidth={2.2}
               />
             </Pressable>
-            <Pressable
-              accessibilityLabel={`${table.name} verschieben`}
-              accessibilityRole="button"
-              disabled={isDraggingAny && !isReordering}
-              hitSlop={8}
-              delayLongPress={180}
-              onLongPress={onDrag}
-              style={({ pressed }) => [
-                styles.dragHandle,
-                pressed && styles.dragHandlePressed,
-              ]}
-            >
-              <GripVertical
-                color={screenColors.gold}
-                size={20}
-                strokeWidth={2.3}
-              />
-            </Pressable>
+            {canReorder ? (
+              <Pressable
+                accessibilityLabel={`${table.name} verschieben`}
+                accessibilityRole="button"
+                disabled={(isDraggingAny && !isReordering) || !onDrag}
+                hitSlop={8}
+                delayLongPress={180}
+                onLongPress={onDrag}
+                style={({ pressed }) => [
+                  styles.dragHandle,
+                  pressed && styles.dragHandlePressed,
+                ]}
+              >
+                <GripVertical
+                  color={screenColors.gold}
+                  size={20}
+                  strokeWidth={2.3}
+                />
+              </Pressable>
+            ) : null}
           </View>
         </ReanimatedSwipeable>
       </View>
@@ -958,6 +975,9 @@ const styles = StyleSheet.create({
     paddingBottom: 128,
     paddingHorizontal: authSpacing.xl,
     paddingTop: authSpacing.lg,
+  },
+  scroller: {
+    flex: 1,
   },
   header: {
     alignItems: 'center',
@@ -1174,6 +1194,12 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 20, width: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 30,
+  },
+  tableCardCurrent: {
+    backgroundColor: 'rgba(42, 57, 35, 0.96)',
+    borderColor: 'rgba(231, 198, 92, 0.36)',
+    shadowColor: screenColors.gold,
+    shadowOpacity: 0.2,
   },
   tableCardFavorite: {
     borderColor: 'rgba(231, 198, 92, 0.28)',

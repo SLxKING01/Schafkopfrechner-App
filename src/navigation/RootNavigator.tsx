@@ -12,6 +12,7 @@ import { useRestoreGame } from '../hooks/useRestoreGame';
 import { useStoresHydrated } from '../hooks/useStoresHydrated';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
+import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
 import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -112,6 +113,11 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="ActiveGame"
         component={ActiveGameScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="EditTable"
+        component={EditTableScreen}
         options={{ headerShown: false }}
       />
       <AppStack.Screen

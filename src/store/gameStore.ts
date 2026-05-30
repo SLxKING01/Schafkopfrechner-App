@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { DEFAULT_GAME_TYPE_ID } from '../constants/gameTypes';
+import { normalizeTableSettings } from '../constants/tableSettings';
 import type { CreateGameInput, Game } from '../models/Game';
 import { createLocalPlayer } from '../services/game/addPlayer';
 import { createGameRound } from '../services/game/createRound';
@@ -25,6 +26,7 @@ import type {
   Player,
   PlayerBalance,
   Settlement,
+  TableSettings,
 } from '../types/game';
 import { normalizeGameOptions } from '../utils/formatGameOptions';
 import {
@@ -50,7 +52,11 @@ type GameStore = {
   updateGame: (updatedGame: Game) => boolean;
   undoLastGame: () => boolean;
   removeGame: (id: string) => void;
-  createTable: (name: string, players: Player[]) => boolean;
+  createTable: (
+    name: string,
+    players: Player[],
+    settings?: TableSettings,
+  ) => boolean;
   addPlayer: (name: string) => boolean;
   removePlayer: (id: string) => void;
   addRound: (round: CreateRoundPayload) => boolean;
@@ -58,6 +64,7 @@ type GameStore = {
   markSettlementPaid: (id: string) => void;
   resetGame: () => void;
   setTableOrderIds: (tableOrderIds: string[]) => void;
+  updateCurrentTableSettings: (settings: TableSettings) => boolean;
   hydrateGame: () => Promise<void>;
   persistGame: () => Promise<void>;
   clearPersistedGame: () => Promise<void>;
@@ -145,6 +152,7 @@ function normalizeGameTable(table: GameTable | null): GameTable | null {
     ...table,
     hashCode: table.hashCode || generateTableHashCode(),
     createdAt: table.createdAt || new Date().toISOString(),
+    settings: normalizeTableSettings(table.settings),
   };
 }
 
@@ -282,7 +290,7 @@ export const useGameStore = create<GameStore>()(
 
         return didRemoveGame;
       },
-      createTable: (name, players) => {
+      createTable: (name, players, settings) => {
         const tableName = name.trim();
         const uniquePlayers = players.filter(
           (player, index, allPlayers) =>
@@ -304,6 +312,7 @@ export const useGameStore = create<GameStore>()(
               : [],
             name: tableName,
             players: uniquePlayers,
+            settings,
           }),
           players: uniquePlayers,
           rounds: [],
@@ -385,7 +394,10 @@ export const useGameStore = create<GameStore>()(
 
           const nextRounds = [
             ...state.rounds,
-            createGameRound(state.currentTable.id, round),
+            createGameRound(state.currentTable.id, {
+              ...round,
+              settingsSnapshot: state.currentTable.settings,
+            }),
           ];
           const nextGameState = recalculateGameState(state.players, nextRounds);
           didAdd = true;
@@ -451,6 +463,27 @@ export const useGameStore = create<GameStore>()(
 
           return { tableOrderIds: nextTableOrderIds };
         });
+      },
+      updateCurrentTableSettings: (settings) => {
+        let didUpdate = false;
+
+        set((state) => {
+          if (!state.currentTable) {
+            return state;
+          }
+
+          didUpdate = true;
+
+          return {
+            currentTable: {
+              ...state.currentTable,
+              settings: normalizeTableSettings(settings),
+            },
+            isOffline: false,
+          };
+        });
+
+        return didUpdate;
       },
       hydrateGame: async () => {
         const restoredState = await restoreGameState();

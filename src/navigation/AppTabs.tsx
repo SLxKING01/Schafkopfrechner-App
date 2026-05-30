@@ -111,23 +111,23 @@ export function AppTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(16, 36, 28, 0.82)',
-    borderColor: 'rgba(231, 198, 92, 0.18)',
-    borderRadius: authRadius.xl,
+    backgroundColor: 'rgba(16, 36, 28, 0.74)',
+    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderRadius: authRadius.pill,
     borderTopWidth: 1,
     bottom: 22,
     elevation: 10,
-    height: 74,
+    height: 72,
     left: 18,
     overflow: 'hidden',
-    paddingBottom: 10,
-    paddingTop: 8,
+    paddingBottom: 9,
+    paddingTop: 9,
     position: 'absolute',
     right: 18,
     shadowColor: authColors.shadow,
     shadowOffset: { height: 16, width: 0 },
-    shadowOpacity: 0.34,
-    shadowRadius: 22,
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
   },
   blur: {
     ...StyleSheet.absoluteFillObject,
@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
     width: 42,
   },
   iconActive: {
-    backgroundColor: 'rgba(231, 198, 92, 0.15)',
+    backgroundColor: 'rgba(231, 198, 92, 0.12)',
   },
 });
