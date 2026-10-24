@@ -52,6 +52,7 @@ export type GameRound = {
   id: string;
   tableId: string;
   winnerId: string;
+  winnerIds?: string[];
   loserIds: string[];
   amount: number;
   gameType: GameType;
@@ -72,6 +73,15 @@ export type Settlement = {
   isPaid: boolean;
 };
 
+export type ArchivedTable = {
+  currentTable: GameTable;
+  players: Player[];
+  rounds: GameRound[];
+  balances: PlayerBalance[];
+  settlements: Settlement[];
+  archivedAt: string;
+};
+
 export type CreateTablePayload = {
   existingHashCodes?: string[];
   name: string;
@@ -81,6 +91,7 @@ export type CreateTablePayload = {
 
 export type CreateRoundPayload = {
   winnerId: string;
+  winnerIds?: string[];
   loserIds: string[];
   amount: number;
   gameType: GameType;

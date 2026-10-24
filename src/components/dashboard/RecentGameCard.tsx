@@ -10,7 +10,7 @@ type RecentGameCardProps = {
   date: string;
   amount: string;
   players: number;
-  result: 'win' | 'loss';
+  result: 'win' | 'loss' | 'neutral';
 };
 
 export function RecentGameCard({
@@ -30,8 +30,13 @@ export function RecentGameCard({
           {date} · {players} Spieler
         </AppText>
       </View>
-      <AppText style={[styles.amount, isWin ? styles.win : styles.loss]}>
-        {isWin ? '+' : '-'}
+      <AppText
+        style={[
+          styles.amount,
+          result === 'neutral' ? undefined : isWin ? styles.win : styles.loss,
+        ]}
+      >
+        {result === 'neutral' ? '' : isWin ? '+' : '-'}
         {amount}
       </AppText>
     </View>
@@ -60,6 +65,7 @@ const styles = StyleSheet.create({
     marginTop: authSpacing.xs,
   },
   amount: {
+    color: authColors.textPrimary,
     fontSize: authTypography.body,
     fontWeight: '900',
   },

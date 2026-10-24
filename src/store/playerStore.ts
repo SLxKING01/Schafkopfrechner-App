@@ -4,6 +4,8 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { Player } from '../models/Player';
+import { winningIds } from '../utils/winningParty';
+import { useGameStore } from './gameStore';
 
 type PlayerStore = {
   players: Player[];
@@ -33,6 +35,16 @@ export const usePlayerStore = create<PlayerStore>()(
         }));
       },
       removePlayer: (id) => {
+        if (
+          useGameStore
+            .getState()
+            .games.some(
+              (game) =>
+                winningIds(game).includes(id) || game.loserIds.includes(id),
+            )
+        )
+          return;
+
         set((state) => ({
           players: state.players.filter((player) => player.id !== id),
         }));

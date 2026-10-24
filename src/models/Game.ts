@@ -3,6 +3,7 @@ import type { GameOptions } from './GameOptions';
 export type Game = {
   id: string;
   winnerId: string;
+  winnerIds?: string[];
   loserIds: string[];
   amount: number;
   createdAt: string;
@@ -13,6 +14,7 @@ export type Game = {
 
 export type CreateGameInput = {
   winnerId: string;
+  winnerIds?: string[];
   loserIds: string[];
   amount: number;
   gameTypeId: string;

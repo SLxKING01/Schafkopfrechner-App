@@ -20,6 +20,7 @@ export function useRestoreGame() {
 
     return useGameStore.subscribe((state, previousState) => {
       const gameStateChanged =
+        state.archivedTables !== previousState.archivedTables ||
         state.currentTable !== previousState.currentTable ||
         state.players !== previousState.players ||
         state.rounds !== previousState.rounds ||

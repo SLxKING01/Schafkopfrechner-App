@@ -20,6 +20,7 @@ import { syncGameTable } from '../services/sync/syncGameTable';
 import { syncRounds } from '../services/sync/syncRounds';
 import { syncSettlements } from '../services/sync/syncSettlements';
 import type {
+  ArchivedTable,
   CreateRoundPayload,
   GameRound,
   GameTable,
@@ -33,10 +34,13 @@ import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
 } from '../utils/tableOrder';
+import { partyBalances, validParties, winningIds } from '../utils/winningParty';
 import { useMatchDayStore } from './matchDayStore';
+import { usePlayerStore } from './playerStore';
 
 type GameStore = {
   games: Game[];
+  archivedTables: ArchivedTable[];
   currentTable: GameTable | null;
   players: Player[];
   rounds: GameRound[];
@@ -61,7 +65,7 @@ type GameStore = {
   removePlayer: (id: string) => void;
   addRound: (round: CreateRoundPayload) => boolean;
   finishGameDay: () => boolean;
-  markSettlementPaid: (id: string) => void;
+  markSettlementPaid: (id: string, tableId?: string) => void;
   resetGame: () => void;
   setTableOrderIds: (tableOrderIds: string[]) => void;
   updateCurrentTableSettings: (settings: TableSettings) => boolean;
@@ -85,42 +89,10 @@ function calculateMvpBalances(
   players: Player[],
   rounds: GameRound[],
 ): PlayerBalance[] {
-  const centsByPlayer = new Map(players.map((player) => [player.id, 0]));
-
-  rounds.forEach((round) => {
-    if (!Number.isFinite(round.amount)) {
-      return;
-    }
-
-    const amountInCents = Math.round(round.amount * 100);
-    const loserCount = round.loserIds.length;
-
-    if (loserCount === 0 || amountInCents <= 0) {
-      return;
-    }
-
-    centsByPlayer.set(
-      round.winnerId,
-      (centsByPlayer.get(round.winnerId) ?? 0) + amountInCents,
-    );
-
-    const baseLoss = Math.floor(amountInCents / loserCount);
-    let remainder = amountInCents % loserCount;
-
-    [...round.loserIds].sort().forEach((loserId) => {
-      const extraCent = remainder > 0 ? 1 : 0;
-      remainder -= extraCent;
-      centsByPlayer.set(
-        loserId,
-        (centsByPlayer.get(loserId) ?? 0) - baseLoss - extraCent,
-      );
-    });
-  });
-
-  return players.map((player) => ({
-    playerId: player.id,
-    amount: (centsByPlayer.get(player.id) ?? 0) / 100,
-  }));
+  return partyBalances(
+    players,
+    rounds.map((round) => ({ ...round, loserIds: [...round.loserIds].sort() })),
+  );
 }
 
 function recalculateGameState(players: Player[], rounds: GameRound[]) {
@@ -130,8 +102,26 @@ function recalculateGameState(players: Player[], rounds: GameRound[]) {
   return { balances, settlements };
 }
 
+function archiveCurrentTable(state: GameStore): ArchivedTable[] {
+  if (!state.currentTable) return state.archivedTables;
+  return [
+    ...state.archivedTables.filter(
+      (entry) => entry.currentTable.id !== state.currentTable!.id,
+    ),
+    {
+      currentTable: { ...state.currentTable, isActive: false },
+      players: state.players,
+      rounds: state.rounds,
+      balances: state.balances,
+      settlements: state.settlements,
+      archivedAt: new Date().toISOString(),
+    },
+  ];
+}
+
 function toPersistedGameState(state: GameStore) {
   return {
+    archivedTables: state.archivedTables,
     currentTable: state.currentTable,
     players: state.players,
     rounds: state.rounds,
@@ -160,6 +150,7 @@ export const useGameStore = create<GameStore>()(
   persist(
     (set) => ({
       games: [],
+      archivedTables: [],
       currentTable: null,
       players: [],
       rounds: [],
@@ -172,7 +163,14 @@ export const useGameStore = create<GameStore>()(
       lastSyncedAt: null,
       isOffline: false,
       addGame: (game) => {
-        if (!isValidGame(game)) {
+        if (
+          !isValidGame(game) ||
+          !validParties(
+            game,
+            usePlayerStore.getState().players,
+            game.gameTypeId,
+          )
+        ) {
           return false;
         }
 
@@ -231,7 +229,15 @@ export const useGameStore = create<GameStore>()(
           (matchDay) => matchDay.id === targetMatchDayId,
         );
 
-        if (targetMatchDay?.isClosed || !isValidGame(updatedGame)) {
+        if (
+          targetMatchDay?.isClosed ||
+          !isValidGame(updatedGame) ||
+          !validParties(
+            updatedGame,
+            usePlayerStore.getState().players,
+            updatedGame.gameTypeId,
+          )
+        ) {
           return false;
         }
 
@@ -306,10 +312,18 @@ export const useGameStore = create<GameStore>()(
         }
 
         set((state) => ({
+          archivedTables: archiveCurrentTable(state),
           currentTable: createGameTable({
             existingHashCodes: state.currentTable?.hashCode
-              ? [state.currentTable.hashCode]
-              : [],
+              ? [
+                  state.currentTable.hashCode,
+                  ...state.archivedTables.map(
+                    (entry) => entry.currentTable.hashCode,
+                  ),
+                ]
+              : state.archivedTables.map(
+                  (entry) => entry.currentTable.hashCode,
+                ),
             name: tableName,
             players: uniquePlayers,
             settings,
@@ -358,7 +372,8 @@ export const useGameStore = create<GameStore>()(
       removePlayer: (id) => {
         set((state) => {
           const playerHasRounds = state.rounds.some(
-            (round) => round.winnerId === id || round.loserIds.includes(id),
+            (round) =>
+              winningIds(round).includes(id) || round.loserIds.includes(id),
           );
 
           if (playerHasRounds) {
@@ -383,6 +398,7 @@ export const useGameStore = create<GameStore>()(
           if (
             !state.currentTable ||
             !state.activeGame ||
+            !validParties(round, state.players, round.gameType) ||
             !round.winnerId ||
             round.loserIds.length === 0 ||
             round.loserIds.includes(round.winnerId) ||
@@ -434,16 +450,38 @@ export const useGameStore = create<GameStore>()(
 
         return didFinish;
       },
-      markSettlementPaid: (id) => {
-        set((state) => ({
-          settlements: state.settlements.map((settlement) =>
-            settlement.id === id ? { ...settlement, isPaid: true } : settlement,
-          ),
-          isOffline: false,
-        }));
+      markSettlementPaid: (id, tableId) => {
+        set((state) => {
+          if (!tableId && state.activeGame) return state;
+          return {
+            archivedTables: tableId
+              ? state.archivedTables.map((entry) =>
+                  entry.currentTable.id === tableId
+                    ? {
+                        ...entry,
+                        settlements: entry.settlements.map((settlement) =>
+                          settlement.id === id
+                            ? { ...settlement, isPaid: true }
+                            : settlement,
+                        ),
+                      }
+                    : entry,
+                )
+              : state.archivedTables,
+            settlements: tableId
+              ? state.settlements
+              : state.settlements.map((settlement) =>
+                  settlement.id === id
+                    ? { ...settlement, isPaid: true }
+                    : settlement,
+                ),
+            isOffline: false,
+          };
+        });
       },
       resetGame: () => {
-        set({
+        set((state) => ({
+          archivedTables: archiveCurrentTable(state),
           currentTable: null,
           players: [],
           rounds: [],
@@ -451,7 +489,7 @@ export const useGameStore = create<GameStore>()(
           settlements: [],
           activeGame: false,
           isOffline: false,
-        });
+        }));
       },
       setTableOrderIds: (tableOrderIds) => {
         const nextTableOrderIds = sanitizeTableOrderIds(tableOrderIds);
@@ -494,6 +532,9 @@ export const useGameStore = create<GameStore>()(
         }
 
         set({
+          archivedTables:
+            restoredState.archivedTables ??
+            useGameStore.getState().archivedTables,
           currentTable: normalizeGameTable(restoredState.currentTable),
           players: restoredState.players,
           rounds: restoredState.rounds,
@@ -539,6 +580,7 @@ export const useGameStore = create<GameStore>()(
       name: 'schafkopfrechner-games',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
+        archivedTables: state.archivedTables,
         games: state.games,
         currentTable: state.currentTable,
         players: state.players,

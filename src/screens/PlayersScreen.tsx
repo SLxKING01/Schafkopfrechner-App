@@ -7,9 +7,12 @@ import { AppCard } from '../components/ui/AppCard';
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
 import type { Player } from '../models/Player';
+import { useGameStore } from '../store/gameStore';
 import { usePlayerStore } from '../store/playerStore';
+import { winningIds } from '../utils/winningParty';
 
 export function PlayersScreen() {
+  const games = useGameStore((state) => state.games);
   const [playerName, setPlayerName] = useState('');
   const players = usePlayerStore((state) => state.players);
   const addPlayer = usePlayerStore((state) => state.addPlayer);
@@ -25,7 +28,20 @@ export function PlayersScreen() {
       <AppCard style={styles.playerRow}>
         <AppText style={styles.playerName}>{item.name}</AppText>
         <AppButton
-          title="Löschen"
+          title={
+            games.some(
+              (game) =>
+                winningIds(game).includes(item.id) ||
+                game.loserIds.includes(item.id),
+            )
+              ? 'In Spielen verwendet'
+              : 'Löschen'
+          }
+          disabled={games.some(
+            (game) =>
+              winningIds(game).includes(item.id) ||
+              game.loserIds.includes(item.id),
+          )}
           variant="danger"
           onPress={() => removePlayer(item.id)}
         />

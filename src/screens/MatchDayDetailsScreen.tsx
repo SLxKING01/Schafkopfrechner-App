@@ -19,6 +19,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { calculateBaseAmount } from '../utils/calculateBaseAmount';
 import { formatGameAmountSummary } from '../utils/calculateGameAmount';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
+import { winningIds } from '../utils/winningParty';
 
 type MatchDayDetailsScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -41,7 +42,7 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
   );
   const getPlayerName = useCallback(
     (id?: string) =>
-      id ? (playerNameById.get(id) ?? 'Unbekannt') : 'Unbekannt',
+      id ? (playerNameById.get(id) ?? 'Entfernter Spieler') : 'Unbekannt',
     [playerNameById],
   );
 
@@ -84,7 +85,9 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
 
     return (
       <AppCard style={styles.card}>
-        <AppText variant="subtitle">{getPlayerName(item.winnerId)}</AppText>
+        <AppText variant="subtitle">
+          {winningIds(item).map(getPlayerName).join(' & ')}
+        </AppText>
         <AppText variant="caption">
           {getGameTypeById(item.gameTypeId).name}
         </AppText>

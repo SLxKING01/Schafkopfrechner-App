@@ -37,7 +37,7 @@ export function OpenSettlementCard({
             size={14}
             strokeWidth={2.4}
           />
-          <AppText style={styles.payText}>PayPal</AppText>
+          <AppText style={styles.payText}>Ansehen</AppText>
         </Pressable>
       </View>
     </View>
@@ -78,6 +78,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   payButton: {
+    minHeight: 44,
     alignItems: 'center',
     backgroundColor: authColors.gold,
     borderRadius: authRadius.pill,

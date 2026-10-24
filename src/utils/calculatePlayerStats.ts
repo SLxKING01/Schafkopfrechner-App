@@ -3,6 +3,7 @@ import type { Game } from '../models/Game';
 import type { Player } from '../models/Player';
 import type { PlayerStats } from '../models/PlayerStats';
 import { calculateBalances } from './calculateBalances';
+import { winningIds } from './winningParty';
 
 type MutablePlayerStats = {
   playerId: string;
@@ -49,7 +50,10 @@ export function calculatePlayerStats(
   });
 
   games.forEach((game) => {
-    const participatingPlayerIds = new Set([game.winnerId, ...game.loserIds]);
+    const participatingPlayerIds = new Set([
+      ...winningIds(game),
+      ...game.loserIds,
+    ]);
     const gameTypeId = game.gameTypeId ?? DEFAULT_GAME_TYPE_ID;
 
     participatingPlayerIds.forEach((playerId) => {
@@ -66,11 +70,10 @@ export function calculatePlayerStats(
       );
     });
 
-    const winnerStats = statsByPlayerId.get(game.winnerId);
-
-    if (winnerStats) {
-      winnerStats.wins += 1;
-    }
+    winningIds(game).forEach((id) => {
+      const stats = statsByPlayerId.get(id);
+      if (stats) stats.wins += 1;
+    });
 
     game.loserIds.forEach((loserId) => {
       const playerStats = statsByPlayerId.get(loserId);

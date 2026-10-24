@@ -12,6 +12,7 @@ export function createGameRound(
     id: crypto.randomUUID(),
     tableId,
     winnerId: payload.winnerId,
+    winnerIds: payload.winnerIds,
     loserIds: payload.loserIds,
     amount: payload.amount,
     gameType: payload.gameType,

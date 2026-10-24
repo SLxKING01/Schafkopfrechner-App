@@ -15,7 +15,8 @@ export type AppStackParamList = {
   CreateTable: undefined;
   EditTable: undefined;
   ActiveGame: undefined;
-  Settlement: undefined;
+  Settlement: { tableId?: string } | undefined;
+  TableArchive: undefined;
 };
 
 export type AppTabParamList = {

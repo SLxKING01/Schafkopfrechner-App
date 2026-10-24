@@ -61,6 +61,7 @@ import type {
   TableGameTypeId,
 } from '../../types/game';
 import type { AnimalAvatarId } from '../../types/profile';
+import { validParties, winningIds } from '../../utils/winningParty';
 
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 type ActiveTab = 'players' | 'history';
@@ -178,6 +179,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
   const persistGame = useGameStore((state) => state.persistGame);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
+  const [partnerId, setPartnerId] = useState('');
   const [winnerId, setWinnerId] = useState('');
   const [loserIds, setLoserIds] = useState<string[]>([]);
   const [amount, setAmount] = useState('10');
@@ -240,11 +242,29 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
   );
   const isRoundDraftValid = useMemo(
     () =>
+      validParties(
+        {
+          winnerId,
+          winnerIds: partnerId ? [winnerId, partnerId] : [winnerId],
+          loserIds,
+          amount: numericAmount * roundMultiplier,
+        },
+        players,
+        gameType,
+      ) &&
       Boolean(winnerId) &&
       loserIds.length > 0 &&
       Number.isFinite(numericAmount) &&
       numericAmount > 0,
-    [loserIds.length, numericAmount, winnerId],
+    [
+      gameType,
+      loserIds,
+      numericAmount,
+      partnerId,
+      players,
+      roundMultiplier,
+      winnerId,
+    ],
   );
   const playerNameById = useMemo(
     () => new Map(players.map((player) => [player.id, player.name])),
@@ -303,6 +323,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
 
   const resetRoundDraft = useCallback(() => {
     setWinnerId('');
+    setPartnerId('');
     setLoserIds([]);
     setAmount('10');
     setGameType(enabledGameTypes[0] ?? 'rufspiel');
@@ -335,7 +356,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     (id: string) => {
       triggerSelectionHaptic();
       setLoserIds((currentLosers) => {
-        if (id === winnerId) {
+        if (id === winnerId || id === partnerId) {
           return currentLosers;
         }
 
@@ -344,12 +365,13 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           : [...currentLosers, id];
       });
     },
-    [winnerId],
+    [winnerId, partnerId],
   );
 
   const changeGameType = useCallback((nextGameType: GameType) => {
     triggerSelectionHaptic();
     setGameType(nextGameType);
+    setPartnerId('');
   }, []);
 
   const saveRound = useCallback(() => {
@@ -361,6 +383,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
 
     const didAdd = addRound({
       winnerId,
+      winnerIds: partnerId ? [winnerId, partnerId] : [winnerId],
       loserIds,
       amount: numericAmount * roundMultiplier,
       gameType,
@@ -370,7 +393,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       triggerWarningHaptic();
       Alert.alert(
         'Runde unvollständig',
-        'Bitte Gewinner, mindestens einen Verlierer und Betrag > 0 wählen.',
+        'Bitte Parteien und Betrag prüfen. Rufspiel benötigt zwei Gewinner und zwei Verlierer.',
       );
       return;
     }
@@ -385,6 +408,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     isRoundDraftValid,
     loserIds,
     numericAmount,
+    partnerId,
     resetPlacedCoins,
     resetRoundDraft,
     roundMultiplier,
@@ -432,13 +456,17 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     });
   }, [navigation, persistGame]);
 
-  const selectWinner = useCallback((playerId: string) => {
-    triggerSelectionHaptic();
-    setWinnerId(playerId);
-    setLoserIds((currentLosers) =>
-      currentLosers.filter((loserId) => loserId !== playerId),
-    );
-  }, []);
+  const selectWinner = useCallback(
+    (playerId: string) => {
+      if (playerId === partnerId) setPartnerId('');
+      triggerSelectionHaptic();
+      setWinnerId(playerId);
+      setLoserIds((currentLosers) =>
+        currentLosers.filter((loserId) => loserId !== playerId),
+      );
+    },
+    [partnerId],
+  );
 
   const togglePlacedCoin = useCallback((playerId: string) => {
     triggerSelectionHaptic();
@@ -724,6 +752,11 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
         loserIds={loserIds}
         players={players}
         visible={roundComposerVisible}
+        partnerId={partnerId}
+        onSelectPartner={(id) => {
+          setPartnerId(id);
+          setLoserIds((ids) => ids.filter((candidate) => candidate !== id));
+        }}
         winnerId={winnerId}
         onAmountChange={setAmount}
         onClose={closeRoundComposer}
@@ -1258,8 +1291,8 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
     [round.createdAt],
   );
   const winner = useMemo(
-    () => getPlayerName(round.winnerId),
-    [getPlayerName, round.winnerId],
+    () => winningIds(round).map(getPlayerName).join(' & '),
+    [getPlayerName, round],
   );
 
   return (
@@ -1321,6 +1354,8 @@ type RoundComposerModalProps = {
   roundMultiplier: number;
   saveDisabled: boolean;
   visible: boolean;
+  partnerId: string;
+  onSelectPartner: (id: string) => void;
   winnerId: string;
   onAmountChange: (amount: string) => void;
   onClose: () => void;
@@ -1340,6 +1375,8 @@ const RoundComposerModal = memo(function RoundComposerModal({
   saveDisabled,
   visible,
   winnerId,
+  partnerId,
+  onSelectPartner,
   onAmountChange,
   onClose,
   onGameTypeChange,
@@ -1415,12 +1452,35 @@ const RoundComposerModal = memo(function RoundComposerModal({
               ))}
             </View>
 
+            {['rufspiel', 'sauspiel'].includes(gameType) ? (
+              <>
+                <AppText style={styles.label}>
+                  Zweiter Gewinner (Gewinnerpartei)
+                </AppText>
+                <View style={styles.chipWrap}>
+                  {players.map((player) => (
+                    <RoundPlayerChip
+                      key={player.id}
+                      name={player.name}
+                      playerId={player.id}
+                      selected={partnerId === player.id}
+                      disabled={player.id === winnerId}
+                      type="winner"
+                      onPressPlayer={onSelectPartner}
+                    />
+                  ))}
+                </View>
+                <AppText style={styles.label}>
+                  Zwei Gewinner und zwei Verlierer wählen.
+                </AppText>
+              </>
+            ) : null}
             <AppText style={styles.label}>Verlierer</AppText>
             <View style={styles.chipWrap}>
               {players.map((player) => (
                 <RoundPlayerChip
                   key={player.id}
-                  disabled={player.id === winnerId}
+                  disabled={player.id === winnerId || player.id === partnerId}
                   name={player.name}
                   playerId={player.id}
                   selected={loserIdSet.has(player.id)}
@@ -1437,9 +1497,9 @@ const RoundComposerModal = memo(function RoundComposerModal({
               onSelect={onGameTypeChange}
             />
 
-            <AppText style={styles.label}>Betrag</AppText>
+            <AppText style={styles.label}>Gesamtbetrag der Runde</AppText>
             <TextInput
-              accessibilityHint="Gib den Einsatzbetrag für diese Runde ein"
+              accessibilityHint="Gesamtbetrag, den die Verlierer gemeinsam an die Gewinner zahlen"
               accessibilityLabel="Betrag"
               keyboardAppearance="dark"
               keyboardType="decimal-pad"

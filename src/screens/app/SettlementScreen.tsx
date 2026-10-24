@@ -20,9 +20,17 @@ function formatAmount(amount: number) {
   return `${amount.toFixed(2).replace('.', ',')} €`;
 }
 
-export function SettlementScreen({ navigation }: SettlementScreenProps) {
-  const players = useGameStore((state) => state.players);
-  const settlements = useGameStore((state) => state.settlements);
+export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
+  const activeGame = useGameStore((state) => state.activeGame);
+  const archived = useGameStore((state) =>
+    state.archivedTables.find(
+      (entry) => entry.currentTable.id === route.params?.tableId,
+    ),
+  );
+  const currentPlayers = useGameStore((state) => state.players);
+  const players = archived?.players ?? currentPlayers;
+  const currentSettlements = useGameStore((state) => state.settlements);
+  const settlements = archived?.settlements ?? currentSettlements;
   const markSettlementPaid = useGameStore((state) => state.markSettlementPaid);
   const resetGame = useGameStore((state) => state.resetGame);
   const total = useMemo(
@@ -51,9 +59,13 @@ export function SettlementScreen({ navigation }: SettlementScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         <AppText style={styles.kicker}>Abrechnung</AppText>
-        <AppText style={styles.title}>Spieltag abgeschlossen</AppText>
+        <AppText style={styles.title}>
+          {archived ? archived.currentTable.name : 'Abrechnung des Tisches'}
+        </AppText>
         <AppText style={styles.subtitle}>
-          Minimale Zahlungen, damit alle Salden exakt ausgeglichen sind.
+          {!archived && activeGame
+            ? 'Vorläufige Abrechnung. Schließe den Spieltag ab, bevor du Zahlungen als bezahlt markierst.'
+            : 'Zahlungen zum Ausgleich aller Salden.'}
         </AppText>
 
         <View style={styles.scoreRow}>
@@ -76,13 +88,29 @@ export function SettlementScreen({ navigation }: SettlementScreenProps) {
                 from={getPlayerName(settlement.fromPlayerId)}
                 isPaid={settlement.isPaid}
                 to={getPlayerName(settlement.toPlayerId)}
-                onMarkPaid={() => markSettlementPaid(settlement.id)}
+                onMarkPaid={
+                  archived || !activeGame
+                    ? () =>
+                        markSettlementPaid(
+                          settlement.id,
+                          archived?.currentTable.id,
+                        )
+                    : undefined
+                }
               />
             ))
           )}
         </View>
 
-        <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
+        {archived ? (
+          <AppText>Archivierte Abrechnung</AppText>
+        ) : (
+          <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
+        )}
+        <GoldButton
+          title="Tischarchiv öffnen"
+          onPress={() => navigation.navigate('TableArchive')}
+        />
       </ScrollView>
     </AuthBackground>
   );

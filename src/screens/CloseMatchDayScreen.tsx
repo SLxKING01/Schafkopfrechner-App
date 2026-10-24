@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../components/ui/AppButton';
 import { AppCard } from '../components/ui/AppCard';
@@ -49,7 +49,7 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    (id: string) => playerNameById.get(id) ?? 'Entfernter Spieler',
     [playerNameById],
   );
 
@@ -85,7 +85,7 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <AppCard style={styles.headerCard}>
         <AppText variant="caption">Finaler Spieltag</AppText>
         <AppText variant="title">
@@ -94,37 +94,35 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
       </AppCard>
 
       <AppSection title="Finale Salden">
-        <FlatList
-          data={balances}
-          keyExtractor={(balance) => balance.playerId}
-          renderItem={renderBalance}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.list}>
+          {balances.map((item) => (
+            <View key={item.playerId}>{renderBalance({ item })}</View>
+          ))}
+        </View>
       </AppSection>
 
       <AppSection title="Finale Auszahlungen">
-        <FlatList
-          data={settlements}
-          keyExtractor={(settlement) =>
-            `${settlement.fromPlayerId}-${settlement.toPlayerId}-${settlement.amount}`
-          }
-          renderItem={renderSettlement}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.list}>
+          {settlements.map((item) => (
+            <View key={`${item.fromPlayerId}-${item.toPlayerId}`}>
+              {renderSettlement({ item })}
+            </View>
+          ))}
+        </View>
       </AppSection>
 
       <AppButton
         title="Neuen Spieltag starten"
         onPress={handleStartNextMatchDay}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    flex: 1,
+    flexGrow: 1,
     gap: theme.spacing.xl,
     padding: theme.spacing.xl,
   },

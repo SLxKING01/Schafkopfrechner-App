@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import type {
+  ArchivedTable,
   GameRound,
   GameTable,
   Player,
@@ -11,9 +12,10 @@ import type {
 } from '../types/game';
 
 const GAME_STATE_KEY = 'schafkopfrechner:mvp-game-state';
-const ACTIVE_TABLE_KEY = 'schafkopfrechner:active-table-id';
+const ACTIVE_TABLE_KEY = 'schafkopfrechner.active-table-id';
 
 export type PersistedGameState = {
+  archivedTables?: ArchivedTable[];
   currentTable: GameTable | null;
   players: Player[];
   rounds: GameRound[];
