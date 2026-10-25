@@ -46,6 +46,78 @@ Der Test-Checkout hat eigene, aus dem Lockfile installierte Abhängigkeiten.
   Keine Installation mit `--force` oder `--legacy-peer-deps`.
 - Aktueller Expo Doctor: 21/21 erfolgreich. TypeScript, ESLint und alle 45 Tests erfolgreich.
 
+## SDK 57 → 58 (finaler Stand)
+
+- Expo **58.0.19**, React Native **0.88.0**, React **19.3.0**, Node **24.15.0**.
+- Expo CLI `expo install expo@^58.0.0` und `expo install --fix` richten die
+  Abhängigkeiten aus. Vor dem Abgleich wurden Jest-Preset, jest-expo und
+  ESLint-Konfiguration gemeinsam anhand der SDK-Metadaten angehoben, damit
+  kein veralteter optionaler Peer die Auflösung blockiert.
+- Reanimated 4.7.1, Worklets 0.13.0, Gesture Handler 3.3.0, Screens 4.30.0,
+  Safe Area Context 5.10.1; Bottom Sheet bleibt bei 5.2.14. `npm ls` bestätigt
+  einen gemeinsamen, gültigen Animations-/Gesten-Abhängigkeitsbaum.
+- Jest 30.5.2 und passendes React-Native-Preset 0.88.0.
+- Aktueller Expo Doctor **20/20** erfolgreich; TypeScript und ESLint erfolgreich.
+- Vollständige Testsuite: **45/45 Tests**, 10 Suites.
+- Web-Export nach `dist/sdk58-web` und natives iOS-/Hermes-Bundle nach
+  `.expo/sdk58-ios` erfolgreich (lokale Exporte, keine EAS-Builds).
+- Zusätzlich Browserprüfung am fertigen Web-Export in isoliertem Edge-Profil:
+  acht Spieler, Rufspiel mit zwei Gewinnern erfassen und bearbeiten,
+  Löschschutz, Abschluss und Historie, Breiten 360/390/430. Keine Page-Errors.
+  Verwendet wurde der Offline-Teil des vorhandenen Acceptance-Skripts;
+  Screenshots liegen lokal unter `.expo/upgrade-offline`.
+- Keine Änderungen an `src/store`, `src/storage`, `src/models` oder `src/utils`
+  gegenüber dem gemergten Ausgangsstand. AsyncStorage bleibt bei 2.2.0.
+
+## Expo Go öffnen und Server bedienen
+
+Arbeitsverzeichnis: `C:\Users\simon\Codeing\Schafkopfrechner-phone-test`.
+
+```powershell
+npm run start:iphone -- --port 8081 --max-workers 2
+# Wenn der LAN-Zugriff scheitert oder die WLAN-Adresse wechselt:
+npm run start:iphone:tunnel -- --port 8081 --max-workers 2
+```
+
+Das Tunnel-Skript benutzt bewusst `--tunnel ngrok`, weil der neue Standardtunnel
+in SDK 58 eine Expo-Anmeldung verlangt. Es nutzt die bereits vorhandene freie
+ngrok-Anbindung; keine Firewalländerung, kein bezahlter Dienst.
+
+Aktuell läuft Metro im Expo-Go-Modus mit geleertem Cache auf Port 8081,
+ohne interaktives Terminal. Damit führt die anonyme Manifest-Anfrage nicht
+erneut zu einer wartenden Login-Auswahl. Beim manuellen interaktiven Start
+gegebenenfalls **Proceed anonymously** auswählen.
+
+Der alte SDK-55-Log zeigte eine nicht beantwortete Login-/Anonym-Auswahl und
+einen Timeout. Die vom iPhone gemeldete allgemeine Fehlermeldung allein
+bewies daher keinen SDK-Mismatch. SDK 58 ist das vom Nutzer gewünschte Ziel,
+abgeglichen mit der offiziellen SDK-58-/Expo-Go-Dokumentation; ein erfolgreicher
+Start auf dem physischen Gerät ist noch nicht bestätigt.
+
+- Direkter iPhone-Link in Safari:
+  `https://qlhan1k-anonymous-8081.exp.direct/_expo/link?platform=ios&choice=expo-go`
+- Expo-Verbindung: `exps://qlhan1k-anonymous-8081.exp.direct`
+- QR-Code: `.expo/phone-qr.png`
+- Tunnel und iOS-Manifest antworten mit SDK 58.0.0; die Linkroute leitet direkt
+  zu Expo Go weiter. Nach einem Neustart die dann angezeigte Adresse verwenden.
+- Stoppen bei eigenem Terminalstart mit **Strg+C**. Der hier verwaltete Server
+  kann im Chat gestoppt werden. Danach im obigen Verzeichnis neu starten.
+
+## Noch erforderliche iPhone-Abnahme
+
+1. Link in Safari antippen, „In Expo Go öffnen“ bestätigen, bei einer Warnung
+   zum anonymen Entwicklungsprojekt nur dieses eigene Projekt fortsetzen.
+2. Zunächst **Ohne Account spielen** wählen und eigene Testspieler anlegen.
+3. Ein Rufspiel mit zwei Gewinnern erfassen. Bei geöffneter Tastatur alle
+   Eingaben und „Speichern“ erreichen und die Cent-Anteile prüfen.
+4. Systemschrift vergrößern und Eingabe/Abschluss erneut bedienen.
+5. App in den Hintergrund bringen, zurückkehren und den Spielstand kontrollieren.
+6. Expo Go vollständig schließen und über denselben Projektlink erneut öffnen;
+   gespeicherte Spiele und Historie kontrollieren.
+
+Diese Schritte benötigen das physische iPhone und die Interaktion des Nutzers.
+Browserprüfung, Hermes-Bundle und Doctor ersetzen diese Abnahme nicht.
+
 ## Schutz der Daten und Grenzen
 
 Keine Änderung an Speicherformaten, Storage-Schlüsseln, Berechnungen, Archiven
