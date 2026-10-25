@@ -37,6 +37,15 @@ Der Test-Checkout hat eigene, aus dem Lockfile installierte Abhängigkeiten.
 - SDK 56 ist nur ein Zwischenschritt; die bekannte Hermes-/Worklets-Regression
   wird mit dem folgenden SDK-57-Schritt vermieden.
 
+## SDK 56 → 57
+
+- Expo 57.0.31, React Native 0.86.3, Reanimated 4.5.1, Worklets 0.10.1.
+- Das Jest-Preset muss genau zur React-Native-Version passen. Die alte optionale
+  Peer-Abhängigkeit verursachte ERESOLVE; `@react-native/jest-preset@0.86.3`
+  wurde explizit als Testabhängigkeit zusammen mit `jest-expo@~57.0.6` ausgerichtet.
+  Keine Installation mit `--force` oder `--legacy-peer-deps`.
+- Aktueller Expo Doctor: 21/21 erfolgreich. TypeScript, ESLint und alle 45 Tests erfolgreich.
+
 ## Schutz der Daten und Grenzen
 
 Keine Änderung an Speicherformaten, Storage-Schlüsseln, Berechnungen, Archiven
