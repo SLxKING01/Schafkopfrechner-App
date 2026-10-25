@@ -105,6 +105,16 @@ Start auf dem physischen Gerät ist noch nicht bestätigt.
 
 ## Noch erforderliche iPhone-Abnahme
 
+Beim ersten iPhone-Versuch meldete `RNSScreenWindowTraits.mm:18`, dass
+`UIViewControllerBasedStatusBarAppearance` aktiviert sein müsse. Auslöser war
+`statusBarStyle: 'light'` in den gemeinsamen Native-Stack-Optionen. Diese
+View-Controller-Option wurde entfernt; das bereits vorhandene globale
+`<StatusBar style="light" />` aus `expo-status-bar` übernimmt die Darstellung.
+Keine Änderung an Expo Gos nativer Info.plist (durch Projektkonfiguration nicht
+nachträglich möglich). Nach der Änderung Expo Go vollständig schließen und den
+Projektlink neu öffnen; Fast Refresh allein kann die alte native Ansicht behalten.
+TypeScript und ESLint für die geänderte Navigation wurden erneut geprüft.
+
 1. Link in Safari antippen, „In Expo Go öffnen“ bestätigen, bei einer Warnung
    zum anonymen Entwicklungsprojekt nur dieses eigene Projekt fortsetzen.
 2. Zunächst **Ohne Account spielen** wählen und eigene Testspieler anlegen.

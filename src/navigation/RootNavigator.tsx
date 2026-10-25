@@ -45,7 +45,7 @@ const sharedStackScreenOptions: NativeStackNavigationOptions = {
     backgroundColor: authColors.background,
   },
   headerTintColor: authColors.textPrimary,
-  statusBarStyle: 'light',
+  // Expo Go uses the global expo-status-bar in App.tsx, not per-controller traits.
 };
 
 const rootStackScreenOptions: NativeStackNavigationOptions = {
