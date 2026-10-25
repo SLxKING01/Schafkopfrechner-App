@@ -39,7 +39,10 @@ export function calculatePlayerStats(
     ]),
   );
 
-  players.forEach((player) => {
+  const historicalPlayers = [...balancesByPlayerId.keys()].map((id) => ({
+    id,
+  }));
+  historicalPlayers.forEach((player) => {
     statsByPlayerId.set(player.id, {
       playerId: player.id,
       totalGames: 0,
@@ -84,7 +87,7 @@ export function calculatePlayerStats(
     });
   });
 
-  return players.map((player) => {
+  return historicalPlayers.map((player) => {
     const playerStats = statsByPlayerId.get(player.id)!;
     const totalAmountInCents = balancesByPlayerId.get(player.id) ?? 0;
 

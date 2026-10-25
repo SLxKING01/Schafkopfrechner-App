@@ -9,6 +9,7 @@ import { ScoreCard } from '../../components/game/ScoreCard';
 import { SettlementCard } from '../../components/game/SettlementCard';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { useStorageStatus } from '../../storage/durableGameStorage';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authSpacing } from '../../theme/spacing';
@@ -21,12 +22,14 @@ function formatAmount(amount: number) {
 }
 
 export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
+  const saving = useStorageStatus((state) => state.busy);
   const activeGame = useGameStore((state) => state.activeGame);
   const archived = useGameStore((state) =>
     state.archivedTables.find(
       (entry) => entry.currentTable.id === route.params?.tableId,
     ),
   );
+  const isMissingArchive = Boolean(route.params?.tableId && !archived);
   const currentPlayers = useGameStore((state) => state.players);
   const players = archived?.players ?? currentPlayers;
   const currentSettlements = useGameStore((state) => state.settlements);
@@ -43,15 +46,25 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 
-  function startNewTable() {
-    resetGame();
+  async function startNewTable() {
+    if (!(await resetGame())) return;
     navigation.replace('CreateTable');
   }
 
+  if (isMissingArchive)
+    return (
+      <AuthBackground>
+        <AppText>
+          Archivierter Tisch nicht gefunden. Der aktuelle Tisch bleibt
+          unveraendert.
+        </AppText>
+      </AuthBackground>
+    );
   return (
     <AuthBackground>
       <ScrollView
@@ -105,7 +118,11 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         {archived ? (
           <AppText>Archivierte Abrechnung</AppText>
         ) : (
-          <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
+          <GoldButton
+            title="Neuen Tisch starten"
+            disabled={saving}
+            onPress={startNewTable}
+          />
         )}
         <GoldButton
           title="Tischarchiv öffnen"

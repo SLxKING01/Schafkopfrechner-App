@@ -9,8 +9,10 @@ import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import { winningIds } from '../../utils/winningParty';
 
 export function StatisticsScreen() {
+  const players = useGameStore((state) => state.players);
   const rounds = useGameStore((state) => state.rounds);
   const archive = useGameStore((state) => state.archivedTables);
   const allRounds = [...archive.flatMap((entry) => entry.rounds), ...rounds];
@@ -56,6 +58,23 @@ export function StatisticsScreen() {
           })}
         </View>
 
+        <SectionHeader title="Spieler am aktuellen Tisch" />
+        {players.map((player) => {
+          const wins = rounds.filter((round) =>
+            winningIds(round).includes(player.id),
+          ).length;
+          const losses = rounds.filter((round) =>
+            round.loserIds.includes(player.id),
+          ).length;
+          return (
+            <AppText
+              key={player.id}
+              style={{ color: authColors.textPrimary, marginTop: 12 }}
+            >
+              {player.name}: {wins} Siege / {losses} Niederlagen
+            </AppText>
+          );
+        })}
         <SectionHeader title="Datenbasis" />
         <AppText style={styles.chartCopy}>
           {allRounds.length === 0

@@ -28,5 +28,10 @@ export async function syncGameTable(
 
   void players;
   // TODO: upsert table and players into Supabase inside one logical sync batch.
-  return { ok: true, syncedAt: new Date().toISOString(), queued: false };
+  return {
+    ok: false,
+    syncedAt: null,
+    queued: true,
+    message: 'Cloud-Synchronisierung ist in diesem Stand nicht eingerichtet.',
+  };
 }

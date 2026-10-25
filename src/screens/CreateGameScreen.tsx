@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { EmptyState } from '../components/EmptyState';
 import { GameTypeCard } from '../components/GameTypeCard';
 import { OptionToggle } from '../components/OptionToggle';
+import { PartySummary } from '../components/PartySummary';
 import { PlayerChip } from '../components/PlayerChip';
 import { AppButton } from '../components/ui/AppButton';
 import { AppCard } from '../components/ui/AppCard';
@@ -74,13 +75,34 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
     schneider,
     schwarz,
   };
-  const calculatedAmount = calculateGameAmount(gameTypeId, options);
+  const unchangedPricing =
+    editingGame &&
+    gameTypeId === (editingGame.gameTypeId ?? DEFAULT_GAME_TYPE_ID) &&
+    JSON.stringify(options) ===
+      JSON.stringify(normalizeGameOptions(editingGame.options));
+  const calculatedAmount = unchangedPricing
+    ? editingGame.amount
+    : calculateGameAmount(gameTypeId, options);
+  const legacyParty = Boolean(
+    editingGame &&
+    !editingGame.winnerIds &&
+    !partnerId &&
+    winnerId === editingGame.winnerId &&
+    gameTypeId === (editingGame.gameTypeId ?? DEFAULT_GAME_TYPE_ID) &&
+    JSON.stringify(loserIds) === JSON.stringify(editingGame.loserIds),
+  );
   const winnerIds = partnerId ? [winnerId, partnerId] : [winnerId];
   const canSave =
     validParties(
-      { winnerId, winnerIds, loserIds, amount: calculatedAmount },
+      {
+        winnerId,
+        winnerIds: legacyParty ? undefined : winnerIds,
+        loserIds,
+        amount: calculatedAmount,
+      },
       players,
       gameTypeId,
+      editingGame,
     ) &&
     Boolean(activeMatchDayId) &&
     !activeMatchDay?.isClosed &&
@@ -122,7 +144,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
         ? updateGame({
             ...editingGame,
             winnerId,
-            winnerIds,
+            winnerIds: legacyParty ? undefined : winnerIds,
             loserIds,
             amount: calculatedAmount,
             gameTypeId,
@@ -185,8 +207,10 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
         ) : null}
 
         <AppCard style={styles.amountCard}>
-          <AppText variant="caption">Live-Betrag</AppText>
-          <AppText style={styles.amountValue}>{calculatedAmount} €</AppText>
+          <AppText variant="caption">Gesamttransfer der Parteien</AppText>
+          <AppText style={styles.amountValue}>
+            {calculatedAmount.toFixed(2).replace('.', ',')} €
+          </AppText>
           {isEditMode ? (
             <AppText variant="caption">Bearbeitungsmodus</AppText>
           ) : null}
@@ -218,6 +242,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
               <PlayerChip
                 key={player.id}
                 name={player.name}
+                accessibilityLabel={`${player.name} Gewinner`}
                 isSelected={player.id === winnerId}
                 onPress={() => handleSelectWinner(player.id)}
               />
@@ -232,6 +257,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
                 <PlayerChip
                   key={player.id}
                   name={player.name}
+                  accessibilityLabel={`${player.name} zweiter Gewinner`}
                   isSelected={partnerId === player.id}
                   disabled={player.id === winnerId}
                   onPress={() => {
@@ -253,6 +279,7 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
               <PlayerChip
                 key={player.id}
                 name={player.name}
+                accessibilityLabel={`${player.name} Verlierer`}
                 variant="danger"
                 isSelected={loserIds.includes(player.id)}
                 onPress={() => handleToggleLoser(player.id)}
@@ -262,6 +289,18 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
           </View>
         </AppSection>
 
+        {legacyParty ? (
+          <AppText>
+            Historischer Eintrag mit einem Gewinner. Ohne neue Partnerzuordnung
+            bleibt die alte Verteilung erhalten.
+          </AppText>
+        ) : null}
+        <PartySummary
+          players={players}
+          winnerIds={winnerIds}
+          loserIds={loserIds}
+          amount={calculatedAmount}
+        />
         <AppSection title="Optionen">
           <AppCard style={styles.stepperCard}>
             <AppText variant="subtitle">Laufende</AppText>
@@ -301,7 +340,9 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
       <View style={styles.footer}>
         <View>
           <AppText variant="caption">Zu speichern</AppText>
-          <AppText variant="subtitle">{calculatedAmount} €</AppText>
+          <AppText variant="subtitle">
+            {calculatedAmount.toFixed(2).replace('.', ',')} €
+          </AppText>
         </View>
         <AppButton
           title={isEditMode ? 'Änderungen speichern' : 'Spiel speichern'}

@@ -1,6 +1,7 @@
-import { Cloud, CloudOff, RefreshCw } from 'lucide-react-native';
+import { CloudOff, RefreshCw } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { useStorageStatus } from '../../storage/durableGameStorage';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
@@ -12,19 +13,16 @@ type SyncStatusBadgeProps = {
   lastSyncedAt: string | null;
 };
 
-export function SyncStatusBadge({
-  syncing,
-  isOffline,
-  lastSyncedAt,
-}: SyncStatusBadgeProps) {
-  const Icon = syncing ? RefreshCw : isOffline ? CloudOff : Cloud;
-  const label = syncing
-    ? 'Synchronisiert...'
-    : isOffline
-      ? 'Offline bereit'
-      : lastSyncedAt
-        ? 'Gesichert'
-        : 'Lokal bereit';
+export function SyncStatusBadge({ syncing }: SyncStatusBadgeProps) {
+  const error = useStorageStatus((state) => state.error);
+  const savedAt = useStorageStatus((state) => state.lastSavedAt);
+  const isOffline = true;
+  const Icon = syncing ? RefreshCw : CloudOff;
+  const label = error
+    ? 'Lokales Speichern fehlgeschlagen'
+    : savedAt
+      ? 'Lokal gespeichert - keine Cloud-Sicherung'
+      : 'Nur lokal - Cloud nicht eingerichtet';
 
   return (
     <View style={[styles.badge, isOffline && styles.offline]}>
@@ -40,6 +38,7 @@ export function SyncStatusBadge({
 
 const styles = StyleSheet.create({
   badge: {
+    maxWidth: '100%',
     alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(107, 163, 110, 0.12)',
@@ -57,6 +56,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.28)',
   },
   text: {
+    flexShrink: 1,
     color: authColors.textPrimary,
     fontSize: authTypography.tiny,
     fontWeight: '900',

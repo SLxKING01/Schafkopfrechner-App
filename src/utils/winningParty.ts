@@ -48,10 +48,12 @@ export function validParties(
   result: PartyResult,
   players: { id: string }[],
   type?: string,
+  original?: PartyResult & { gameType?: string; gameTypeId?: string },
 ) {
   const winners = winningIds(result);
   const ids = [...winners, ...result.loserIds];
   return (
+    (!result.winnerIds || result.winnerIds.length > 0) &&
     winners.length > 0 &&
     result.loserIds.length > 0 &&
     winners[0] === result.winnerId &&
@@ -60,6 +62,12 @@ export function validParties(
     Number.isSafeInteger(Math.round(result.amount * 100)) &&
     Math.round(result.amount * 100) > 0 &&
     (!['rufspiel', 'sauspiel'].includes(type ?? '') ||
-      (winners.length === 2 && result.loserIds.length === 2))
+      (winners.length === 2 && result.loserIds.length === 2) ||
+      (original?.winnerIds === undefined &&
+        Boolean(original) &&
+        result.winnerIds === undefined &&
+        original?.winnerId === result.winnerId &&
+        (original?.gameTypeId ?? original?.gameType ?? 'sauspiel') === type &&
+        JSON.stringify(original?.loserIds) === JSON.stringify(result.loserIds)))
   );
 }

@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useGameStore } from '../store/gameStore';
 import type { Player } from '../types/game';
 
@@ -48,16 +50,18 @@ function resetGameStore() {
   });
 }
 
-function createActiveTable() {
-  const didCreate = useGameStore.getState().createTable('Freitag', players);
+async function createActiveTable() {
+  const didCreate = await useGameStore
+    .getState()
+    .createTable('Freitag', players);
 
   expect(didCreate).toBe(true);
 }
 
 describe('gameStore round validation', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetGameStore();
-    createActiveTable();
+    await createActiveTable();
   });
 
   it.each([Number.NaN, Infinity, -Infinity, 0, -5])(
@@ -100,8 +104,8 @@ describe('gameStore round validation', () => {
 describe('mobile audit regressions', () => {
   beforeEach(resetGameStore);
 
-  it('rejects unknown or duplicate participants instead of dropping their balances', () => {
-    createActiveTable();
+  it('rejects unknown or duplicate participants instead of dropping their balances', async () => {
+    await createActiveTable();
     for (const loserIds of [['missing'], ['player-2', 'player-2']]) {
       expect(
         useGameStore.getState().addRound({
@@ -115,13 +119,13 @@ describe('mobile audit regressions', () => {
     expect(useGameStore.getState().rounds).toHaveLength(0);
   });
 
-  it('splits a Rufspiel between two winners and two losers with exact cents', () => {
+  it('splits a Rufspiel between two winners and two losers with exact cents', async () => {
     const fourPlayers = [
       ...players,
       { id: 'player-3', name: 'Anna', isLocal: true },
       { id: 'player-4', name: 'Max', isLocal: true },
     ];
-    useGameStore.getState().createTable('Rufspiel', fourPlayers);
+    await useGameStore.getState().createTable('Rufspiel', fourPlayers);
     expect(
       useGameStore.getState().addRound({
         winnerId: 'player-1',
@@ -147,7 +151,7 @@ describe('mobile audit regressions', () => {
   });
 
   it('archives on replacement and reset, preserving rounds, names and payments after hydration', async () => {
-    createActiveTable();
+    await createActiveTable();
     useGameStore.getState().addRound({
       winnerId: 'player-1',
       loserIds: ['player-2'],
@@ -157,18 +161,21 @@ describe('mobile audit regressions', () => {
     useGameStore.getState().finishGameDay();
     const old = useGameStore.getState();
     const tableId = old.currentTable!.id;
-    useGameStore.getState().createTable('Samstag', players);
+    await useGameStore.getState().createTable('Samstag', players);
     expect(useGameStore.getState().archivedTables[0]).toMatchObject({
       players,
       rounds: old.rounds,
       settlements: old.settlements,
       balances: old.balances,
     });
-    useGameStore.getState().resetGame();
-    useGameStore.getState().resetGame();
+    await useGameStore.getState().resetGame();
+    await useGameStore.getState().resetGame();
     expect(useGameStore.getState().archivedTables).toHaveLength(2);
     await useGameStore.getState().persistGame();
+    const saved = await AsyncStorage.getItem('schafkopfrechner-games');
     resetGameStore();
+    await useGameStore.getState().persistGame();
+    await AsyncStorage.setItem('schafkopfrechner-games', saved!);
     await useGameStore.getState().hydrateGame();
     expect(useGameStore.getState().archivedTables).toHaveLength(2);
     const payment = useGameStore.getState().archivedTables[0].settlements[0];

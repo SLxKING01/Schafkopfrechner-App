@@ -49,6 +49,7 @@ import Animated, {
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
+import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackParamList } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
@@ -130,33 +131,6 @@ type TablePreview = {
   sortOrder?: number;
 };
 
-const tablePreviews: TablePreview[] = [
-  {
-    id: 'friday',
-    name: 'Freitagsrunde',
-    players: 'Simon • Berkay • Flo • Alessandro',
-    lastPlayed: 'Zuletzt gespielt: gestern',
-    sortOrder: 10,
-    suit: 'eichel',
-  },
-  {
-    id: 'stammtisch',
-    name: 'Stammtisch',
-    players: 'Max • Anna • Lukas • Simon',
-    lastPlayed: 'Heute gespielt',
-    sortOrder: 20,
-    suit: 'gras',
-  },
-  {
-    id: 'family',
-    name: 'Familientisch',
-    players: 'Opa Hans • Julia • Tom • Simon',
-    lastPlayed: 'Zuletzt gespielt: vor 2 Wochen',
-    sortOrder: 30,
-    suit: 'herz',
-  },
-];
-
 type GameLobbyNavigationProp = NativeStackNavigationProp<AppStackParamList>;
 type TableRenderParams =
   | RenderItemParams<TablePreview>
@@ -193,6 +167,7 @@ function createUniqueTables(tables: TablePreview[]) {
 export function GameLobbyScreen() {
   const navigation = useNavigation<GameLobbyNavigationProp>();
   const currentTable = useGameStore((state) => state.currentTable);
+  const players = useGameStore((state) => state.players);
   const activeGame = useGameStore((state) => state.activeGame);
   const tableOrderIds = useGameStore((state) => state.tableOrderIds);
   const setPersistedTableOrderIds = useGameStore(
@@ -218,19 +193,20 @@ export function GameLobbyScreen() {
           {
             id: currentTable.id,
             isCurrent: true,
-            lastPlayed: 'Zuletzt gespielt: gerade eben',
+            lastPlayed: activeGame
+              ? 'Spielabend laeuft'
+              : 'Spielabend abgeschlossen',
             name: currentTable.name,
-            players: 'Aktueller Spielabend',
+            players: players.map((player) => player.name).join(' \u2022 '),
             isFavorite: currentTable.isFavorite,
             sortOrder: currentTable.sortOrder ?? 0,
             suit: 'schelle' as const,
           },
-          ...tablePreviews,
         ]
-      : tablePreviews;
+      : [];
 
     return createUniqueTables(tables);
-  }, [currentTable]);
+  }, [activeGame, currentTable, players]);
 
   const availableTableIds = useMemo(
     () => baseTables.map((table) => table.id),
@@ -287,11 +263,11 @@ export function GameLobbyScreen() {
 
   const openTable = useCallback(
     (table: TablePreview) => {
-      if (table.isCurrent && activeGame) {
-        navigation.navigate('ActiveGame');
+      if (table.id === currentTable?.id) {
+        navigation.navigate(activeGame ? 'ActiveGame' : 'Settlement');
       }
     },
-    [activeGame, navigation],
+    [activeGame, currentTable?.id, navigation],
   );
 
   const openSettings = useCallback(() => {
@@ -488,7 +464,8 @@ export function GameLobbyScreen() {
       <View style={styles.sectionHeader}>
         <AppText style={styles.sectionTitle}>Deine Tische</AppText>
         <AppText style={styles.sectionHint}>
-          {visibleTables.length} Runden
+          {visibleTables.length}{' '}
+          {visibleTables.length === 1 ? 'Tisch' : 'Tische'}
         </AppText>
       </View>
     </>
@@ -516,6 +493,13 @@ export function GameLobbyScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.scroller}
           ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <EmptyGameState
+              icon={Spade}
+              title="Noch kein Tisch"
+              message="Erstelle deinen ersten Tisch mit dem Button oben."
+            />
+          }
         />
       ) : (
         <DraggableFlatList
@@ -538,6 +522,13 @@ export function GameLobbyScreen() {
           onDragEnd={({ data }) => handleDragEnd(data)}
           onRelease={() => setActiveReorderTableId(null)}
           ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <EmptyGameState
+              icon={Spade}
+              title="Noch kein Tisch"
+              message="Erstelle deinen ersten Tisch mit dem Button oben."
+            />
+          }
         />
       )}
 
@@ -702,6 +693,7 @@ const TableCard = memo(function TableCard({
           >
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={`${table.name} oeffnen`}
               disabled={isDraggingAny && !isReordering}
               onPress={() => onPress(table)}
               style={({ pressed }) => [

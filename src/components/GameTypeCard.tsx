@@ -18,6 +18,7 @@ export function GameTypeCard({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,

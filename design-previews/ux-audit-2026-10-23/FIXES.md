@@ -1,33 +1,48 @@
-# Mobile usability repairs — 2026-10-24
+﻿# Mobile Usability – Korrekturen und Prüfung vom 25.10.2026
 
-Base: `master` at `ef4596a49316dbe4f69037d29192e75542d2ca58`. The original AUDIT.md was not present in the repository; scope follows the five findings supplied in the conversation.
+Bestehender Draft-PR: [#1](https://github.com/SLxKING01/Schafkopfrechner-App/pull/1), Branch `fix/mobile-usability`, Ziel `master`. Die vorbereiteten Korrekturen wurden geprüft und ergänzt. Uncommittete Änderungen im ursprünglichen Arbeitsverzeichnis bleiben unverändert; die Arbeit liegt im separaten Worktree `Schafkopfrechner-mobile-fix`.
 
-## Changes
+## Korrekturen
 
-- Referenced offline players cannot be deleted. Their names remain available to balances, statistics and history. Unused players can still be deleted. Previously missing participant IDs remain in balance calculations, so their debts/credits no longer silently disappear; their original names cannot be recovered automatically.
-- Replacing/resetting a modern table archives its players, rounds, balances and payment status in persisted local state. Archive access is available from dashboard and settlement. Archived payments can be marked paid without modifying the current table. Archived tables retain their original rounds and settlement information; creating a new table does not reopen the old one.
-- Offline overview and closing screen use a single vertical scroll container instead of several competing nested lists. All sections and actions can participate in the scroll flow.
-- Dashboard and statistics use locally stored table/round data, with honest empty states. No fabricated personal win rates, amounts, participants, recent games or payments remain in these screens. Personal attribution is intentionally absent until a profile is linked to a player.
-- New Sauspiel/Rufspiel entries require two winners and two losers. Both input screens support a second winner. `amount` remains the total transferred by the losing party; it is split between winners and losers in cents. Older single-winner entries keep their original meaning; no partner is guessed retrospectively. History and offline player statistics support both winners. Existing modern loser rounding order remains stable.
-- Round validation rejects unknown and duplicate participant IDs. Payments on a still-active table cannot be marked paid. The native SecureStore key no longer contains an unsupported colon. TypeScript excludes generated `dist` output, which otherwise caused a compiler stack overflow after exporting the web build.
+- **Spieler und Forderungen:** Beteiligte Offline-Spieler sind gegen Löschen geschützt; die Ansicht erklärt den Grund. Neue Spiele sichern zusätzlich Namen. Fehlende Verzeichniseinträge entfernen keine Forderungen. Gesicherte Namen werden verwendet; nicht rekonstruierbare Namen heißen „Name unbekannt“ mit ID. Beschädigte moderne Salden mit fehlenden Teilnehmern oder einer von null abweichenden Cent-Summe werden aus gespeicherten Runden repariert. Ausgeglichene historische Ergebnisse werden nicht neu interpretiert.
+- **Tischwechsel:** Spieler, Runden, Salden und Zahlungsstatus werden archiviert. Neuer Tisch und Zurücksetzen warten auf einen erfolgreichen lokalen Speicher-Checkpoint. Bei Fehler bleibt der alte Tisch aktiv; die sichtbare Meldung erlaubt erneutes Speichern. Schreibvorgänge laufen nacheinander, doppelte Wechsel sind blockiert. Ein veraltetes sekundäres Backup überschreibt den Hauptspeicher nicht. Nicht lesbare Hauptspeicherstände werden nicht durch leere Daten ersetzt. Das Archiv ist im Dashboard und in der Abrechnung erreichbar. Archivzahlungen ändern den aktuellen Tisch nicht. Ungültige Archivverweise öffnen keinen anderen Tisch.
+- **Mobile Bedienung:** Offline-Übersicht, Spieltagsdetails, Spieleransicht und Abschluss besitzen einen gemeinsamen vertikalen Scrollfluss. Der Rundendialog passt sich der Fenstergröße an. Lange Namen und vergrößerte Titel umbrechen, Speichern bleibt erreichbar. Dekorative Hintergründe erzeugen keine horizontale Dokumentüberbreite. Native Tastaturvermeidung wurde angepasst; die native Abnahme bleibt offen.
+- **Echte Daten:** Beispieltische, erfundene Spiele/Zahlungen und persönliche Erfolgsquoten sind entfernt. Statistiken nutzen gespeicherte Runden, Abrechnungsaktionen öffnen die echte Abrechnung. Der Status benennt lokale Speicherung und Fehler. Cloud-Platzhalter melden keinen erfundenen Erfolg mehr. **Dieser PR implementiert keine Cloud-Synchronisation.** Die separaten lokalen Supabase-Änderungen im ursprünglichen Arbeitsverzeichnis wurden nicht übernommen oder überschrieben.
+- **Zwei Gewinner:** Neue Rufspiel-/Sauspiel-Einträge benötigen zwei Gewinner und zwei Verlierer. Verlauf, Bearbeitung und Statistik berücksichtigen beide. Unbekannte/doppelte IDs und Überschneidungen werden abgewiesen. Der Betrag ist der gesamte Transfer zwischen den Parteien; eine Vorschau zeigt individuelle Cent-Anteile. Moderne Bearbeitung aktualisiert dieselbe Runde und bewahrt deren Einstellungsstand. Alte Ein-Gewinner-Einträge behalten bei unveränderten Parteien ihre Bedeutung; kein Partner wird geraten. Die bestehende Cent-Verteilungsreihenfolge beider Datenmodelle bleibt erhalten.
 
-## Verification
+## Ausgeführte Prüfungen
 
-- Jest: 32 tests passed across 9 suites, including player deletion/reload, missing historical participants, both winning parties, offline edits, invalid participants, archive replacement/reset/rehydration and archived payment isolation.
-- TypeScript: `npx tsc --noEmit` passed.
-- Lint: `npm run lint` passed.
-- Web compilation: `npx expo export --platform web` passed.
-- No database migration, production data mutation, merge or deployment performed.
+| Prüfung | Ergebnis |
+| --- | --- |
+| `npm test -- --runInBand` | 45 Tests, 10 Suites erfolgreich |
+| `npx tsc --noEmit` | erfolgreich |
+| `npm run lint` | erfolgreich |
+| `node node_modules/expo/bin/cli export --platform web --output-dir dist/mobile-acceptance` | erfolgreich |
+| Edge mit Playwright, Touch-/Mobil-Emulation | erfolgreich; [Browserprotokoll](acceptance-2026-10-25/browser-results.json) |
 
-## Pending visual/device acceptance
+Regressionstests prüfen referenzierte Spieler, beschädigte Teilnehmerdaten, Namenssicherung, Cent-Summen, Zwei-Gewinner-Berechnung und Statistik, alte Einträge, ungültige Parteien, fehlgeschlagene/doppelte Tischwechsel, veraltete Backups, nicht lesbare Daten, Archiv nach Neuladen und getrennte Archivzahlungen.
 
-No browser or real-device success is claimed. Local Playwright could not launch because Chromium was absent; downloading Chromium failed with an invalid/truncated archive.
+Der Browserdurchlauf bedient beide Oberflächen durch UI-Klicks: acht Spieler mit langen Namen, zwölf moderne Runden, Bearbeitung derselben Runde, zwei Gewinner, Abschluss, simulierter Speicherfehler mit blockiertem Wechsel, erfolgreicher Wechsel und Neuladen, Archiv und isolierte Archivzahlung. Offline werden Rufspiel-Erfassung/Bearbeitung, gesperrtes Löschen, Abschluss und Historie geprüft. Breiten 360/390/430 bei Höhe 568 haben keine horizontale Dokumentüberbreite. Zusätzlich geprüft: 200 % Schrift im Dialog/Archiv und reduzierte Höhe 390 × 360.
 
-1. At widths 360, 390 and 430, including 390 × 568, scroll the offline overview from top to bottom. Reach undo, edit, delete and close actions with populated balances, payouts and games. Repeat closing screen with many players.
-2. Try deleting winner and loser of an offline game: deletion is unavailable, names and payouts remain correct after reload. An unused player remains deletable.
-3. Enter a Sauspiel in each UI: A/B win, C/D lose, total €10 → +€5/+€5/−€5/−€5. Reverse parties and inspect history, statistics and settlement. One-winner Rufspiel must not save. Old entries must keep their recorded amounts.
-4. Finish a modern table with an unpaid settlement, start another, reload, then open archive from dashboard. Confirm old names/rounds/amounts/payment status. Mark an archived payment paid; confirm new-table balances/payment status do not change.
-5. Inspect dashboard/statistics with empty and populated local data. No sample numbers or invented personal attribution. Dashboard settlement action opens the actual settlement screen. A running table cannot have payments marked paid.
-6. On iOS/Android, test persistence, background/foreground, keyboard opening/closing and reachability of the round save action. Browser emulation does not establish native keyboard correctness.
+## Screenshots
 
-Archives are stored locally on the device, using the existing persistence approach. This change does not implement cross-device/cloud archive synchronization; the repository's existing sync services remain stubs.
+- [Betrag und Cent-Anteile](acceptance-2026-10-25/party-preview-390x568.png)
+- [Bearbeitung mit 200 % Schrift](acceptance-2026-10-25/modern-input-text-200-percent.png)
+- [Verlauf unten bei 390 × 568](acceptance-2026-10-25/modern-history-bottom-390x568.png)
+- [Löschsperre mit Erklärung](acceptance-2026-10-25/offline-referenced-player-delete-blocked.png)
+- [Speicherfehler verhindert Wechsel](acceptance-2026-10-25/storage-failure-prevents-switch.png)
+- [Archiv nach Neuladen](acceptance-2026-10-25/archive-restored-after-reload.png)
+- [Archiv mit 200 % Schrift](acceptance-2026-10-25/archive-text-200-percent.png)
+- [Beide Gewinner in der Historie](acceptance-2026-10-25/offline-history-both-winners.png)
+
+Vorher-Belege stehen im [ursprünglichen Audit](AUDIT.md).
+
+## Wiederholen und offene Abnahme
+
+[Automatisierter Ablauf](../../scripts/mobile-acceptance.cjs): installiertes Microsoft Edge mit `playwright-core` 1.64.1, kein Chromium-Download. Frische isolierte Browserumgebung mit synthetischer lokaler Testsitzung; alle externen Anfragen sind blockiert. Echter Login und Cloud-Speicherung sind damit nicht geprüft.
+
+Mit installierten Projektabhängigkeiten ausschließlich im Test-Checkout `.env.local` mit `EXPO_PUBLIC_SUPABASE_URL=https://audit.invalid` und `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_local_audit_only` anlegen. `node node_modules/expo/bin/cli start --web --port 8083 --localhost` starten. In einer zweiten PowerShell `PLAYWRIGHT_CORE` auf den absoluten Pfad einer installierten `playwright-core`-Bibliothek setzen und `node scripts/mobile-acceptance.cjs` ausführen. Optional überschreiben `MOBILE_TEST_URL` und `MOBILE_BROWSER_PATH` Adresse und Browserpfad. Es werden ausschließlich eigene lokale Testdaten verwendet.
+
+**Noch offen:** echte iOS-/Android-Abnahme mit Bildschirmtastatur, System-Schriftvergrößerung, Hintergrund/Vordergrund und Neustart des nativen Prozesses. Hier waren weder Android-Emulator noch `adb` verfügbar. Reduzierte Browserhöhe und CSS-Schriftvergrößerung simulieren Platzbedarf, keine native Tastatur oder Systemskalierung. Daher wird keine vollständige native Abnahme behauptet.
+
+Kein Merge, keine Produktionsbereitstellung und keine Änderung an der produktiven Datenbank.

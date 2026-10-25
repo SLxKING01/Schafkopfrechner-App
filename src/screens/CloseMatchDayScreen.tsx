@@ -16,6 +16,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { calculateBalances } from '../utils/calculateBalances';
 import { calculateSettlements } from '../utils/calculateSettlements';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
 
 type CloseMatchDayScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -44,12 +45,13 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
   );
   const settlements = useMemo(() => calculateSettlements(balances), [balances]);
   const playerNameById = useMemo(
-    () => new Map(players.map((player) => [player.id, player.name])),
-    [players],
+    () => historicalNames(players, games),
+    [players, games],
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Entfernter Spieler',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 

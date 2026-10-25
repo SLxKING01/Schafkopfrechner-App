@@ -4,6 +4,7 @@ export type Game = {
   id: string;
   winnerId: string;
   winnerIds?: string[];
+  participantNames?: Record<string, string>;
   loserIds: string[];
   amount: number;
   createdAt: string;

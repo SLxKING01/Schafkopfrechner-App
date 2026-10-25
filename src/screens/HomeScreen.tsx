@@ -24,6 +24,7 @@ import { calculateBaseAmount } from '../utils/calculateBaseAmount';
 import { formatGameAmountSummary } from '../utils/calculateGameAmount';
 import { calculateSettlements } from '../utils/calculateSettlements';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
 import { winningIds } from '../utils/winningParty';
 
 type HomeNavigationProp = CompositeNavigationProp<
@@ -52,12 +53,13 @@ export function HomeScreen() {
   );
   const settlements = useMemo(() => calculateSettlements(balances), [balances]);
   const playerNameById = useMemo(
-    () => new Map(players.map((player) => [player.id, player.name])),
-    [players],
+    () => historicalNames(players, games),
+    [players, games],
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Entfernter Spieler',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 
@@ -164,7 +166,7 @@ export function HomeScreen() {
       />
 
       <AppSection title="Salden">
-        {players.length === 0 ? (
+        {balances.length === 0 ? (
           <EmptyState
             title="Noch keine Spieler"
             message="Lege zuerst Spieler an, damit Salden berechnet werden können."

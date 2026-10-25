@@ -17,9 +17,17 @@ export function TableArchiveScreen({
       <ScrollView
         contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 120 }}
       >
-        <AppText variant="title">Tischarchiv</AppText>
+        <AppText variant="title" style={{ color: '#F5F5F5' }}>
+          Tischarchiv
+        </AppText>
+        <AppText style={{ color: '#F5F5F5' }}>
+          Lokal auf diesem Geraet - keine Cloud-Sicherung.
+        </AppText>
         {archive.length === 0 ? (
-          <AppText>Noch keine archivierten Tische.</AppText>
+          <AppText style={{ color: '#F5F5F5' }}>
+            Noch keine archivierten Tische. Archive werden nur lokal auf diesem
+            Geraet gespeichert.
+          </AppText>
         ) : (
           [...archive].reverse().map((entry) => (
             <AppCard key={entry.currentTable.id}>
@@ -31,8 +39,8 @@ export function TableArchiveScreen({
               {entry.balances.map((balance) => (
                 <AppText key={balance.playerId}>
                   {entry.players.find((p) => p.id === balance.playerId)?.name ??
-                    'Entfernter Spieler'}
-                  : {balance.amount.toFixed(2)} €
+                    'Name unbekannt'}
+                  : {balance.amount.toFixed(2).replace('.', ',')} €
                 </AppText>
               ))}
               {entry.rounds.map((round) => (
@@ -42,10 +50,10 @@ export function TableArchiveScreen({
                     .map(
                       (id) =>
                         entry.players.find((p) => p.id === id)?.name ??
-                        'Entfernter Spieler',
+                        'Name unbekannt',
                     )
                     .join(' & ')}{' '}
-                  · {round.amount.toFixed(2)} €
+                  · {round.amount.toFixed(2).replace('.', ',')} €
                 </AppText>
               ))}
               <GoldButton

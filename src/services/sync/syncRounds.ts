@@ -14,5 +14,10 @@ export async function syncRounds(rounds: GameRound[]): Promise<SyncResult> {
   }
 
   // TODO: insert unsynced rounds and mark local events as acknowledged.
-  return { ok: true, syncedAt: new Date().toISOString(), queued: false };
+  return {
+    ok: false,
+    syncedAt: null,
+    queued: true,
+    message: 'Cloud-Synchronisierung ist in diesem Stand nicht eingerichtet.',
+  };
 }

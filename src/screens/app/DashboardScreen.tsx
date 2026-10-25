@@ -5,9 +5,8 @@ import {
   Handshake,
   PlusCircle,
   ReceiptText,
-  UserPlus,
 } from 'lucide-react-native';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
@@ -47,13 +46,6 @@ export function DashboardScreen() {
     typeof user?.user_metadata.username === 'string'
       ? user.user_metadata.username
       : 'Spieler';
-
-  function showPrepared() {
-    Alert.alert(
-      'Vorbereitet',
-      'Diese Aktion wird im nächsten Schritt mit echten Supabase Daten verbunden.',
-    );
-  }
 
   return (
     <AuthBackground>
@@ -115,10 +107,10 @@ export function DashboardScreen() {
             }
           />
           <QuickActionCard
-            icon={UserPlus}
-            title="Freunde einladen"
-            subtitle="Lobby vorbereiten"
-            onPress={showPrepared}
+            icon={ReceiptText}
+            title="Tischarchiv"
+            subtitle="Fruehere Tische ansehen"
+            onPress={() => navigation.navigate('TableArchive')}
           />
           <QuickActionCard
             icon={ReceiptText}
