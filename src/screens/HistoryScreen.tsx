@@ -13,6 +13,7 @@ import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
+import { historicalNames } from '../utils/historicalNames';
 
 type HistoryNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -25,13 +26,15 @@ export function HistoryScreen() {
   );
   const closedMatchDays = getClosedMatchDays();
   const playerNameById = useMemo(
-    () => new Map(players.map((player) => [player.id, player.name])),
-    [players],
+    () => historicalNames(players, games),
+    [players, games],
   );
 
   const getPlayerName = useCallback(
     (id?: string) =>
-      id ? (playerNameById.get(id) ?? 'Keine Spiele') : 'Keine Spiele',
+      id
+        ? (playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`)
+        : 'Keine Spiele',
     [playerNameById],
   );
 

@@ -30,7 +30,11 @@ export const PlayerChip = memo(function PlayerChip({
   onRemove,
 }: PlayerChipProps) {
   return (
-    <Animated.View entering={FadeIn.duration(220)} layout={Layout.springify()}>
+    <Animated.View
+      style={{ maxWidth: '100%' }}
+      entering={FadeIn.duration(220)}
+      layout={Layout.springify()}
+    >
       <Pressable
         accessibilityHint={accessibilityHint}
         accessibilityLabel={accessibilityLabel ?? name}
@@ -64,6 +68,7 @@ export const PlayerChip = memo(function PlayerChip({
 
 const styles = StyleSheet.create({
   chip: {
+    maxWidth: '100%',
     alignItems: 'center',
     backgroundColor: 'rgba(13, 27, 19, 0.76)',
     borderColor: authColors.borderSoft,
@@ -83,6 +88,7 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   text: {
+    flexShrink: 1,
     color: authColors.textSecondary,
     fontSize: authTypography.caption,
     fontWeight: '800',

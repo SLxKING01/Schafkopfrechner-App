@@ -28,6 +28,7 @@ import {
 import { createDefaultTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
+import { useStorageStatus } from '../../storage/durableGameStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
@@ -92,6 +93,8 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   const [focusedInput, setFocusedInput] = useState<'table' | 'player' | null>(
     null,
   );
+  const saving = useStorageStatus((state) => state.busy);
+  const storageError = useStorageStatus((state) => state.error);
   const createTable = useGameStore((state) => state.createTable);
 
   const canAddPlayer =
@@ -198,10 +201,11 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     );
   }
 
-  function startGame() {
-    const didCreate = createTable(tableName, players, tableSettings);
+  async function startGame() {
+    const didCreate = await createTable(tableName, players, tableSettings);
 
     if (!didCreate) {
+      if (useStorageStatus.getState().error) return;
       Alert.alert(
         'Tisch nicht bereit',
         'Bitte gib einen Tischnamen ein und füge mindestens zwei Spieler hinzu.',
@@ -227,8 +231,17 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
       <View style={styles.goldGlow} pointerEvents="none" />
       <View style={styles.greenGlow} pointerEvents="none" />
 
+      {storageError ? (
+        <AppText style={{ color: screenColors.gold }}>{storageError}</AppText>
+      ) : null}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : Platform.OS === 'android'
+              ? 'height'
+              : undefined
+        }
         style={styles.keyboardRoot}
       >
         <ScrollView
@@ -328,6 +341,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Spieler zum Tisch hinzufuegen"
                 disabled={!canAddPlayer}
                 onPress={addPlayer}
                 style={({ pressed }) => [
@@ -450,7 +464,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           <Pressable
             accessibilityLabel="Tisch erstellen"
             accessibilityRole="button"
-            disabled={!canCreateTable}
+            disabled={!canCreateTable || saving}
             onPress={startGame}
             style={({ pressed }) => [
               styles.floatingButton,

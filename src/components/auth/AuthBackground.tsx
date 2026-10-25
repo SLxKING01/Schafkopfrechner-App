@@ -32,7 +32,12 @@ export function AuthBackground({ children }: AuthBackgroundProps) {
           {'♦'}
         </AppText>
       </View>
-      <BlurView intensity={12} tint="dark" style={styles.blurWash} />
+      <BlurView
+        pointerEvents="none"
+        intensity={12}
+        tint="dark"
+        style={styles.blurWash}
+      />
       <SafeAreaView style={styles.safeArea}>{children}</SafeAreaView>
     </View>
   );
@@ -40,10 +45,12 @@ export function AuthBackground({ children }: AuthBackgroundProps) {
 
 const styles = StyleSheet.create({
   screen: {
+    overflow: 'hidden',
     backgroundColor: authColors.background,
     flex: 1,
   },
   safeArea: {
+    minWidth: 0,
     flex: 1,
   },
   vignette: {

@@ -26,18 +26,22 @@ export function SettlementCard({
         <AppText style={styles.title}>
           {from} zahlt {to}
         </AppText>
-        <AppText style={styles.subtitle}>PayPal / QR vorbereitet</AppText>
+        <AppText style={styles.subtitle}>Zahlung zwischen den Spielern</AppText>
       </View>
       <View style={styles.side}>
         <AppText style={styles.amount}>{amount}</AppText>
         <Pressable
           accessibilityRole="button"
-          disabled={isPaid}
+          disabled={isPaid || !onMarkPaid}
           onPress={onMarkPaid}
           style={[styles.button, isPaid && styles.buttonPaid]}
         >
           <AppText style={styles.buttonText}>
-            {isPaid ? 'Bezahlt' : 'Als bezahlt markieren'}
+            {isPaid
+              ? 'Bezahlt'
+              : !onMarkPaid
+                ? 'Spieltag läuft noch'
+                : 'Als bezahlt markieren'}
           </AppText>
         </Pressable>
       </View>
@@ -79,6 +83,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   button: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: authColors.gold,
     borderRadius: authRadius.pill,
     paddingHorizontal: authSpacing.md,

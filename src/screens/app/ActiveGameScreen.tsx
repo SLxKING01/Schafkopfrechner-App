@@ -27,6 +27,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -46,6 +47,7 @@ import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { GameTypeSelector } from '../../components/game/GameTypeSelector';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
 import { PlayerChip } from '../../components/game/PlayerChip';
+import { PartySummary } from '../../components/PartySummary';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import type { AppStackScreenProps } from '../../navigation/types';
@@ -61,6 +63,7 @@ import type {
   TableGameTypeId,
 } from '../../types/game';
 import type { AnimalAvatarId } from '../../types/profile';
+import { validParties, winningIds } from '../../utils/winningParty';
 
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 type ActiveTab = 'players' | 'history';
@@ -173,11 +176,15 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
   const players = useGameStore((state) => state.players);
   const rounds = useGameStore((state) => state.rounds);
   const balances = useGameStore((state) => state.balances);
+  const [editingRound, setEditingRound] = useState<GameRound | null>(null);
+  const updateRound = useGameStore((state) => state.updateRound);
+  const activeGame = useGameStore((state) => state.activeGame);
   const addRound = useGameStore((state) => state.addRound);
   const finishGameDay = useGameStore((state) => state.finishGameDay);
   const persistGame = useGameStore((state) => state.persistGame);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
+  const [partnerId, setPartnerId] = useState('');
   const [winnerId, setWinnerId] = useState('');
   const [loserIds, setLoserIds] = useState<string[]>([]);
   const [amount, setAmount] = useState('10');
@@ -235,16 +242,41 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     [placedCoinsByPlayerId],
   );
   const roundMultiplier = useMemo(
-    () => 2 ** placedCoinCount,
-    [placedCoinCount],
+    () => (editingRound ? 1 : 2 ** placedCoinCount),
+    [editingRound, placedCoinCount],
   );
   const isRoundDraftValid = useMemo(
     () =>
+      validParties(
+        {
+          winnerId,
+          winnerIds:
+            editingRound && !editingRound.winnerIds && !partnerId
+              ? undefined
+              : partnerId
+                ? [winnerId, partnerId]
+                : [winnerId],
+          loserIds,
+          amount: numericAmount * roundMultiplier,
+        },
+        players,
+        gameType,
+        editingRound ?? undefined,
+      ) &&
       Boolean(winnerId) &&
       loserIds.length > 0 &&
       Number.isFinite(numericAmount) &&
       numericAmount > 0,
-    [loserIds.length, numericAmount, winnerId],
+    [
+      editingRound,
+      gameType,
+      loserIds,
+      numericAmount,
+      partnerId,
+      players,
+      roundMultiplier,
+      winnerId,
+    ],
   );
   const playerNameById = useMemo(
     () => new Map(players.map((player) => [player.id, player.name])),
@@ -259,23 +291,40 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
 
   useEffect(() => {
     if (
+      !editingRound &&
       enabledGameTypes.length > 0 &&
       !enabledGameTypes.includes(gameType as TableGameTypeId)
     ) {
       setGameType(enabledGameTypes[0]);
     }
-  }, [enabledGameTypes, gameType]);
+  }, [editingRound, enabledGameTypes, gameType]);
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 
   const renderHistoryRound: ListRenderItem<GameRound> = useCallback(
     ({ item }) => (
-      <HistoryRoundRow round={item} getPlayerName={getPlayerName} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Runde bearbeiten ${formatGameType(item.gameType)}`}
+        disabled={!activeGame}
+        onPress={() => {
+          setEditingRound(item);
+          setWinnerId(item.winnerId);
+          setPartnerId(item.winnerIds?.[1] ?? '');
+          setLoserIds(item.loserIds);
+          setGameType(item.gameType);
+          setAmount(String(item.amount));
+          setRoundComposerVisible(true);
+        }}
+      >
+        <HistoryRoundRow round={item} getPlayerName={getPlayerName} />
+      </Pressable>
     ),
-    [getPlayerName],
+    [activeGame, getPlayerName],
   );
 
   const keyExtractorRound = useCallback((round: GameRound) => round.id, []);
@@ -302,7 +351,9 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
   }, [activeTab]);
 
   const resetRoundDraft = useCallback(() => {
+    setEditingRound(null);
     setWinnerId('');
+    setPartnerId('');
     setLoserIds([]);
     setAmount('10');
     setGameType(enabledGameTypes[0] ?? 'rufspiel');
@@ -335,7 +386,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     (id: string) => {
       triggerSelectionHaptic();
       setLoserIds((currentLosers) => {
-        if (id === winnerId) {
+        if (id === winnerId || id === partnerId) {
           return currentLosers;
         }
 
@@ -344,12 +395,13 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           : [...currentLosers, id];
       });
     },
-    [winnerId],
+    [winnerId, partnerId],
   );
 
   const changeGameType = useCallback((nextGameType: GameType) => {
     triggerSelectionHaptic();
     setGameType(nextGameType);
+    setPartnerId('');
   }, []);
 
   const saveRound = useCallback(() => {
@@ -359,18 +411,27 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       return;
     }
 
-    const didAdd = addRound({
+    const payload = {
       winnerId,
+      winnerIds:
+        editingRound && !editingRound.winnerIds && !partnerId
+          ? undefined
+          : partnerId
+            ? [winnerId, partnerId]
+            : [winnerId],
       loserIds,
       amount: numericAmount * roundMultiplier,
       gameType,
-    });
+    };
+    const didAdd = editingRound
+      ? updateRound(editingRound.id, payload)
+      : addRound(payload);
 
     if (!didAdd) {
       triggerWarningHaptic();
       Alert.alert(
         'Runde unvollständig',
-        'Bitte Gewinner, mindestens einen Verlierer und Betrag > 0 wählen.',
+        'Bitte Parteien und Betrag prüfen. Rufspiel benötigt zwei Gewinner und zwei Verlierer.',
       );
       return;
     }
@@ -381,10 +442,13 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     setRoundComposerVisible(false);
   }, [
     addRound,
+    editingRound,
+    updateRound,
     gameType,
     isRoundDraftValid,
     loserIds,
     numericAmount,
+    partnerId,
     resetPlacedCoins,
     resetRoundDraft,
     roundMultiplier,
@@ -432,13 +496,17 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     });
   }, [navigation, persistGame]);
 
-  const selectWinner = useCallback((playerId: string) => {
-    triggerSelectionHaptic();
-    setWinnerId(playerId);
-    setLoserIds((currentLosers) =>
-      currentLosers.filter((loserId) => loserId !== playerId),
-    );
-  }, []);
+  const selectWinner = useCallback(
+    (playerId: string) => {
+      if (playerId === partnerId) setPartnerId('');
+      triggerSelectionHaptic();
+      setWinnerId(playerId);
+      setLoserIds((currentLosers) =>
+        currentLosers.filter((loserId) => loserId !== playerId),
+      );
+    },
+    [partnerId],
+  );
 
   const togglePlacedCoin = useCallback((playerId: string) => {
     triggerSelectionHaptic();
@@ -718,12 +786,18 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       </Pressable>
 
       <RoundComposerModal
+        editing={Boolean(editingRound)}
         amount={amount}
         enabledGameTypes={enabledGameTypes}
         gameType={gameType}
         loserIds={loserIds}
         players={players}
         visible={roundComposerVisible}
+        partnerId={partnerId}
+        onSelectPartner={(id) => {
+          setPartnerId(id);
+          setLoserIds((ids) => ids.filter((candidate) => candidate !== id));
+        }}
         winnerId={winnerId}
         onAmountChange={setAmount}
         onClose={closeRoundComposer}
@@ -1258,8 +1332,8 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
     [round.createdAt],
   );
   const winner = useMemo(
-    () => getPlayerName(round.winnerId),
-    [getPlayerName, round.winnerId],
+    () => winningIds(round).map(getPlayerName).join(' & '),
+    [getPlayerName, round],
   );
 
   return (
@@ -1313,6 +1387,7 @@ const RoundPlayerChip = memo(function RoundPlayerChip({
 });
 
 type RoundComposerModalProps = {
+  editing: boolean;
   amount: string;
   enabledGameTypes: GameType[];
   gameType: GameType;
@@ -1321,6 +1396,8 @@ type RoundComposerModalProps = {
   roundMultiplier: number;
   saveDisabled: boolean;
   visible: boolean;
+  partnerId: string;
+  onSelectPartner: (id: string) => void;
   winnerId: string;
   onAmountChange: (amount: string) => void;
   onClose: () => void;
@@ -1331,6 +1408,7 @@ type RoundComposerModalProps = {
 };
 
 const RoundComposerModal = memo(function RoundComposerModal({
+  editing,
   amount,
   enabledGameTypes,
   gameType,
@@ -1340,6 +1418,8 @@ const RoundComposerModal = memo(function RoundComposerModal({
   saveDisabled,
   visible,
   winnerId,
+  partnerId,
+  onSelectPartner,
   onAmountChange,
   onClose,
   onGameTypeChange,
@@ -1347,6 +1427,7 @@ const RoundComposerModal = memo(function RoundComposerModal({
   onSelectWinner,
   onToggleLoser,
 }: RoundComposerModalProps) {
+  const { width, height } = useWindowDimensions();
   const loserIdSet = useMemo(() => new Set(loserIds), [loserIds]);
 
   return (
@@ -1359,8 +1440,22 @@ const RoundComposerModal = memo(function RoundComposerModal({
       visible={visible}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalRoot}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : Platform.OS === 'android'
+              ? 'height'
+              : undefined
+        }
+        style={[
+          styles.modalRoot,
+          Platform.OS === 'web' && {
+            width,
+            height,
+            maxWidth: width,
+            maxHeight: height,
+          },
+        ]}
       >
         <Pressable
           accessibilityHint="Verwirft die aktuelle Rundeneingabe"
@@ -1377,9 +1472,11 @@ const RoundComposerModal = memo(function RoundComposerModal({
           style={styles.sheet}
         >
           <View style={styles.sheetHeader}>
-            <View>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <AppText style={styles.sheetKicker}>Neue Runde</AppText>
-              <AppText style={styles.sheetTitle}>Spiel erfassen</AppText>
+              <AppText style={styles.sheetTitle}>
+                {editing ? 'Spiel bearbeiten' : 'Spiel erfassen'}
+              </AppText>
             </View>
             <Pressable
               accessibilityHint="Verwirft die aktuelle Rundeneingabe"
@@ -1397,6 +1494,7 @@ const RoundComposerModal = memo(function RoundComposerModal({
           </View>
 
           <ScrollView
+            style={{ flexShrink: 1, minHeight: 0 }}
             contentContainerStyle={styles.sheetContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -1415,12 +1513,35 @@ const RoundComposerModal = memo(function RoundComposerModal({
               ))}
             </View>
 
+            {['rufspiel', 'sauspiel'].includes(gameType) ? (
+              <>
+                <AppText style={styles.label}>
+                  Zweiter Gewinner (Gewinnerpartei)
+                </AppText>
+                <View style={styles.chipWrap}>
+                  {players.map((player) => (
+                    <RoundPlayerChip
+                      key={player.id}
+                      name={player.name}
+                      playerId={player.id}
+                      selected={partnerId === player.id}
+                      disabled={player.id === winnerId}
+                      type="winner"
+                      onPressPlayer={onSelectPartner}
+                    />
+                  ))}
+                </View>
+                <AppText style={styles.label}>
+                  Zwei Gewinner und zwei Verlierer wählen.
+                </AppText>
+              </>
+            ) : null}
             <AppText style={styles.label}>Verlierer</AppText>
             <View style={styles.chipWrap}>
               {players.map((player) => (
                 <RoundPlayerChip
                   key={player.id}
-                  disabled={player.id === winnerId}
+                  disabled={player.id === winnerId || player.id === partnerId}
                   name={player.name}
                   playerId={player.id}
                   selected={loserIdSet.has(player.id)}
@@ -1437,9 +1558,9 @@ const RoundComposerModal = memo(function RoundComposerModal({
               onSelect={onGameTypeChange}
             />
 
-            <AppText style={styles.label}>Betrag</AppText>
+            <AppText style={styles.label}>Gesamtbetrag der Runde</AppText>
             <TextInput
-              accessibilityHint="Gib den Einsatzbetrag für diese Runde ein"
+              accessibilityHint="Gesamtbetrag, den die Verlierer gemeinsam an die Gewinner zahlen"
               accessibilityLabel="Betrag"
               keyboardAppearance="dark"
               keyboardType="decimal-pad"
@@ -1456,6 +1577,13 @@ const RoundComposerModal = memo(function RoundComposerModal({
               </AppText>
             </View>
 
+            <PartySummary
+              textColor={screenColors.text}
+              players={players}
+              winnerIds={partnerId ? [winnerId, partnerId] : [winnerId]}
+              loserIds={[...loserIds].sort()}
+              amount={Number(amount.replace(',', '.')) * roundMultiplier}
+            />
             <GoldButton
               accessibilityHint="Speichert die Runde, sobald Gewinner, Verlierer und Betrag gültig sind"
               accessibilityLabel="Runde speichern"
@@ -2039,6 +2167,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   sheet: {
+    width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     backgroundColor: '#142A20',
     borderColor: 'rgba(231, 198, 92, 0.18)',
     borderTopLeftRadius: 32,
@@ -2057,6 +2188,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 12,
   },
   sheetKicker: {
     color: screenColors.gold,
@@ -2072,6 +2204,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   closeButton: {
+    flexShrink: 0,
     alignItems: 'center',
     backgroundColor: 'rgba(245, 245, 245, 0.07)',
     borderRadius: authRadius.pill,

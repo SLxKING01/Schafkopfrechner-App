@@ -16,5 +16,10 @@ export async function syncSettlements(
   }
 
   // TODO: upsert settlement payment states into Supabase.
-  return { ok: true, syncedAt: new Date().toISOString(), queued: false };
+  return {
+    ok: false,
+    syncedAt: null,
+    queued: true,
+    message: 'Cloud-Synchronisierung ist in diesem Stand nicht eingerichtet.',
+  };
 }

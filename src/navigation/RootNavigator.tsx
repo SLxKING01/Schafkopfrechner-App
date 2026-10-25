@@ -4,9 +4,11 @@ import {
   type NativeStackNavigationOptions,
 } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { AppLoadingScreen } from '../components/AppLoadingScreen';
+import { StorageNotice } from '../components/StorageNotice';
 import { useRealtimeTable } from '../hooks/useRealtimeTable';
 import { useRestoreGame } from '../hooks/useRestoreGame';
 import { useStoresHydrated } from '../hooks/useStoresHydrated';
@@ -14,6 +16,7 @@ import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
+import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
 import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
@@ -121,6 +124,11 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <AppStack.Screen
+        name="TableArchive"
+        component={TableArchiveScreen}
+        options={{ title: 'Tischarchiv' }}
+      />
+      <AppStack.Screen
         name="Settlement"
         component={SettlementScreen}
         options={{ headerShown: false }}
@@ -131,7 +139,7 @@ function AppStackNavigator() {
 
 export function RootNavigator() {
   const storesHydrated = useStoresHydrated();
-  const gameRestore = useRestoreGame();
+  const gameRestore = useRestoreGame(storesHydrated);
   const authInitialized = useAuthStore((state) => state.initialized);
   const authLoading = useAuthStore((state) => state.loading);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -162,11 +170,17 @@ export function RootNavigator() {
     !authInitialized ||
     authLoading
   ) {
-    return <AppLoadingScreen />;
+    return (
+      <View style={{ flex: 1 }}>
+        <StorageNotice />
+        <AppLoadingScreen />
+      </View>
+    );
   }
 
   return (
     <AppErrorBoundary>
+      <StorageNotice />
       <NavigationContainer>
         <Stack.Navigator screenOptions={rootStackScreenOptions}>
           <Stack.Screen

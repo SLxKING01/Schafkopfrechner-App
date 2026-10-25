@@ -5,12 +5,12 @@ import {
   Handshake,
   PlusCircle,
   ReceiptText,
-  UserPlus,
 } from 'lucide-react-native';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { GoldButton } from '../../components/auth/GoldButton';
 import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
 import { OpenSettlementCard } from '../../components/dashboard/OpenSettlementCard';
 import { QuickActionCard } from '../../components/dashboard/QuickActionCard';
@@ -25,34 +25,6 @@ import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 
-const recentGames = [
-  {
-    gameType: 'Sauspiel',
-    date: 'Heute',
-    amount: '18,00 €',
-    players: 4,
-    result: 'win' as const,
-  },
-  {
-    gameType: 'Wenz',
-    date: 'Gestern',
-    amount: '12,00 €',
-    players: 4,
-    result: 'loss' as const,
-  },
-  {
-    gameType: 'Solo',
-    date: 'Samstag',
-    amount: '42,00 €',
-    players: 5,
-    result: 'win' as const,
-  },
-];
-
-const settlements = [
-  { from: 'Max', to: 'Simon', amount: '10,00 €' },
-  { from: 'Lukas', to: 'Anna', amount: '6,50 €' },
-];
 type DashboardNavigationProp = NativeStackNavigationProp<AppStackParamList>;
 
 export function DashboardScreen() {
@@ -63,17 +35,17 @@ export function DashboardScreen() {
   const syncing = useGameStore((state) => state.syncing);
   const isOffline = useGameStore((state) => state.isOffline);
   const lastSyncedAt = useGameStore((state) => state.lastSyncedAt);
+  const rounds = useGameStore((state) => state.rounds);
+  const players = useGameStore((state) => state.players);
+  const tableSettlements = useGameStore((state) => state.settlements);
+  const settlements = tableSettlements.filter((entry) => !entry.isPaid);
+  const recentGames = [...rounds].reverse().slice(0, 3);
+  const formatAmount = (amount: number) =>
+    `${amount.toFixed(2).replace('.', ',')} €`;
   const username =
     typeof user?.user_metadata.username === 'string'
       ? user.user_metadata.username
-      : 'Simon';
-
-  function showPrepared() {
-    Alert.alert(
-      'Vorbereitet',
-      'Diese Aktion wird im nächsten Schritt mit echten Supabase Daten verbunden.',
-    );
-  }
+      : 'Spieler';
 
   return (
     <AuthBackground>
@@ -90,13 +62,24 @@ export function DashboardScreen() {
 
         <Animated.View entering={FadeInDown.duration(520).delay(80)}>
           <StatsCard
-            title="Dein Spieltag"
-            subtitle="Premium Überblick für die Runde"
+            title="Aktueller Tisch"
+            subtitle={currentTable?.name ?? 'Noch kein Tisch gestartet'}
             stats={[
-              { label: 'Gespielte Runden', value: '24' },
-              { label: 'Gewinnrate', value: '62 %', tone: 'green' },
-              { label: 'Offen', value: '16,50 €', tone: 'gold' },
-              { label: 'Heute', value: '+28 €', tone: 'green' },
+              { label: 'Gespielte Runden', value: `${rounds.length}` },
+              { label: 'Spieler', value: `${players.length}` },
+              {
+                label: 'Offen',
+                value: formatAmount(
+                  settlements.reduce((sum, entry) => sum + entry.amount, 0),
+                ),
+                tone: 'gold',
+              },
+              {
+                label: 'Umsatz',
+                value: formatAmount(
+                  rounds.reduce((sum, round) => sum + round.amount, 0),
+                ),
+              },
             ]}
           />
         </Animated.View>
@@ -124,27 +107,51 @@ export function DashboardScreen() {
             }
           />
           <QuickActionCard
-            icon={UserPlus}
-            title="Freunde einladen"
-            subtitle="Lobby vorbereiten"
-            onPress={showPrepared}
+            icon={ReceiptText}
+            title="Tischarchiv"
+            subtitle="Fruehere Tische ansehen"
+            onPress={() => navigation.navigate('TableArchive')}
           />
           <QuickActionCard
             icon={ReceiptText}
             title="Abrechnung"
             subtitle="Zahlungen klären"
-            onPress={showPrepared}
+            onPress={() =>
+              currentTable
+                ? navigation.navigate('Settlement')
+                : navigation.navigate('TableArchive')
+            }
           />
         </View>
 
-        <SectionHeader title="Letzte Spiele" action="Alle anzeigen" />
+        <GoldButton
+          title="Tischarchiv öffnen"
+          onPress={() => navigation.navigate('TableArchive')}
+        />
+        <SectionHeader title="Letzte Spiele am Tisch" />
         <View style={styles.stack}>
-          {recentGames.map((game) => (
-            <RecentGameCard key={`${game.gameType}-${game.date}`} {...game} />
-          ))}
+          {recentGames.length === 0 ? (
+            <AppText>Noch keine Spiele erfasst.</AppText>
+          ) : (
+            recentGames.map((game) => (
+              <RecentGameCard
+                key={game.id}
+                gameType={game.gameType}
+                date={new Date(game.createdAt).toLocaleDateString('de-DE')}
+                amount={formatAmount(game.amount)}
+                players={
+                  new Set([
+                    ...(game.winnerIds ?? [game.winnerId]),
+                    ...game.loserIds,
+                  ]).size
+                }
+                result="neutral"
+              />
+            ))
+          )}
         </View>
 
-        <SectionHeader title="Offene Zahlungen" action="PayPal bereit" />
+        <SectionHeader title="Offene Zahlungen am Tisch" />
         <View style={styles.stack}>
           {settlements.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -157,9 +164,18 @@ export function DashboardScreen() {
           ) : (
             settlements.map((settlement) => (
               <OpenSettlementCard
-                key={`${settlement.from}-${settlement.to}`}
-                {...settlement}
-                onPayPress={showPrepared}
+                key={settlement.id}
+                from={
+                  players.find(
+                    (player) => player.id === settlement.fromPlayerId,
+                  )?.name ?? 'Entfernter Spieler'
+                }
+                to={
+                  players.find((player) => player.id === settlement.toPlayerId)
+                    ?.name ?? 'Entfernter Spieler'
+                }
+                amount={formatAmount(settlement.amount)}
+                onPayPress={() => navigation.navigate('Settlement')}
               />
             ))
           )}

@@ -2,16 +2,17 @@ import { useEffect } from 'react';
 
 import { useGameStore } from '../store/gameStore';
 
-export function useRestoreGame() {
+export function useRestoreGame(storesHydrated = true) {
   const hydrated = useGameStore((state) => state.hydrated);
   const hydrateGame = useGameStore((state) => state.hydrateGame);
   const syncNow = useGameStore((state) => state.syncNow);
 
   useEffect(() => {
+    if (!storesHydrated) return;
     void hydrateGame().then(() => {
-      void syncNow();
+      if (useGameStore.getState().hydrated) void syncNow();
     });
-  }, [hydrateGame, syncNow]);
+  }, [hydrateGame, syncNow, storesHydrated]);
 
   useEffect(() => {
     if (!hydrated) {
@@ -20,6 +21,7 @@ export function useRestoreGame() {
 
     return useGameStore.subscribe((state, previousState) => {
       const gameStateChanged =
+        state.archivedTables !== previousState.archivedTables ||
         state.currentTable !== previousState.currentTable ||
         state.players !== previousState.players ||
         state.rounds !== previousState.rounds ||

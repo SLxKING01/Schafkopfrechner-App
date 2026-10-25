@@ -5,23 +5,29 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { SectionHeader } from '../../components/dashboard/SectionHeader';
 import { AppText } from '../../components/ui/AppText';
+import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
-
-const stats = [
-  { label: 'Gesamtspiele', value: '128', icon: Trophy, progress: 0.82 },
-  { label: 'Gewinnrate', value: '61,4 %', icon: TrendingUp, progress: 0.61 },
-  { label: 'Bestes Spiel', value: 'Solo', icon: Crown, progress: 0.74 },
-  {
-    label: 'Ø Gewinn',
-    value: '+7,80 €',
-    icon: BarChart3,
-    progress: 0.68,
-  },
-];
+import { winningIds } from '../../utils/winningParty';
 
 export function StatisticsScreen() {
+  const players = useGameStore((state) => state.players);
+  const rounds = useGameStore((state) => state.rounds);
+  const archive = useGameStore((state) => state.archivedTables);
+  const allRounds = [...archive.flatMap((entry) => entry.rounds), ...rounds];
+  const total = allRounds.reduce((sum, round) => sum + round.amount, 0);
+  const format = (amount: number) => `${amount.toFixed(2).replace('.', ',')} €`;
+  const stats = [
+    { label: 'Erfasste Runden', value: `${allRounds.length}`, icon: Trophy },
+    {
+      label: 'Aktueller Tisch',
+      value: `${rounds.length} Runden`,
+      icon: TrendingUp,
+    },
+    { label: 'Archivierte Tische', value: `${archive.length}`, icon: Crown },
+    { label: 'Gesamtumsatz', value: format(total), icon: BarChart3 },
+  ];
   return (
     <AuthBackground>
       <ScrollView
@@ -29,9 +35,9 @@ export function StatisticsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <AppText style={styles.kicker}>Statistik</AppText>
-        <AppText style={styles.title}>Deine Performance</AppText>
+        <AppText style={styles.title}>Spielübersicht</AppText>
         <AppText style={styles.subtitle}>
-          Verdichtete Spielanalyse für schnelle Entscheidungen am Tisch.
+          Aus den auf diesem Gerät gespeicherten Tischen und Runden.
         </AppText>
 
         <View style={styles.grid}>
@@ -47,32 +53,34 @@ export function StatisticsScreen() {
                 <Icon color={authColors.goldHighlight} size={22} />
                 <AppText style={styles.cardValue}>{stat.value}</AppText>
                 <AppText style={styles.cardLabel}>{stat.label}</AppText>
-                <View style={styles.progressTrack}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${stat.progress * 100}%` },
-                    ]}
-                  />
-                </View>
               </Animated.View>
             );
           })}
         </View>
 
-        <SectionHeader title="Letzte Performance" />
-        <View style={styles.chartCard}>
-          <View style={styles.chartBars}>
-            {[44, 72, 38, 84, 58, 92, 66].map((height, index) => (
-              <View key={`${height}-${index}`} style={styles.barTrack}>
-                <View style={[styles.barFill, { height }]} />
-              </View>
-            ))}
-          </View>
-          <AppText style={styles.chartCopy}>
-            Mini-Chart Platzhalter für echte Supabase Spielhistorie.
-          </AppText>
-        </View>
+        <SectionHeader title="Spieler am aktuellen Tisch" />
+        {players.map((player) => {
+          const wins = rounds.filter((round) =>
+            winningIds(round).includes(player.id),
+          ).length;
+          const losses = rounds.filter((round) =>
+            round.loserIds.includes(player.id),
+          ).length;
+          return (
+            <AppText
+              key={player.id}
+              style={{ color: authColors.textPrimary, marginTop: 12 }}
+            >
+              {player.name}: {wins} Siege / {losses} Niederlagen
+            </AppText>
+          );
+        })}
+        <SectionHeader title="Datenbasis" />
+        <AppText style={styles.chartCopy}>
+          {allRounds.length === 0
+            ? 'Noch keine Spiele erfasst.'
+            : 'Diese Übersicht enthält lokale Daten. Eine persönliche Gewinnrate wird erst angezeigt, wenn dein Profil eindeutig einem Spieler zugeordnet ist.'}
+        </AppText>
       </ScrollView>
     </AuthBackground>
   );
