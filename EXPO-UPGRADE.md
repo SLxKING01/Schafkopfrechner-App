@@ -131,9 +131,23 @@ Browserprüfung, Hermes-Bundle und Doctor ersetzen diese Abnahme nicht.
 ## Schutz der Daten und Grenzen
 
 Keine Änderung an Speicherformaten, Storage-Schlüsseln, Berechnungen, Archiven
-oder Spielregeln. Keine Produktionszugänge aus dem ursprünglichen Checkout
-übernommen. Für lokale Tests „Ohne Account spielen“ verwenden.
-Kein Merge, Deployment, EAS-Build oder produktiver Datenzugriff.
+oder Spielregeln. Für die anfänglichen Upgrade-Tests wurden keine Backend-Zugänge
+übernommen und ausschließlich lokale Testdaten verwendet.
+
+Nach dem gemeldeten Login-Problem wurden nur Supabase-URL und öffentlicher
+Publishable-/Anon-Schlüssel aus der vorhandenen ursprünglichen `.env.local`
+in die ignorierte `.env.local` des Test-Checkouts übernommen. Vorher wurde
+geprüft, dass es ein öffentlicher Client-Schlüssel ist; keine Service-/Secret-Keys,
+Passwörter oder Sitzungen wurden kopiert oder ausgegeben. Ein lesender Aufruf
+von `/auth/v1/settings` mit diesem Schlüssel antwortete mit HTTP 200.
+Metro wurde mit geleertem Cache neu gestartet. Der Benutzer muss seine Anmeldung
+selbst auf dem iPhone prüfen; der Agent hat keine Anmeldung ausgeführt und keine
+Produktionsdaten verändert.
+
+Die Login-Oberfläche meldet fehlende Konfiguration, Netzwerkprobleme,
+unbestätigte E-Mail-Adressen und Rate-Limits getrennt von falschen Zugangsdaten.
+TypeScript und ESLint für die Login-Oberfläche bestehen nach der Änderung.
+Kein Merge, Deployment oder EAS-Build.
 
 Ein erreichbares Metro-Manifest und erfolgreiche Tests belegen keinen erfolgreichen
 Start auf dem physischen iPhone. Die tatsächliche Expo-Go-Kompatibilitätsmeldung

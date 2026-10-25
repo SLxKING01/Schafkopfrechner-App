@@ -12,6 +12,7 @@ import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
 import { AppText } from '../components/ui/AppText';
+import { isSupabaseConfigured } from '../lib/supabase';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { login } from '../services/auth/login';
 import { useAuthStore } from '../store/authStore';
@@ -81,8 +82,15 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       return;
     }
 
+    if (!isSupabaseConfigured) {
+      setLoginError(
+        'Die Anmeldung ist noch nicht eingerichtet. Bitte vorerst ohne Account spielen.',
+      );
+      return;
+    }
+
     if (!email.trim() || !password) {
-      setLoginError(LOGIN_ERROR_MESSAGE);
+      setLoginError('Bitte E-Mail-Adresse und Passwort eingeben.');
       return;
     }
 
@@ -91,7 +99,17 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     setIsSubmitting(false);
 
     if (result.error || !result.session) {
-      setLoginError(LOGIN_ERROR_MESSAGE);
+      setLoginError(
+        result.error?.code === 'invalid_credentials'
+          ? LOGIN_ERROR_MESSAGE
+          : result.error?.code === 'email_not_confirmed'
+            ? 'Bitte bestätige zuerst deine E-Mail-Adresse.'
+            : result.error?.status === 429
+              ? 'Zu viele Anmeldeversuche. Bitte warte kurz und versuche es erneut.'
+              : result.error?.name === 'AuthRetryableFetchError'
+                ? 'Keine Verbindung zum Anmeldeserver. Bitte prüfe deine Internetverbindung.'
+                : 'Die Anmeldung ist momentan nicht möglich. Bitte versuche es später erneut.',
+      );
       return;
     }
 
