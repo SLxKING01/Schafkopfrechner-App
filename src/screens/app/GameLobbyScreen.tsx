@@ -1304,7 +1304,7 @@ const styles = StyleSheet.create({
     padding: authSpacing.xl,
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   dialogCard: {

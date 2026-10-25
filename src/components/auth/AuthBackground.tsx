@@ -54,13 +54,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   vignette: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderColor: 'rgba(0, 0, 0, 0.25)',
     borderWidth: 18,
   },
   patternLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   patternSuit: {
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-9deg' }],
   },
   blurWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.3,
   },
 });

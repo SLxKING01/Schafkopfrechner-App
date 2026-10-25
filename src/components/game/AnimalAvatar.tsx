@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
   },
   gradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   ear: {
     borderRadius: 999,

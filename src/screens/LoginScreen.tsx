@@ -55,17 +55,19 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
   useEffect(() => {
     if (!loginError) {
-      errorOpacity.value = withTiming(0, { duration: 120 });
-      errorTranslateX.value = withTiming(0, { duration: 120 });
+      errorOpacity.set(withTiming(0, { duration: 120 }));
+      errorTranslateX.set(withTiming(0, { duration: 120 }));
       return;
     }
 
-    errorOpacity.value = withTiming(1, { duration: 160 });
-    errorTranslateX.value = withSequence(
-      withTiming(-7, { duration: 45 }),
-      withTiming(7, { duration: 70 }),
-      withTiming(-4, { duration: 55 }),
-      withTiming(0, { duration: 55 }),
+    errorOpacity.set(withTiming(1, { duration: 160 }));
+    errorTranslateX.set(
+      withSequence(
+        withTiming(-7, { duration: 45 }),
+        withTiming(7, { duration: 70 }),
+        withTiming(-4, { duration: 55 }),
+        withTiming(0, { duration: 55 }),
+      ),
     );
   }, [errorOpacity, errorTranslateX, loginError]);
 

@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
   },
   blur: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   label: {
     fontSize: 11,

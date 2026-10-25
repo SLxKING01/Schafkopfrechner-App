@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backgroundPattern: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   patternSuit: {

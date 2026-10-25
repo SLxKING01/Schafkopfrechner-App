@@ -59,10 +59,10 @@ export function GoldButton({
             return;
           }
 
-          scale.value = withSpring(0.975, { damping: 18, stiffness: 280 });
+          scale.set(withSpring(0.975, { damping: 18, stiffness: 280 }));
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 18, stiffness: 280 });
+          scale.set(withSpring(1, { damping: 18, stiffness: 280 }));
         }}
       >
         <LinearGradient

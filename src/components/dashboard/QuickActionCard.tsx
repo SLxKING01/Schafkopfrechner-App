@@ -37,10 +37,10 @@ export function QuickActionCard({
         accessibilityRole="button"
         onPress={onPress}
         onPressIn={() => {
-          scale.value = withSpring(0.97, { damping: 18, stiffness: 260 });
+          scale.set(withSpring(0.97, { damping: 18, stiffness: 260 }));
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 18, stiffness: 260 });
+          scale.set(withSpring(1, { damping: 18, stiffness: 260 }));
         }}
         style={styles.card}
       >

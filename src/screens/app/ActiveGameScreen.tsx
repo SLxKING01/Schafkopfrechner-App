@@ -289,15 +289,14 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     }
   }, [roundComposerVisible]);
 
-  useEffect(() => {
-    if (
-      !editingRound &&
-      enabledGameTypes.length > 0 &&
-      !enabledGameTypes.includes(gameType as TableGameTypeId)
-    ) {
-      setGameType(enabledGameTypes[0]);
-    }
-  }, [editingRound, enabledGameTypes, gameType]);
+  // Table settings may disable a draft's type; normalize it before displaying the form.
+  if (
+    !editingRound &&
+    enabledGameTypes.length > 0 &&
+    !enabledGameTypes.includes(gameType as TableGameTypeId)
+  ) {
+    setGameType(enabledGameTypes[0]);
+  }
 
   const getPlayerName = useCallback(
     (id: string) =>
@@ -864,9 +863,11 @@ const SegmentedTabs = memo(function SegmentedTabs({
   }));
 
   useEffect(() => {
-    position.value = withTiming(activeTab === 'history' ? 1 : 0, {
-      duration: 220,
-    });
+    position.set(
+      withTiming(activeTab === 'history' ? 1 : 0, {
+        duration: 220,
+      }),
+    );
   }, [activeTab, position]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
@@ -1112,9 +1113,11 @@ const CoinMultiplierBadge = memo(function CoinMultiplierBadge({
   }));
 
   useEffect(() => {
-    scale.value = withSpring(1.08, { damping: 12, stiffness: 260 }, () => {
-      scale.value = withSpring(1, { damping: 14, stiffness: 220 });
-    });
+    scale.set(
+      withSpring(1.08, { damping: 12, stiffness: 260 }, () => {
+        scale.set(withSpring(1, { damping: 14, stiffness: 220 }));
+      }),
+    );
   }, [safeCoinCount, scale]);
 
   const coins = Array.from({ length: safeCoinCount });
@@ -2163,7 +2166,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   sheet: {

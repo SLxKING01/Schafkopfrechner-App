@@ -1,5 +1,5 @@
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -53,22 +53,23 @@ export function CreateGameScreen({ navigation, route }: CreateGameScreenProps) {
   );
   const isEditMode = Boolean(editGameId && editingGame);
   const hasInvalidEditGame = Boolean(editGameId && !editingGame);
+  const [previousEditingGame, setPreviousEditingGame] =
+    useState<typeof editingGame>();
 
-  useEffect(() => {
-    if (!editingGame) {
-      return;
+  // Update a newly selected record before rendering its form, without a second effect pass.
+  if (editingGame !== previousEditingGame) {
+    setPreviousEditingGame(editingGame);
+    if (editingGame) {
+      const editingOptions = normalizeGameOptions(editingGame.options);
+      setWinnerId(editingGame.winnerId);
+      setPartnerId(editingGame.winnerIds?.[1] ?? '');
+      setLoserIds(editingGame.loserIds);
+      setGameTypeId(editingGame.gameTypeId ?? DEFAULT_GAME_TYPE_ID);
+      setLaufende(editingOptions.laufende);
+      setSchneider(editingOptions.schneider);
+      setSchwarz(editingOptions.schwarz);
     }
-
-    const editingOptions = normalizeGameOptions(editingGame.options);
-
-    setWinnerId(editingGame.winnerId);
-    setPartnerId(editingGame.winnerIds?.[1] ?? '');
-    setLoserIds(editingGame.loserIds);
-    setGameTypeId(editingGame.gameTypeId ?? DEFAULT_GAME_TYPE_ID);
-    setLaufende(editingOptions.laufende);
-    setSchneider(editingOptions.schneider);
-    setSchwarz(editingOptions.schwarz);
-  }, [editingGame]);
+  }
 
   const options = {
     laufende,

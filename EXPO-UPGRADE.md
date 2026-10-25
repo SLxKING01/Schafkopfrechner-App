@@ -20,6 +20,23 @@ Der Test-Checkout hat eigene, aus dem Lockfile installierte Abhängigkeiten.
 - Die iPhone-Skripte verwenden den aktuellen Node statt eines fest verdrahteten
   Node 20 (SDK 58 unterstützt Node 20 nicht mehr).
 
+## SDK 55 → 56
+
+- Expo 56.0.24, React Native 0.85.3, React 19.2.3, TypeScript 6.0.3;
+  installiert über `expo install expo@^56.0.0 --fix`.
+- Reanimated 4.3.1, Worklets 0.8.3 und die von Expo vorgesehene Gestensteuerung.
+- Entfernte React-Native-Konstante `absoluteFillObject` durch `absoluteFill`
+  ersetzt; identische absolute Positionierung ohne Änderung der Bildschirmstruktur.
+- Entfernte `splash`-Konfiguration auf `expo-splash-screen` übertragen;
+  Bild, Hintergrundfarbe und Skalierungsmodus bleiben erhalten.
+- Shared Values verwenden Reanimateds `set()`-API statt einer Zuweisung an
+  `.value`. Formularauswahl und ungültige Spieltypen werden mit bewachten
+  Zustandsanpassungen vor dem Rendern übernommen statt in nachgelagerten Effekten.
+  Die strengeren React-Hooks-Lint-Regeln bleiben aktiviert.
+- Expo Doctor 18/18, TypeScript, ESLint und alle 45 Tests erfolgreich.
+- SDK 56 ist nur ein Zwischenschritt; die bekannte Hermes-/Worklets-Regression
+  wird mit dem folgenden SDK-57-Schritt vermieden.
+
 ## Schutz der Daten und Grenzen
 
 Keine Änderung an Speicherformaten, Storage-Schlüsseln, Berechnungen, Archiven

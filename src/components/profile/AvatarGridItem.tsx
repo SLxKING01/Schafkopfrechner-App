@@ -38,13 +38,15 @@ export function AvatarGridItem({
         accessibilityRole="button"
         onPress={() => onSelect(avatarId)}
         onPressIn={() => {
-          scale.value = withSpring(0.96, { damping: 16, stiffness: 260 });
+          scale.set(withSpring(0.96, { damping: 16, stiffness: 260 }));
         }}
         onPressOut={() => {
-          scale.value = withSpring(isSelected ? 1.04 : 1, {
-            damping: 15,
-            stiffness: 230,
-          });
+          scale.set(
+            withSpring(isSelected ? 1.04 : 1, {
+              damping: 15,
+              stiffness: 230,
+            }),
+          );
         }}
         style={({ pressed }) => [
           styles.tile,

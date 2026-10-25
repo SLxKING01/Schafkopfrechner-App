@@ -37,7 +37,7 @@ export function AuthInput({
   const focus = useSharedValue(0);
 
   useEffect(() => {
-    error.value = withTiming(hasError ? 1 : 0, { duration: 180 });
+    error.set(withTiming(hasError ? 1 : 0, { duration: 180 }));
   }, [error, hasError]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -67,11 +67,11 @@ export function AuthInput({
         selectionColor={authColors.goldHighlight}
         style={styles.input}
         onBlur={(event) => {
-          focus.value = withTiming(0, { duration: 180 });
+          focus.set(withTiming(0, { duration: 180 }));
           onBlur?.(event);
         }}
         onFocus={(event) => {
-          focus.value = withTiming(1, { duration: 180 });
+          focus.set(withTiming(1, { duration: 180 }));
           onFocus?.(event);
         }}
       />
