@@ -1,14 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { Player } from '../models/Player';
+import { reliableStorage } from '../storage/reliableStorage';
+import { useGameStore } from './gameStore';
 
 type PlayerStore = {
   players: Player[];
   addPlayer: (name: string) => void;
-  removePlayer: (id: string) => void;
+  removePlayer: (id: string) => boolean;
 };
 
 export const usePlayerStore = create<PlayerStore>()(
@@ -33,15 +34,30 @@ export const usePlayerStore = create<PlayerStore>()(
         }));
       },
       removePlayer: (id) => {
+        if (
+          useGameStore
+            .getState()
+            .games.some(
+              (game) => game.winnerId === id || game.loserIds.includes(id),
+            )
+        )
+          return false;
         set((state) => ({
           players: state.players.filter((player) => player.id !== id),
         }));
+        return true;
       },
     }),
     {
       name: 'schafkopfrechner-players',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => reliableStorage),
       partialize: (state) => ({ players: state.players }),
+      merge: (persisted, current) => ({
+        ...current,
+        players:
+          (persisted as Pick<PlayerStore, 'players'> | undefined)?.players ??
+          current.players,
+      }),
     },
   ),
 );

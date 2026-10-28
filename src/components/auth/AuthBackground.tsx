@@ -1,16 +1,23 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
 import { AppText } from '../ui/AppText';
 
 type AuthBackgroundProps = {
   children: ReactNode;
+  withSafeArea?: boolean;
 };
 
-export function AuthBackground({ children }: AuthBackgroundProps) {
+export function AuthBackground({
+  children,
+  withSafeArea = true,
+}: AuthBackgroundProps) {
+  // Full-screen sheets already apply their own safe-area insets.
+  const Content = withSafeArea ? SafeAreaView : View;
   return (
     <View style={styles.screen}>
       <LinearGradient
@@ -32,8 +39,13 @@ export function AuthBackground({ children }: AuthBackgroundProps) {
           {'♦'}
         </AppText>
       </View>
-      <BlurView intensity={12} tint="dark" style={styles.blurWash} />
-      <SafeAreaView style={styles.safeArea}>{children}</SafeAreaView>
+      <BlurView
+        pointerEvents="none"
+        intensity={12}
+        tint="dark"
+        style={styles.blurWash}
+      />
+      <Content style={styles.safeArea}>{children}</Content>
     </View>
   );
 }
@@ -47,13 +59,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   vignette: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderColor: 'rgba(0, 0, 0, 0.25)',
     borderWidth: 18,
   },
   patternLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   patternSuit: {
@@ -78,7 +90,7 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-9deg' }],
   },
   blurWash: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.3,
   },
 });

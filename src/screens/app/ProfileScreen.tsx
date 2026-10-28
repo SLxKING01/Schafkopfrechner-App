@@ -103,10 +103,6 @@ export function ProfileScreen() {
   function handleSelectAvatar(nextAvatarId: AnimalAvatarId) {
     setAvatarId(nextAvatarId);
     triggerSelectionHaptic();
-
-    setTimeout(() => {
-      closeAvatarSheet();
-    }, 220);
   }
 
   function handleSelectAccent(nextAccentId: ProfileAccentId) {

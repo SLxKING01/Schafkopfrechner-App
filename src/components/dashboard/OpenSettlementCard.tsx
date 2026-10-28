@@ -1,4 +1,4 @@
-import { CreditCard } from 'lucide-react-native';
+import { ReceiptText } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
@@ -10,34 +10,38 @@ type OpenSettlementCardProps = {
   from: string;
   to: string;
   amount: string;
-  onPayPress: () => void;
+  onOpen: () => void;
+  tableName: string;
 };
 
 export function OpenSettlementCard({
   from,
   to,
   amount,
-  onPayPress,
+  onOpen,
+  tableName,
 }: OpenSettlementCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.copy}>
         <AppText style={styles.title}>{from} schuldet</AppText>
         <AppText style={styles.subtitle}>{to}</AppText>
+        <AppText style={styles.title}>{tableName}</AppText>
       </View>
       <View style={styles.side}>
         <AppText style={styles.amount}>{amount}</AppText>
         <Pressable
           accessibilityRole="button"
-          onPress={onPayPress}
+          onPress={onOpen}
+          accessibilityLabel={`Abrechnung ${tableName}: ${from} an ${to} öffnen`}
           style={({ pressed }) => [styles.payButton, pressed && styles.pressed]}
         >
-          <CreditCard
+          <ReceiptText
             color={authColors.background}
             size={14}
             strokeWidth={2.4}
           />
-          <AppText style={styles.payText}>PayPal</AppText>
+          <AppText style={styles.payText}>Abrechnung</AppText>
         </Pressable>
       </View>
     </View>
@@ -86,6 +90,7 @@ const styles = StyleSheet.create({
     marginTop: authSpacing.sm,
     paddingHorizontal: authSpacing.md,
     paddingVertical: authSpacing.sm,
+    minHeight: 44,
   },
   payText: {
     color: authColors.background,

@@ -1,13 +1,11 @@
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  Calculator,
+  BarChart3,
   Handshake,
   PlusCircle,
   ReceiptText,
-  UserPlus,
+  TableProperties,
 } from 'lucide-react-native';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
@@ -17,64 +15,31 @@ import { QuickActionCard } from '../../components/dashboard/QuickActionCard';
 import { RecentGameCard } from '../../components/dashboard/RecentGameCard';
 import { SectionHeader } from '../../components/dashboard/SectionHeader';
 import { StatsCard } from '../../components/dashboard/StatsCard';
-import { SyncStatusBadge } from '../../components/dashboard/SyncStatusBadge';
+import { EmptyGameState } from '../../components/game/EmptyGameState';
+import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
-import type { AppStackParamList } from '../../navigation/types';
+import { useGameOverview } from '../../hooks/useGameOverview';
+import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
-
-const recentGames = [
-  {
-    gameType: 'Sauspiel',
-    date: 'Heute',
-    amount: '18,00 €',
-    players: 4,
-    result: 'win' as const,
-  },
-  {
-    gameType: 'Wenz',
-    date: 'Gestern',
-    amount: '12,00 €',
-    players: 4,
-    result: 'loss' as const,
-  },
-  {
-    gameType: 'Solo',
-    date: 'Samstag',
-    amount: '42,00 €',
-    players: 5,
-    result: 'win' as const,
-  },
-];
-
-const settlements = [
-  { from: 'Max', to: 'Simon', amount: '10,00 €' },
-  { from: 'Lukas', to: 'Anna', amount: '6,50 €' },
-];
-type DashboardNavigationProp = NativeStackNavigationProp<AppStackParamList>;
+import { formatOverviewMoney } from '../../utils/gameOverview';
 
 export function DashboardScreen() {
-  const navigation = useNavigation<DashboardNavigationProp>();
   const user = useAuthStore((state) => state.user);
-  const activeGame = useGameStore((state) => state.activeGame);
-  const currentTable = useGameStore((state) => state.currentTable);
-  const syncing = useGameStore((state) => state.syncing);
-  const isOffline = useGameStore((state) => state.isOffline);
-  const lastSyncedAt = useGameStore((state) => state.lastSyncedAt);
+  const syncError = useGameStore((state) => state.syncError);
+  const overview = useGameOverview();
+  const { openTarget, openTables, openStatistics, createTable } =
+    useOverviewNavigation();
   const username =
-    typeof user?.user_metadata.username === 'string'
+    typeof user?.user_metadata.username === 'string' &&
+    user.user_metadata.username.trim()
       ? user.user_metadata.username
-      : 'Simon';
-
-  function showPrepared() {
-    Alert.alert(
-      'Vorbereitet',
-      'Diese Aktion wird im nächsten Schritt mit echten Supabase Daten verbunden.',
-    );
-  }
-
+      : (user?.email?.split('@')[0] ?? 'Gast');
+  const latestClosed =
+    overview.payments[0]?.target ??
+    overview.rounds.find((round) => round.target.kind === 'archive')?.target;
   return (
     <AuthBackground>
       <ScrollView
@@ -82,87 +47,150 @@ export function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <DashboardHeader username={username} email={user?.email} />
-        <SyncStatusBadge
-          isOffline={isOffline}
-          lastSyncedAt={lastSyncedAt}
-          syncing={syncing}
-        />
-
+        {syncError ? (
+          <View accessibilityRole="alert">
+            <AppText>{syncError}</AppText>
+          </View>
+        ) : null}
+        <SyncStatus />
         <Animated.View entering={FadeInDown.duration(520).delay(80)}>
           <StatsCard
-            title="Dein Spieltag"
-            subtitle="Premium Überblick für die Runde"
+            title="Deine Spielübersicht"
+            subtitle="Aus deinen gespeicherten Spielabenden"
             stats={[
-              { label: 'Gespielte Runden', value: '24' },
-              { label: 'Gewinnrate', value: '62 %', tone: 'green' },
-              { label: 'Offen', value: '16,50 €', tone: 'gold' },
-              { label: 'Heute', value: '+28 €', tone: 'green' },
+              { label: 'Runden gesamt', value: String(overview.rounds.length) },
+              {
+                label: 'Heute gespielt',
+                value: String(overview.todayRounds),
+                tone: 'green',
+              },
+              {
+                label: 'Zahlungen offen',
+                value: formatOverviewMoney(overview.openPaymentCents),
+                tone: 'gold',
+              },
+              {
+                label: 'Abgeschlossene Tische',
+                value: String(overview.completedTables),
+              },
             ]}
           />
         </Animated.View>
-
-        <SectionHeader title="Quick Actions" />
+        {overview.activeTable ? (
+          <View style={styles.emptyCard}>
+            <AppText style={styles.emptyTitle}>
+              {overview.activeTable.name}
+            </AppText>
+            <AppText style={styles.emptyCopy}>
+              Dein Tisch ist gespeichert und bereit zum Weiterspielen.
+            </AppText>
+          </View>
+        ) : null}
+        <SectionHeader title="Schnellzugriff" />
         <View style={styles.actionGrid}>
           <QuickActionCard
             icon={PlusCircle}
-            title="Neues Spiel"
-            subtitle="Runde schnell erfassen"
+            title={overview.activeTarget ? 'Weiterspielen' : 'Tisch erstellen'}
+            subtitle={overview.activeTable?.name ?? 'Neuen Spielabend beginnen'}
             onPress={() =>
-              navigation.navigate(
-                activeGame && currentTable ? 'ActiveGame' : 'CreateTable',
-              )
+              overview.activeTarget
+                ? openTarget(overview.activeTarget)
+                : createTable()
             }
           />
           <QuickActionCard
-            icon={Calculator}
-            title="Offline Spiel"
-            subtitle="Ohne Sync abrechnen"
-            onPress={() =>
-              navigation.navigate(
-                activeGame && currentTable ? 'ActiveGame' : 'CreateTable',
-              )
-            }
+            icon={TableProperties}
+            title="Meine Tische"
+            subtitle="Aktive Abende und Archiv"
+            onPress={openTables}
           />
           <QuickActionCard
-            icon={UserPlus}
-            title="Freunde einladen"
-            subtitle="Lobby vorbereiten"
-            onPress={showPrepared}
+            icon={BarChart3}
+            title="Statistik"
+            subtitle="Runden und Spielerbilanzen"
+            onPress={openStatistics}
           />
           <QuickActionCard
             icon={ReceiptText}
-            title="Abrechnung"
-            subtitle="Zahlungen klären"
-            onPress={showPrepared}
+            title="Abrechnung öffnen"
+            subtitle={
+              overview.payments.length
+                ? `${overview.payments.length} Zahlungen offen`
+                : 'Abgeschlossene Tische ansehen'
+            }
+            onPress={() =>
+              latestClosed ? openTarget(latestClosed) : openTables()
+            }
           />
         </View>
-
-        <SectionHeader title="Letzte Spiele" action="Alle anzeigen" />
+        <SectionHeader
+          title="Letzte Spiele"
+          action="Alle anzeigen"
+          onAction={openStatistics}
+        />
         <View style={styles.stack}>
-          {recentGames.map((game) => (
-            <RecentGameCard key={`${game.gameType}-${game.date}`} {...game} />
-          ))}
-        </View>
-
-        <SectionHeader title="Offene Zahlungen" action="PayPal bereit" />
-        <View style={styles.stack}>
-          {settlements.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Handshake color={authColors.gold} size={24} strokeWidth={2} />
-              <AppText style={styles.emptyTitle}>Alles ausgeglichen</AppText>
-              <AppText style={styles.emptyCopy}>
-                Sobald offene Salden entstehen, erscheinen sie hier.
-              </AppText>
-            </View>
-          ) : (
-            settlements.map((settlement) => (
-              <OpenSettlementCard
-                key={`${settlement.from}-${settlement.to}`}
-                {...settlement}
-                onPayPress={showPrepared}
+          {overview.rounds.length ? (
+            overview.rounds.slice(0, 5).map((round) => (
+              <RecentGameCard
+                key={round.id}
+                gameType={round.gameType}
+                date={new Date(round.createdAt).toLocaleString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                amount={formatOverviewMoney(round.amountCents)}
+                players={round.participants}
+                winner={round.winnerName}
+                tableName={round.tableName}
+                onPress={() => openTarget(round.target)}
               />
             ))
+          ) : (
+            <EmptyGameState
+              icon={PlusCircle}
+              title="Noch keine Spiele"
+              message="Sobald du eine Runde einträgst, erscheint sie hier mit dem echten Ergebnis."
+            />
           )}
+        </View>
+        <SectionHeader
+          title="Offene Zahlungen"
+          action={String(overview.payments.length)}
+        />
+        <AppText style={styles.emptyCopy}>
+          Aus abgeschlossenen Tischen. Laufende Salden bleiben am aktiven Tisch.
+        </AppText>
+        <View style={styles.stack}>
+          {overview.payments.length ? (
+            overview.payments
+              .slice(0, 5)
+              .map((payment) => (
+                <OpenSettlementCard
+                  key={payment.id}
+                  from={payment.from}
+                  to={payment.to}
+                  tableName={payment.tableName}
+                  amount={formatOverviewMoney(payment.amountCents)}
+                  onOpen={() => openTarget(payment.target)}
+                />
+              ))
+          ) : (
+            <EmptyGameState
+              icon={Handshake}
+              title="Keine offenen Zahlungen"
+              message="Hier erscheinen unbezahlte Abrechnungen abgeschlossener Tische."
+            />
+          )}
+          {overview.payments.length > 5 ? (
+            <QuickActionCard
+              icon={ReceiptText}
+              title="Alle Abrechnungen"
+              subtitle={`${overview.payments.length} Zahlungen insgesamt offen`}
+              onPress={openTables}
+            />
+          ) : null}
         </View>
       </ScrollView>
     </AuthBackground>

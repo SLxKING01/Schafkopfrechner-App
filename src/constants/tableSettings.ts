@@ -1,5 +1,7 @@
 import type {
   BonusRuleId,
+  GameRuleOptions,
+  GameType,
   TableGameTypeId,
   TableSettingEntry,
   TableSettings,
@@ -18,7 +20,7 @@ export type TableSettingDefinition<TId extends string> = {
 export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   {
     defaultEnabled: true,
-    defaultValue: 0.1,
+    defaultValue: 0.2,
     description: 'Das normale Rufspiel mit Partner über die gerufene Sau.',
     id: 'rufspiel',
     label: 'Rufspiel',
@@ -36,7 +38,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.2,
+    defaultValue: 0.5,
     description: 'Beim Wenz sind nur Unter Trumpf.',
     id: 'wenz',
     label: 'Wenz',
@@ -45,7 +47,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.3,
+    defaultValue: 0.5,
     description: 'Ein Wenz mit zusätzlicher Trumpffarbe.',
     id: 'farbwenz',
     label: 'FarbWenz',
@@ -54,7 +56,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.2,
+    defaultValue: 0.5,
     description: 'Beim Geier sind nur Ober Trumpf.',
     id: 'geier',
     label: 'Geier',
@@ -63,7 +65,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.3,
+    defaultValue: 0.5,
     description: 'Ein Geier mit zusätzlicher Trumpffarbe.',
     id: 'farbgeier',
     label: 'Farbgeier',
@@ -72,16 +74,16 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.1,
+    defaultValue: 0.2,
     description: 'Wenn niemand spielt, wird Ramsch nach Hausregeln gespielt.',
     id: 'ramsch',
     label: 'Ramsch',
     mode: 'price',
-    section: 'variant',
+    section: 'base',
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.2,
+    defaultValue: 0.5,
     description:
       'Bettel ist ein Nullspiel: Der Spieler darf keinen Stich machen.',
     id: 'bettel',
@@ -91,7 +93,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.2,
+    defaultValue: 0.5,
     description: 'Hochzeit verbindet Sonderkarten zu einer Partnerschaft.',
     id: 'hochzeit',
     label: 'Hochzeit',
@@ -100,7 +102,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.2,
+    defaultValue: 0.5,
     description:
       'Kreuzbock ist eine Sonderrunde mit gekreuzten Partnerschaften.',
     id: 'kreuzbock',
@@ -110,8 +112,9 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0,
-    description: 'Stock sammelt Einsätze für eine spätere Auszahlung.',
+    defaultValue: 0.5,
+    description:
+      'Einsatz je Spieler: Alle vier zahlen ein. Die beiden Sauspiel-Gewinner erhalten bei Auszahlung je die Hälfte des Stocks.',
     id: 'stock',
     label: 'Stock',
     mode: 'price',
@@ -150,7 +153,7 @@ export const bonusRuleDefinitions: TableSettingDefinition<BonusRuleId>[] = [
     section: 'bonus',
   },
   {
-    defaultEnabled: false,
+    defaultEnabled: true,
     defaultValue: 2,
     description: 'Stoß verdoppelt den aktuellen Spielwert.',
     id: 'stoss',
@@ -187,9 +190,56 @@ function createEntries<TId extends string>(
 
 export function createDefaultTableSettings(): TableSettings {
   return {
+    gameRules: Object.fromEntries(
+      gameRuleDefinitions.map(({ id }) => [id, defaultGameRules(id)]),
+    ),
     bonusRules: createEntries(bonusRuleDefinitions),
     games: createEntries(gameRuleDefinitions),
   };
+}
+
+export function defaultGameRules(id: GameType): GameRuleOptions {
+  const noTrumpBonus = ['ramsch', 'bettel', 'stock'].includes(id);
+  return {
+    bonuses: {
+      laufende: !noTrumpBonus,
+      schneider: !noTrumpBonus,
+      schwarz: !noTrumpBonus,
+      stoss: id !== 'stock',
+      leger: id !== 'stock',
+    },
+    laufendeMin: ['wenz', 'geier'].includes(id) ? 2 : 3,
+    laufendeMax: ['wenz', 'geier'].includes(id)
+      ? 4
+      : ['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(id)
+        ? 14
+        : 8,
+    ramschJungfrau: true,
+    ramschDurchmarsch: true,
+  };
+}
+
+/** Old snapshots retain their original, unrestricted bonus calculation. */
+export function getGameRules(
+  settings: TableSettings,
+  type: GameType,
+): GameRuleOptions {
+  const id = (type === 'sauspiel' ? 'rufspiel' : type) as TableGameTypeId;
+  return (
+    settings.gameRules?.[id] ?? {
+      bonuses: {
+        laufende: true,
+        schneider: true,
+        schwarz: true,
+        stoss: true,
+        leger: true,
+      },
+      laufendeMin: 1,
+      laufendeMax: 8,
+      ramschJungfrau: true,
+      ramschDurchmarsch: true,
+    }
+  );
 }
 
 function normalizeEntry(
@@ -214,6 +264,55 @@ export function normalizeTableSettings(
   settings?: Partial<TableSettings> | null,
 ) {
   return {
+    ...(!settings || settings.gameRules
+      ? {
+          gameRules: Object.fromEntries(
+            gameRuleDefinitions
+              .filter(
+                ({ id }) => !settings || settings.gameRules?.[id] !== undefined,
+              )
+              .map(({ id }) => {
+                const original = settings?.gameRules?.[id];
+                const fallback = defaultGameRules(id);
+                const inputMin = original?.laufendeMin;
+                const min =
+                  Number.isInteger(inputMin) &&
+                  inputMin! >= 1 &&
+                  inputMin! <= 14
+                    ? inputMin!
+                    : fallback.laufendeMin;
+                const max = original?.laufendeMax;
+                return [
+                  id,
+                  {
+                    bonuses: Object.fromEntries(
+                      bonusRuleDefinitions.map(({ id: bonus }) => [
+                        bonus,
+                        typeof original?.bonuses?.[bonus] === 'boolean'
+                          ? original.bonuses[bonus]
+                          : fallback.bonuses[bonus],
+                      ]),
+                    ),
+                    laufendeMin: min,
+                    laufendeMax:
+                      Number.isInteger(max) &&
+                      max! >= (min ?? fallback.laufendeMin) &&
+                      max! <= 14
+                        ? max
+                        : Math.max(
+                            min ?? fallback.laufendeMin,
+                            fallback.laufendeMax,
+                          ),
+                    ramschJungfrau:
+                      original?.ramschJungfrau ?? fallback.ramschJungfrau,
+                    ramschDurchmarsch:
+                      original?.ramschDurchmarsch ?? fallback.ramschDurchmarsch,
+                  },
+                ];
+              }),
+          ) as TableSettings['gameRules'],
+        }
+      : {}),
     bonusRules: bonusRuleDefinitions.reduce(
       (entries, definition) => ({
         ...entries,

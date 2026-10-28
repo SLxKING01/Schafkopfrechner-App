@@ -1,0 +1,4365 @@
+{
+  "errors": [],
+  "steps": [
+    {
+      "name": "home-populated-360x740",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 360,
+        "h": 740,
+        "docWidth": 360,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 312,
+              "height": 45,
+              "top": 236,
+              "right": 336,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 312,
+              "height": 45,
+              "top": 566,
+              "right": 336,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 209.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 320,
+              "bottom": 680,
+              "left": 209.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 209.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 320,
+              "bottom": 733,
+              "left": 209.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 140,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 244,
+              "bottom": 489,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 140,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 244,
+              "bottom": 649,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 615,
+              "width": 236.859375,
+              "height": 45,
+              "top": 615,
+              "right": 344,
+              "bottom": 660,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 280,
+              "height": 45,
+              "top": 163,
+              "right": 320,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 320,
+              "bottom": 309,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 320,
+              "bottom": 398,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 320,
+              "bottom": 487,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 320,
+              "bottom": 576,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-after-scroll-360x740",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 360,
+        "h": 740,
+        "docWidth": 360,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 312,
+              "height": 45,
+              "top": 236,
+              "right": 336,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 312,
+              "height": 45,
+              "top": 566,
+              "right": 336,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 209.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 320,
+              "bottom": 680,
+              "left": 209.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 209.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 320,
+              "bottom": 733,
+              "left": 209.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 140,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 244,
+              "bottom": 489,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 140,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 244,
+              "bottom": 649,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 615,
+              "width": 236.859375,
+              "height": 45,
+              "top": 615,
+              "right": 344,
+              "bottom": 660,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 280,
+              "height": 45,
+              "top": 163,
+              "right": 320,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 320,
+              "bottom": 309,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 320,
+              "bottom": 398,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 320,
+              "bottom": 487,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 229.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 320,
+              "bottom": 576,
+              "left": 229.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-populated-390x844",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 844,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 342,
+              "height": 45,
+              "top": 566,
+              "right": 366,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 239.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 350,
+              "bottom": 680,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 239.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 350,
+              "bottom": 733,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 112,
+              "bottom": 798,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 278,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 350,
+              "bottom": 798,
+              "left": 278
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 189,
+              "bottom": 895,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 201,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 366,
+              "bottom": 895,
+              "left": 201
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 719,
+              "width": 266.859375,
+              "height": 45,
+              "top": 719,
+              "right": 374,
+              "bottom": 764,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 350,
+              "bottom": 576,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-after-scroll-390x844",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 844,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 342,
+              "height": 45,
+              "top": 566,
+              "right": 366,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 239.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 350,
+              "bottom": 680,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 239.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 350,
+              "bottom": 733,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 112,
+              "bottom": 798,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 278,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 350,
+              "bottom": 798,
+              "left": 278
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 189,
+              "bottom": 895,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 201,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 366,
+              "bottom": 895,
+              "left": 201
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 719,
+              "width": 266.859375,
+              "height": 45,
+              "top": 719,
+              "right": 374,
+              "bottom": 764,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 350,
+              "bottom": 576,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-populated-430x932",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 430,
+        "h": 932,
+        "docWidth": 430,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 382,
+              "height": 45,
+              "top": 236,
+              "right": 406,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 382,
+              "height": 45,
+              "top": 566,
+              "right": 406,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 279.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 390,
+              "bottom": 680,
+              "left": 279.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 279.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 390,
+              "bottom": 733,
+              "left": 279.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 112,
+              "bottom": 798,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 318,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 390,
+              "bottom": 798,
+              "left": 318
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 822,
+              "width": 185,
+              "height": 73,
+              "top": 822,
+              "right": 209,
+              "bottom": 895,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 221,
+              "y": 822,
+              "width": 185,
+              "height": 73,
+              "top": 822,
+              "right": 406,
+              "bottom": 895,
+              "left": 221
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 807,
+              "width": 306.859375,
+              "height": 45,
+              "top": 807,
+              "right": 414,
+              "bottom": 852,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 350,
+              "height": 45,
+              "top": 163,
+              "right": 390,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 390,
+              "bottom": 309,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 390,
+              "bottom": 398,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 390,
+              "bottom": 487,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 390,
+              "bottom": 576,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-after-scroll-430x932",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 430,
+        "h": 932,
+        "docWidth": 430,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 382,
+              "height": 45,
+              "top": 236,
+              "right": 406,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 382,
+              "height": 45,
+              "top": 566,
+              "right": 406,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 279.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 390,
+              "bottom": 680,
+              "left": 279.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 279.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 390,
+              "bottom": 733,
+              "left": 279.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 112,
+              "bottom": 798,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 318,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 390,
+              "bottom": 798,
+              "left": 318
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 822,
+              "width": 185,
+              "height": 73,
+              "top": 822,
+              "right": 209,
+              "bottom": 895,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 221,
+              "y": 822,
+              "width": 185,
+              "height": 73,
+              "top": 822,
+              "right": 406,
+              "bottom": 895,
+              "left": 221
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 807,
+              "width": 306.859375,
+              "height": 45,
+              "top": 807,
+              "right": 414,
+              "bottom": 852,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 350,
+              "height": 45,
+              "top": 163,
+              "right": 390,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 390,
+              "bottom": 309,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 390,
+              "bottom": 398,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 390,
+              "bottom": 487,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 299.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 390,
+              "bottom": 576,
+              "left": 299.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-populated-390x568",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 568,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 342,
+              "height": 45,
+              "top": 566,
+              "right": 366,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 443,
+              "width": 266.859375,
+              "height": 45,
+              "top": 443,
+              "right": 374,
+              "bottom": 488,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 350,
+              "bottom": 576,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "home-after-scroll-390x568",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n10,00 €\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 10,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 568,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 342,
+              "height": 45,
+              "top": 566,
+              "right": 366,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 443,
+              "width": 266.859375,
+              "height": 45,
+              "top": 443,
+              "right": 374,
+              "bottom": 488,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 350,
+              "bottom": 576,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "edited-home",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nAnna\n50,00 €\nMax\n-50,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nMax zahlt Anna 50,00 €\nSpiele\nLetztes Spiel rückgängig\nAnna\nSolo\nBearbeiten\nLöschen\nBasisbetrag: 50,00 €\nTatsächlicher Betrag: 50,00 €\nSolo = 50,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nAnna\nMax\nFlo\nJulia\nVerlierer\nAnna\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nAnna\nLöschen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 844,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 566,
+              "width": 342,
+              "height": 45,
+              "top": 566,
+              "right": 366,
+              "bottom": 611,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 239.71875,
+              "y": 635,
+              "width": 110.28125,
+              "height": 45,
+              "top": 635,
+              "right": 350,
+              "bottom": 680,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 239.71875,
+              "y": 688,
+              "width": 110.28125,
+              "height": 45,
+              "top": 688,
+              "right": 350,
+              "bottom": 733,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 441,
+              "width": 104,
+              "height": 48,
+              "top": 441,
+              "right": 128,
+              "bottom": 489,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Anna",
+            "r": {
+              "x": 24,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 128,
+              "bottom": 589,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 140,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 244,
+              "bottom": 589,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 256,
+              "y": 541,
+              "width": 104,
+              "height": 48,
+              "top": 541,
+              "right": 360,
+              "bottom": 589,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 24,
+              "y": 601,
+              "width": 104,
+              "height": 48,
+              "top": 601,
+              "right": 128,
+              "bottom": 649,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 112,
+              "bottom": 798,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 278,
+              "y": 753,
+              "width": 72,
+              "height": 45,
+              "top": 753,
+              "right": 350,
+              "bottom": 798,
+              "left": 278
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 189,
+              "bottom": 895,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 201,
+              "y": 822,
+              "width": 165,
+              "height": 73,
+              "top": 822,
+              "right": 366,
+              "bottom": 895,
+              "left": 201
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 719,
+              "width": 266.859375,
+              "height": 45,
+              "top": 719,
+              "right": 374,
+              "bottom": 764,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 531,
+              "width": 90.953125,
+              "height": 45,
+              "top": 531,
+              "right": 350,
+              "bottom": 576,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "after-referenced-player-delete",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nMax\n-10,00 €\nFlo\n0,00 €\nJulia\n0,00 €\nAuszahlungen\nKeine Auszahlungen offen\nSobald Salden entstehen, zeigen wir hier die passenden Zahlungen.\nSpiele\nLetztes Spiel rückgängig\nUnbekannt\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nMax\nFlo\nJulia\nVerlierer\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 844,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 614,
+              "width": 342,
+              "height": 45,
+              "top": 614,
+              "right": 366,
+              "bottom": 659,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 239.71875,
+              "y": 683,
+              "width": 110.28125,
+              "height": 45,
+              "top": 683,
+              "right": 350,
+              "bottom": 728,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 239.71875,
+              "y": 736,
+              "width": 110.28125,
+              "height": 45,
+              "top": 736,
+              "right": 350,
+              "bottom": 781,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 24,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 128,
+              "bottom": 529,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 140,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 244,
+              "bottom": 529,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 256,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 360,
+              "bottom": 529,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 633,
+              "width": 72,
+              "height": 45,
+              "top": 633,
+              "right": 112,
+              "bottom": 678,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 278,
+              "y": 633,
+              "width": 72,
+              "height": 45,
+              "top": 633,
+              "right": 350,
+              "bottom": 678,
+              "left": 278
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 702,
+              "width": 165,
+              "height": 73,
+              "top": 702,
+              "right": 189,
+              "bottom": 775,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 201,
+              "y": 702,
+              "width": 165,
+              "height": 73,
+              "top": 702,
+              "right": 366,
+              "bottom": 775,
+              "left": 201
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 719,
+              "width": 266.859375,
+              "height": 45,
+              "top": 719,
+              "right": 374,
+              "bottom": 764,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "offline-saved",
+      "text": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nMax\n0,00 €\nFlo\n-10,00 €\nJulia\n0,00 €\nAuszahlungen\nKeine Auszahlungen offen\nSobald Salden entstehen, zeigen wir hier die passenden Zahlungen.\nSpiele\nLetztes Spiel rückgängig\nUnbekannt\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nMax\nSauspiel\nBearbeiten\nLöschen\nBasisbetrag: 10,00 €\nTatsächlicher Betrag: 10,00 €\nSauspiel = 10,00 €\nVerlierer: 1\nNeues Spiel\nLive-Betrag\n10 €\nSpieltyp\nSauspiel\n10 €\nSolo\n50 €\nWenz\n20 €\nRamsch\n5 €\nGewinner\nMax\nFlo\nJulia\nVerlierer\nMax\nFlo\nJulia\nOptionen\nLaufende\n-\n0\n+\nSchneider\nAus\nSchwarz\nAus\nZu speichern\n10 €\nSpiel speichern\nSpieler\nSpieler hinzufügen\nMax\nLöschen\nFlo\nLöschen\nJulia\nLöschen\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler",
+      "metrics": {
+        "w": 390,
+        "h": 844,
+        "docWidth": 390,
+        "buttons": [
+          {
+            "text": "Anmelden",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Registrieren",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Ohne Account spielen →",
+            "r": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0,
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieltag abschließen",
+            "r": {
+              "x": 24,
+              "y": 236,
+              "width": 342,
+              "height": 45,
+              "top": 236,
+              "right": 366,
+              "bottom": 281,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Letztes Spiel rückgängig",
+            "r": {
+              "x": 24,
+              "y": 614,
+              "width": 342,
+              "height": 45,
+              "top": 614,
+              "right": 366,
+              "bottom": 659,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Bearbeiten",
+            "r": {
+              "x": 239.71875,
+              "y": 683,
+              "width": 110.28125,
+              "height": 45,
+              "top": 683,
+              "right": 350,
+              "bottom": 728,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 239.71875,
+              "y": 736,
+              "width": 110.28125,
+              "height": 45,
+              "top": 736,
+              "right": 350,
+              "bottom": 781,
+              "left": 239.71875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Sauspiel10 €",
+            "r": {
+              "x": 24,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 152,
+              "bottom": 329,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Solo50 €",
+            "r": {
+              "x": 164,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 292,
+              "bottom": 329,
+              "left": 164
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Wenz20 €",
+            "r": {
+              "x": 304,
+              "y": 248,
+              "width": 128,
+              "height": 81,
+              "top": 248,
+              "right": 432,
+              "bottom": 329,
+              "left": 304
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 24,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 128,
+              "bottom": 429,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 140,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 244,
+              "bottom": 429,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 256,
+              "y": 381,
+              "width": 104,
+              "height": 48,
+              "top": 381,
+              "right": 360,
+              "bottom": 429,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Max",
+            "r": {
+              "x": 24,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 128,
+              "bottom": 529,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Flo",
+            "r": {
+              "x": 140,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 244,
+              "bottom": 529,
+              "left": 140
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Julia",
+            "r": {
+              "x": 256,
+              "y": 481,
+              "width": 104,
+              "height": 48,
+              "top": 481,
+              "right": 360,
+              "bottom": 529,
+              "left": 256
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "-",
+            "r": {
+              "x": 40,
+              "y": 633,
+              "width": 72,
+              "height": 45,
+              "top": 633,
+              "right": 112,
+              "bottom": 678,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "+",
+            "r": {
+              "x": 278,
+              "y": 633,
+              "width": 72,
+              "height": 45,
+              "top": 633,
+              "right": 350,
+              "bottom": 678,
+              "left": 278
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchneiderAus",
+            "r": {
+              "x": 24,
+              "y": 702,
+              "width": 165,
+              "height": 73,
+              "top": 702,
+              "right": 189,
+              "bottom": 775,
+              "left": 24
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "SchwarzAus",
+            "r": {
+              "x": 201,
+              "y": 702,
+              "width": 165,
+              "height": 73,
+              "top": 702,
+              "right": 366,
+              "bottom": 775,
+              "left": 201
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spiel speichern",
+            "r": {
+              "x": 107.140625,
+              "y": 719,
+              "width": 266.859375,
+              "height": 45,
+              "top": 719,
+              "right": 374,
+              "bottom": 764,
+              "left": 107.140625
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Spieler hinzufügen",
+            "r": {
+              "x": 40,
+              "y": 163,
+              "width": 310,
+              "height": 45,
+              "top": 163,
+              "right": 350,
+              "bottom": 208,
+              "left": 40
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 264,
+              "width": 90.953125,
+              "height": 45,
+              "top": 264,
+              "right": 350,
+              "bottom": 309,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 353,
+              "width": 90.953125,
+              "height": 45,
+              "top": 353,
+              "right": 350,
+              "bottom": 398,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          },
+          {
+            "text": "Löschen",
+            "r": {
+              "x": 259.046875,
+              "y": 442,
+              "width": 90.953125,
+              "height": 45,
+              "top": 442,
+              "right": 350,
+              "bottom": 487,
+              "left": 259.046875
+            },
+            "pressed": null,
+            "selected": null
+          }
+        ]
+      }
+    }
+  ],
+  "editInitial": true,
+  "afterEdit": [
+    {
+      "winnerId": "c12bc9bc-089e-41f1-8ce0-380ee57c838c",
+      "loserIds": [
+        "ed224892-f67a-47ec-8d7d-6fb3fb0fe39f"
+      ],
+      "amount": 50,
+      "gameTypeId": "solo",
+      "options": {
+        "laufende": 0,
+        "schneider": false,
+        "schwarz": false
+      },
+      "matchDayId": "2a5fd164-c5eb-4788-acdd-715cd29f0624",
+      "id": "b763e388-77f3-400c-a892-68defaf4e091",
+      "createdAt": "2026-10-23T13:51:02.509Z"
+    }
+  ],
+  "afterUndo": 0,
+  "afterPlayerDelete": [
+    {
+      "winnerId": "c12bc9bc-089e-41f1-8ce0-380ee57c838c",
+      "loserIds": [
+        "ed224892-f67a-47ec-8d7d-6fb3fb0fe39f"
+      ],
+      "amount": 10,
+      "gameTypeId": "sauspiel",
+      "options": {
+        "laufende": 0,
+        "schneider": false,
+        "schwarz": false
+      },
+      "matchDayId": "2a5fd164-c5eb-4788-acdd-715cd29f0624",
+      "id": "82bf5d4e-7e6e-4d09-b079-8aaffc48fd99",
+      "createdAt": "2026-10-23T13:51:03.941Z"
+    }
+  ],
+  "offlineSaved": 2
+}

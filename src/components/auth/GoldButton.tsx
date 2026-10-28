@@ -52,10 +52,10 @@ export function GoldButton({
         accessibilityLabel={accessibilityLabel ?? title}
         accessibilityRole="button"
         accessibilityState={{ disabled: disabled || loading, busy: loading }}
-        disabled={disabled}
+        disabled={disabled || loading}
         onPress={onPress}
         onPressIn={() => {
-          if (disabled) {
+          if (disabled || loading) {
             return;
           }
 

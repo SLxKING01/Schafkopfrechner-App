@@ -9,10 +9,23 @@ type AppTextProps = {
   children: ReactNode;
   variant?: AppTextVariant;
   style?: StyleProp<TextStyle>;
+  numberOfLines?: number;
 };
 
-export function AppText({ children, variant = 'body', style }: AppTextProps) {
-  return <Text style={[styles.base, styles[variant], style]}>{children}</Text>;
+export function AppText({
+  children,
+  variant = 'body',
+  style,
+  numberOfLines,
+}: AppTextProps) {
+  return (
+    <Text
+      numberOfLines={numberOfLines}
+      style={[styles.base, styles[variant], style]}
+    >
+      {children}
+    </Text>
+  );
 }
 
 const styles = StyleSheet.create({

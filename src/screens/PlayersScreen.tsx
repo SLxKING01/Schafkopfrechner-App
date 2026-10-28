@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
 import { AppButton } from '../components/ui/AppButton';
@@ -27,7 +27,13 @@ export function PlayersScreen() {
         <AppButton
           title="Löschen"
           variant="danger"
-          onPress={() => removePlayer(item.id)}
+          onPress={() => {
+            if (!removePlayer(item.id))
+              Alert.alert(
+                'Spieler wird verwendet',
+                'Dieser Spieler gehört zu gespeicherten Spielen und kann deshalb nicht gelöscht werden.',
+              );
+          }}
         />
       </AppCard>
     );

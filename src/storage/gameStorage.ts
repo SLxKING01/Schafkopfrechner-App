@@ -1,19 +1,29 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import type {
+  ArchivedGameDay,
   GameRound,
   GameTable,
   Player,
   PlayerBalance,
   Settlement,
 } from '../types/game';
+import { reliableStorage } from './reliableStorage';
+import { normalizeRestoredTables } from './validateGameState';
 
 const GAME_STATE_KEY = 'schafkopfrechner:mvp-game-state';
-const ACTIVE_TABLE_KEY = 'schafkopfrechner:active-table-id';
+// SecureStore rejects colons; retain the existing browser key for compatibility.
+const ACTIVE_TABLE_KEY =
+  Platform.OS === 'web'
+    ? 'schafkopfrechner:active-table-id'
+    : 'schafkopfrechner.active-table-id';
 
 export type PersistedGameState = {
+  cloudOwnerId?: string | null;
+  cloudVersion?: number | null;
+  cloudBaseline?: string | null;
+  archivedGameDays?: ArchivedGameDay[];
   currentTable: GameTable | null;
   players: Player[];
   rounds: GameRound[];
@@ -51,7 +61,7 @@ async function deleteSecureItem(key: string) {
 }
 
 export async function savePersistedGameState(state: PersistedGameState) {
-  await AsyncStorage.setItem(GAME_STATE_KEY, JSON.stringify(state));
+  await reliableStorage.setItem(GAME_STATE_KEY, JSON.stringify(state));
 
   if (state.currentTable?.id) {
     await setSecureItem(ACTIVE_TABLE_KEY, state.currentTable.id);
@@ -61,17 +71,17 @@ export async function savePersistedGameState(state: PersistedGameState) {
 }
 
 export async function restorePersistedGameState() {
-  const value = await AsyncStorage.getItem(GAME_STATE_KEY);
+  const value = await reliableStorage.getItem(GAME_STATE_KEY);
 
   if (!value) {
     return null;
   }
 
-  return JSON.parse(value) as PersistedGameState;
+  return normalizeRestoredTables(JSON.parse(value) as PersistedGameState);
 }
 
 export async function clearPersistedGameState() {
-  await AsyncStorage.removeItem(GAME_STATE_KEY);
+  await reliableStorage.removeItem(GAME_STATE_KEY);
   await deleteSecureItem(ACTIVE_TABLE_KEY);
 }
 

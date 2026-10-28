@@ -1,9 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as crypto from 'expo-crypto';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { MatchDay } from '../models/MatchDay';
+import { reliableStorage } from '../storage/reliableStorage';
+import { calculateRoundBalances } from '../utils/accounting';
+import { useGameStore } from './gameStore';
+import { usePlayerStore } from './playerStore';
 
 type MatchDayStore = {
   matchDays: MatchDay[];
@@ -11,7 +14,7 @@ type MatchDayStore = {
   createMatchDay: (name: string) => void;
   setActiveMatchDay: (id: string) => void;
   removeMatchDay: (id: string) => void;
-  closeMatchDay: (id: string) => void;
+  closeMatchDay: (id: string) => boolean;
   createAndActivateNextMatchDay: () => void;
   getClosedMatchDays: () => MatchDay[];
 };
@@ -108,6 +111,8 @@ export const useMatchDayStore = create<MatchDayStore>()(
       },
       removeMatchDay: (id) => {
         set((state) => {
+          if (state.matchDays.find((day) => day.id === id)?.isClosed)
+            return state;
           const remainingMatchDays = state.matchDays.filter(
             (matchDay) => matchDay.id !== id,
           );
@@ -118,9 +123,25 @@ export const useMatchDayStore = create<MatchDayStore>()(
         });
       },
       closeMatchDay: (id) => {
+        const current = get();
+        const day = current.matchDays.find((item) => item.id === id);
+        if (!day) return false;
+        if (day.isClosed) return true;
+        try {
+          calculateRoundBalances(
+            usePlayerStore.getState().players,
+            useGameStore
+              .getState()
+              .games.filter(
+                (game) => (game.matchDayId ?? current.activeMatchDayId) === id,
+              ),
+          );
+        } catch {
+          return false;
+        }
         set((state) => ({
           matchDays: state.matchDays.map((matchDay) =>
-            matchDay.id === id
+            matchDay.id === id && !matchDay.isClosed
               ? {
                   ...matchDay,
                   isClosed: true,
@@ -129,6 +150,7 @@ export const useMatchDayStore = create<MatchDayStore>()(
               : matchDay,
           ),
         }));
+        return true;
       },
       createAndActivateNextMatchDay: () => {
         const nextMatchDay = createNextMatchDay();
@@ -160,11 +182,22 @@ export const useMatchDayStore = create<MatchDayStore>()(
     }),
     {
       name: 'schafkopfrechner-match-days',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => reliableStorage),
       partialize: (state) => ({
         activeMatchDayId: state.activeMatchDayId,
         matchDays: state.matchDays,
       }),
+      merge: (persisted, current) => {
+        if (!persisted) return current;
+        const saved = persisted as Pick<
+          MatchDayStore,
+          'matchDays' | 'activeMatchDayId'
+        >;
+        return {
+          ...current,
+          ...normalizeMatchDays(saved.matchDays, saved.activeMatchDayId),
+        };
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) {
           return;

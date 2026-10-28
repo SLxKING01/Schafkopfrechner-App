@@ -1,4 +1,3 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
@@ -12,7 +11,6 @@ import type { Balance } from '../models/Balance';
 import type { Game } from '../models/Game';
 import type { PlayerStats } from '../models/PlayerStats';
 import type { Settlement } from '../models/Settlement';
-import type { RootStackParamList } from '../navigation/types';
 import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
@@ -20,20 +18,26 @@ import { calculateBaseAmount } from '../utils/calculateBaseAmount';
 import { formatGameAmountSummary } from '../utils/calculateGameAmount';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
 
-type MatchDayDetailsScreenProps = NativeStackScreenProps<
-  RootStackParamList,
-  'MatchDayDetails'
->;
+type MatchDayDetailsScreenProps = { route: { params: { matchDayId: string } } };
 
 export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
   const { matchDayId } = route.params;
   const games = useGameStore((state) => state.games);
   const players = usePlayerStore((state) => state.players);
   const matchDays = useMatchDayStore((state) => state.matchDays);
+  const activeMatchDayId = useMatchDayStore((state) => state.activeMatchDayId);
   const matchDay = matchDays.find((item) => item.id === matchDayId);
   const summary = useMemo(
-    () => calculateMatchDaySummary(players, games, matchDayId),
-    [games, matchDayId, players],
+    () =>
+      calculateMatchDaySummary(
+        players,
+        games.map((game) => ({
+          ...game,
+          matchDayId: game.matchDayId ?? activeMatchDayId ?? undefined,
+        })),
+        matchDayId,
+      ),
+    [games, matchDayId, players, activeMatchDayId],
   );
   const playerNameById = useMemo(
     () => new Map(players.map((player) => [player.id, player.name])),

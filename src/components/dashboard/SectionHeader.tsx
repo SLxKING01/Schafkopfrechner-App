@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
 import { authSpacing } from '../../theme/spacing';
@@ -8,13 +8,27 @@ import { AppText } from '../ui/AppText';
 type SectionHeaderProps = {
   title: string;
   action?: string;
+  onAction?: () => void;
 };
 
-export function SectionHeader({ title, action }: SectionHeaderProps) {
+export function SectionHeader({ title, action, onAction }: SectionHeaderProps) {
   return (
     <View style={styles.row}>
       <AppText style={styles.title}>{title}</AppText>
-      {action ? <AppText style={styles.action}>{action}</AppText> : null}
+      {action ? (
+        onAction ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${title}: ${action}`}
+            onPress={onAction}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <AppText style={styles.action}>{action}</AppText>
+          </Pressable>
+        ) : (
+          <AppText style={styles.action}>{action}</AppText>
+        )
+      ) : null}
     </View>
   );
 }

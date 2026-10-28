@@ -32,12 +32,11 @@ export function SettlementCard({
         <AppText style={styles.amount}>{amount}</AppText>
         <Pressable
           accessibilityRole="button"
-          disabled={isPaid}
           onPress={onMarkPaid}
           style={[styles.button, isPaid && styles.buttonPaid]}
         >
           <AppText style={styles.buttonText}>
-            {isPaid ? 'Bezahlt' : 'Als bezahlt markieren'}
+            {isPaid ? 'Bezahlt · Rückgängig' : 'Als bezahlt markieren'}
           </AppText>
         </Pressable>
       </View>

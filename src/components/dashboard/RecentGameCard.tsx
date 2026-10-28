@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
@@ -10,7 +10,9 @@ type RecentGameCardProps = {
   date: string;
   amount: string;
   players: number;
-  result: 'win' | 'loss';
+  winner: string;
+  tableName: string;
+  onPress: () => void;
 };
 
 export function RecentGameCard({
@@ -18,23 +20,28 @@ export function RecentGameCard({
   date,
   amount,
   players,
-  result,
+  winner,
+  tableName,
+  onPress,
 }: RecentGameCardProps) {
-  const isWin = result === 'win';
-
   return (
-    <View style={styles.card}>
-      <View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${gameType}, ${winner} gewinnt ${amount}, ${tableName} öffnen`}
+      onPress={onPress}
+      style={styles.card}
+    >
+      <View style={{ flex: 1, minWidth: 0 }}>
         <AppText style={styles.title}>{gameType}</AppText>
         <AppText style={styles.meta}>
-          {date} · {players} Spieler
+          {date} · {players} Beteiligte
+        </AppText>
+        <AppText style={styles.meta}>
+          {winner} gewinnt · {tableName}
         </AppText>
       </View>
-      <AppText style={[styles.amount, isWin ? styles.win : styles.loss]}>
-        {isWin ? '+' : '-'}
-        {amount}
-      </AppText>
-    </View>
+      <AppText style={[styles.amount, styles.win]}>+{amount}</AppText>
+    </Pressable>
   );
 }
 
@@ -48,6 +55,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: authSpacing.lg,
+    gap: authSpacing.md,
   },
   title: {
     color: authColors.textPrimary,

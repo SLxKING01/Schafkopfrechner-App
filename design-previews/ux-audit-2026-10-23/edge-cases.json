@@ -1,0 +1,100 @@
+{
+  "duplicateNames": [
+    "Anna",
+    "Max",
+    "Anna"
+  ],
+  "draftSaveEnabled": false,
+  "selectionStates": [
+    {
+      "selected": null,
+      "pressed": null
+    },
+    {
+      "selected": null,
+      "pressed": null
+    },
+    {
+      "selected": null,
+      "pressed": null
+    },
+    {
+      "selected": null,
+      "pressed": null
+    }
+  ],
+  "scrollHome": [
+    {
+      "size": {
+        "width": 360,
+        "height": 740
+      },
+      "before": {
+        "x": 24,
+        "y": 614,
+        "width": 312,
+        "height": 45
+      },
+      "after": {
+        "x": 24,
+        "y": 614,
+        "width": 312,
+        "height": 45
+      }
+    },
+    {
+      "size": {
+        "width": 390,
+        "height": 844
+      },
+      "before": {
+        "x": 24,
+        "y": 614,
+        "width": 342,
+        "height": 45
+      },
+      "after": {
+        "x": 24,
+        "y": 614,
+        "width": 342,
+        "height": 45
+      }
+    },
+    {
+      "size": {
+        "width": 430,
+        "height": 932
+      },
+      "before": {
+        "x": 24,
+        "y": 614,
+        "width": 382,
+        "height": 45
+      },
+      "after": {
+        "x": 24,
+        "y": 614,
+        "width": 382,
+        "height": 45
+      }
+    },
+    {
+      "size": {
+        "width": 390,
+        "height": 568
+      },
+      "before": {
+        "x": 24,
+        "y": 614,
+        "width": 342,
+        "height": 45
+      },
+      "after": {
+        "x": 24,
+        "y": 614,
+        "width": 342,
+        "height": 45
+      }
+    }
+  ]
+}

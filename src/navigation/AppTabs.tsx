@@ -13,6 +13,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { GameLobbyScreen } from '../screens/app/GameLobbyScreen';
@@ -52,6 +53,7 @@ function AnimatedTabIcon({ focused, color, icon: Icon }: TabIconProps) {
 }
 
 export function AppTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -59,7 +61,7 @@ export function AppTabs() {
         tabBarActiveTintColor: authColors.goldHighlight,
         tabBarInactiveTintColor: 'rgba(139, 161, 148, 0.68)',
         tabBarLabelStyle: styles.label,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { bottom: Math.max(insets.bottom, 16) }],
         tabBarBackground: () => (
           <BlurView intensity={28} tint="dark" style={styles.blur} />
         ),
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
   },
   blur: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   label: {
     fontSize: 11,

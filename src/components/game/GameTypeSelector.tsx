@@ -5,7 +5,6 @@ import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import type { GameType } from '../../types/game';
 import { AppText } from '../ui/AppText';
-
 const gameTypes: { id: GameType; label: string }[] = [
   { id: 'rufspiel', label: 'Rufspiel' },
   { id: 'solo', label: 'Solo' },
@@ -19,28 +18,26 @@ const gameTypes: { id: GameType; label: string }[] = [
   { id: 'kreuzbock', label: 'Kreuzbock' },
   { id: 'stock', label: 'Stock' },
 ];
-
 type GameTypeSelectorProps = {
   enabledTypes?: GameType[];
-  selectedType: GameType;
+  selectedType?: GameType;
+  variant?: 'chips' | 'list';
   onSelect: (gameType: GameType) => void;
 };
-
 export function GameTypeSelector({
   enabledTypes,
   selectedType,
   onSelect,
+  variant = 'chips',
 }: GameTypeSelectorProps) {
   const enabledTypeSet = enabledTypes ? new Set(enabledTypes) : null;
   const visibleGameTypes = enabledTypeSet
     ? gameTypes.filter((gameType) => enabledTypeSet.has(gameType.id))
     : gameTypes;
-
   return (
-    <View style={styles.grid}>
+    <View style={[styles.grid, variant === 'list' && styles.list]}>
       {visibleGameTypes.map((gameType) => {
         const selected = selectedType === gameType.id;
-
         return (
           <Pressable
             key={gameType.id}
@@ -48,19 +45,32 @@ export function GameTypeSelector({
             accessibilityRole="button"
             accessibilityState={{ selected }}
             onPress={() => onSelect(gameType.id)}
-            style={[styles.card, selected && styles.selected]}
+            style={[
+              styles.card,
+              variant === 'list' && styles.listCard,
+              selected && styles.selected,
+            ]}
           >
             <AppText style={[styles.text, selected && styles.selectedText]}>
               {gameType.label}
             </AppText>
+            {variant === 'list' ? (
+              <AppText style={styles.text}>›</AppText>
+            ) : null}
           </Pressable>
         );
       })}
     </View>
   );
 }
-
 const styles = StyleSheet.create({
+  list: { flexDirection: 'column' },
+  listCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 60,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

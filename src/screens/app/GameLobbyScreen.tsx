@@ -38,22 +38,17 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  FadeOutLeft,
-  ZoomIn,
-  ZoomOut,
-} from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutLeft } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
+import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackParamList } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import { isStockBooking } from '../../utils/accounting';
 import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
@@ -126,36 +121,10 @@ type TablePreview = {
   lastPlayed: string;
   suit: SchafkopfSuit;
   isCurrent?: boolean;
+  hasOpenPayments?: boolean;
   isFavorite?: boolean;
   sortOrder?: number;
 };
-
-const tablePreviews: TablePreview[] = [
-  {
-    id: 'friday',
-    name: 'Freitagsrunde',
-    players: 'Simon • Berkay • Flo • Alessandro',
-    lastPlayed: 'Zuletzt gespielt: gestern',
-    sortOrder: 10,
-    suit: 'eichel',
-  },
-  {
-    id: 'stammtisch',
-    name: 'Stammtisch',
-    players: 'Max • Anna • Lukas • Simon',
-    lastPlayed: 'Heute gespielt',
-    sortOrder: 20,
-    suit: 'gras',
-  },
-  {
-    id: 'family',
-    name: 'Familientisch',
-    players: 'Opa Hans • Julia • Tom • Simon',
-    lastPlayed: 'Zuletzt gespielt: vor 2 Wochen',
-    sortOrder: 30,
-    suit: 'herz',
-  },
-];
 
 type GameLobbyNavigationProp = NativeStackNavigationProp<AppStackParamList>;
 type TableRenderParams =
@@ -193,6 +162,8 @@ function createUniqueTables(tables: TablePreview[]) {
 export function GameLobbyScreen() {
   const navigation = useNavigation<GameLobbyNavigationProp>();
   const currentTable = useGameStore((state) => state.currentTable);
+  const players = useGameStore((state) => state.players);
+  const archivedGameDays = useGameStore((state) => state.archivedGameDays);
   const activeGame = useGameStore((state) => state.activeGame);
   const tableOrderIds = useGameStore((state) => state.tableOrderIds);
   const setPersistedTableOrderIds = useGameStore(
@@ -218,19 +189,41 @@ export function GameLobbyScreen() {
           {
             id: currentTable.id,
             isCurrent: true,
-            lastPlayed: 'Zuletzt gespielt: gerade eben',
+            lastPlayed: activeGame
+              ? 'Spielabend läuft'
+              : 'Spielabend abgeschlossen',
             name: currentTable.name,
-            players: 'Aktueller Spielabend',
+            players: players.map((player) => player.name).join(' \u2022 '),
             isFavorite: currentTable.isFavorite,
             sortOrder: currentTable.sortOrder ?? 0,
             suit: 'schelle' as const,
           },
-          ...tablePreviews,
         ]
-      : tablePreviews;
+      : [];
 
-    return createUniqueTables(tables);
-  }, [currentTable]);
+    const archivedTables: TablePreview[] = archivedGameDays.map((day) => {
+      const openPayments = day.settlements.filter(
+        (payment) => !payment.isPaid,
+      ).length;
+      return {
+        id: day.table.id,
+        name: day.table.name,
+        players: day.players.map((player) => player.name).join(' · '),
+        lastPlayed: `${day.rounds.filter((round) => !isStockBooking(round)).length} Spiele · ${openPayments > 0 ? `${openPayments} Zahlungen offen` : 'Abgerechnet'}`,
+        suit: 'schelle',
+        isCurrent: false,
+        hasOpenPayments: openPayments > 0,
+        isFavorite: day.table.isFavorite,
+        sortOrder: day.table.sortOrder,
+      };
+    });
+    // Prefer the archived snapshot for a completed table, without duplicating it.
+    return createUniqueTables(
+      activeGame
+        ? [...tables, ...archivedTables]
+        : [...archivedTables, ...tables],
+    );
+  }, [activeGame, archivedGameDays, currentTable, players]);
 
   const availableTableIds = useMemo(
     () => baseTables.map((table) => table.id),
@@ -258,7 +251,12 @@ export function GameLobbyScreen() {
         name: renamedTables[table.id] ?? table.name,
         sortOrder: getTableOrder(table, safeTableOrderIds),
       }))
-      .filter((table) => !removedTableIds.includes(table.id))
+      .filter(
+        (table) =>
+          (table.isCurrent && activeGame) ||
+          table.hasOpenPayments ||
+          !removedTableIds.includes(table.id),
+      )
       .sort((firstTable, secondTable) => {
         if (firstTable.isFavorite === secondTable.isFavorite) {
           return firstTable.sortOrder - secondTable.sortOrder;
@@ -267,6 +265,7 @@ export function GameLobbyScreen() {
         return firstTable.isFavorite ? -1 : 1;
       });
   }, [
+    activeGame,
     baseTables,
     favoriteTableIds,
     removedTableIds,
@@ -287,11 +286,16 @@ export function GameLobbyScreen() {
 
   const openTable = useCallback(
     (table: TablePreview) => {
-      if (table.isCurrent && activeGame) {
+      if (table.id === currentTable?.id && activeGame) {
         navigation.navigate('ActiveGame');
+      } else if (
+        archivedGameDays.some((day) => day.table.id === table.id) ||
+        table.id === currentTable?.id
+      ) {
+        navigation.navigate('Settlement', { tableId: table.id });
       }
     },
-    [activeGame, navigation],
+    [activeGame, archivedGameDays, currentTable?.id, navigation],
   );
 
   const openSettings = useCallback(() => {
@@ -372,10 +376,15 @@ export function GameLobbyScreen() {
 
     const tableId = leaveTableCandidate.id;
     setLeaveTableCandidate(null);
+    if (
+      (tableId === currentTable?.id && activeGame) ||
+      leaveTableCandidate.hasOpenPayments
+    )
+      return;
     setRemovedTableIds((current) =>
       current.includes(tableId) ? current : [...current, tableId],
     );
-  }, [leaveTableCandidate]);
+  }, [activeGame, currentTable?.id, leaveTableCandidate]);
 
   const openRenameTable = useCallback((table: TablePreview) => {
     setRenameTable(table);
@@ -452,15 +461,6 @@ export function GameLobbyScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.headerSymbols} pointerEvents="none">
-        <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
-          {'\u2663'}
-        </AppText>
-        <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
-          {'\u2665'}
-        </AppText>
-      </View>
-
       <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
         <BlurView intensity={18} tint="dark" style={styles.heroBlur}>
           <View style={styles.heroTop}>
@@ -468,16 +468,22 @@ export function GameLobbyScreen() {
               <Spade color={screenColors.gold} size={26} strokeWidth={2.3} />
             </View>
             <View style={styles.heroCopyWrap}>
-              <AppText style={styles.heroTitle}>Neue Runde starten</AppText>
+              <AppText style={styles.heroTitle}>
+                {activeGame && currentTable
+                  ? 'Dein Spielabend läuft'
+                  : 'Neue Runde starten'}
+              </AppText>
               <AppText style={styles.heroCopy}>
-                Erstelle einen neuen Tisch fuer deinen Spielabend.
+                {activeGame && currentTable
+                  ? 'Dein Tisch ist gespeichert. Spielt einfach weiter.'
+                  : 'Richte deinen Tisch für den nächsten Spielabend ein.'}
               </AppText>
             </View>
           </View>
           <GoldButton
             title={
               activeGame && currentTable
-                ? 'Aktiven Tisch oeffnen'
+                ? 'Am Tisch weiterspielen'
                 : 'Tisch erstellen'
             }
             onPress={openCreateTable}
@@ -488,7 +494,8 @@ export function GameLobbyScreen() {
       <View style={styles.sectionHeader}>
         <AppText style={styles.sectionTitle}>Deine Tische</AppText>
         <AppText style={styles.sectionHint}>
-          {visibleTables.length} Runden
+          {visibleTables.length}{' '}
+          {visibleTables.length === 1 ? 'Tisch' : 'Tische'}
         </AppText>
       </View>
     </>
@@ -506,7 +513,7 @@ export function GameLobbyScreen() {
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
       />
-      {Platform.OS === 'web' ? (
+      {Platform.OS === 'web' || visibleTables.length < 2 ? (
         <FlatList
           contentContainerStyle={styles.content}
           data={visibleTables}
@@ -516,9 +523,17 @@ export function GameLobbyScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.scroller}
           ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <EmptyGameState
+              icon={Spade}
+              title="Noch kein Tisch"
+              message="Erstelle deinen ersten Tisch mit dem Button oben."
+            />
+          }
         />
       ) : (
         <DraggableFlatList
+          containerStyle={styles.scroller}
           activationDistance={16}
           animationConfig={{ damping: 22, mass: 0.72, stiffness: 185 }}
           autoscrollSpeed={110}
@@ -538,6 +553,13 @@ export function GameLobbyScreen() {
           onDragEnd={({ data }) => handleDragEnd(data)}
           onRelease={() => setActiveReorderTableId(null)}
           ListHeaderComponent={listHeader}
+          ListEmptyComponent={
+            <EmptyGameState
+              icon={Spade}
+              title="Noch kein Tisch"
+              message="Erstelle deinen ersten Tisch mit dem Button oben."
+            />
+          }
         />
       )}
 
@@ -561,6 +583,10 @@ export function GameLobbyScreen() {
       />
       <LeaveTableSheet
         tableName={leaveTableCandidate?.name ?? ''}
+        isActive={Boolean(
+          (activeGame && leaveTableCandidate?.id === currentTable?.id) ||
+          leaveTableCandidate?.hasOpenPayments,
+        )}
         visible={leaveTableCandidate !== null}
         onCancel={closeLeaveTable}
         onConfirm={confirmLeaveTable}
@@ -607,13 +633,9 @@ const TableCard = memo(function TableCard({
           enabled={Platform.OS !== 'web' && !isDraggingAny}
           friction={1.7}
           leftThreshold={42}
-          overshootFriction={8}
+          overshootLeft={false}
+          overshootRight={false}
           rightThreshold={52}
-          onSwipeableOpen={(direction) => {
-            if (direction === 'right') {
-              onToggleFavorite(table);
-            }
-          }}
           renderLeftActions={(_, __, swipeableMethods) => (
             <Pressable
               accessibilityLabel={`${table.name} favorisieren`}
@@ -670,7 +692,7 @@ const TableCard = memo(function TableCard({
                 ]}
               >
                 <Pencil color={screenColors.text} size={20} strokeWidth={2.4} />
-                <AppText style={styles.swipeText}>Umbennen</AppText>
+                <AppText style={styles.swipeText}>Umbenennen</AppText>
               </Pressable>
               <Pressable
                 accessibilityLabel={`${table.name} verlassen`}
@@ -702,6 +724,7 @@ const TableCard = memo(function TableCard({
           >
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={`${table.name} oeffnen`}
               disabled={isDraggingAny && !isReordering}
               onPress={() => onPress(table)}
               style={({ pressed }) => [
@@ -729,7 +752,7 @@ const TableCard = memo(function TableCard({
                   pointerEvents="none"
                   style={styles.symbolGloss}
                 />
-                <SuitIcon color={suit.tone} size={31} strokeWidth={2.35} />
+                <SuitIcon color={suit.tone} size={25} strokeWidth={2.35} />
                 <AppText style={[styles.symbolLabel, { color: suit.tone }]}>
                   {suit.label}
                 </AppText>
@@ -747,7 +770,7 @@ const TableCard = memo(function TableCard({
                     </View>
                   ) : null}
                 </View>
-                <Text numberOfLines={1} style={styles.tablePlayers}>
+                <Text numberOfLines={2} style={styles.tablePlayers}>
                   {table.players}
                 </Text>
                 <AppText style={styles.tableDate}>{table.lastPlayed}</AppText>
@@ -810,9 +833,8 @@ function RenameTableSheet({
 
   return (
     <Modal
-      animationType="none"
+      animationType="fade"
       onRequestClose={onCancel}
-      statusBarTranslucent
       transparent
       visible={visible}
     >
@@ -820,11 +842,7 @@ function RenameTableSheet({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalRoot}
       >
-        <Animated.View
-          entering={FadeIn.duration(180)}
-          exiting={FadeOut.duration(160)}
-          style={styles.modalBackdrop}
-        >
+        <Animated.View style={styles.modalBackdrop}>
           <Pressable
             accessibilityRole="button"
             onPress={onCancel}
@@ -832,12 +850,8 @@ function RenameTableSheet({
           />
         </Animated.View>
 
-        <Animated.View
-          entering={ZoomIn.duration(190).springify().damping(18).stiffness(180)}
-          exiting={ZoomOut.duration(150)}
-          style={styles.dialogCard}
-        >
-          <AppText style={styles.sheetTitle}>Umbennen</AppText>
+        <Animated.View style={styles.dialogCard}>
+          <AppText style={styles.sheetTitle}>Umbenennen</AppText>
           <AppText style={styles.sheetSubtitle}>
             Gib {tableName || 'diesem Tisch'} einen neuen Namen.
           </AppText>
@@ -892,6 +906,7 @@ function RenameTableSheet({
 
 type LeaveTableSheetProps = {
   tableName: string;
+  isActive: boolean;
   visible: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -899,24 +914,20 @@ type LeaveTableSheetProps = {
 
 function LeaveTableSheet({
   tableName,
+  isActive,
   visible,
   onCancel,
   onConfirm,
 }: LeaveTableSheetProps) {
   return (
     <Modal
-      animationType="none"
+      animationType="fade"
       onRequestClose={onCancel}
-      statusBarTranslucent
       transparent
       visible={visible}
     >
       <View style={styles.modalRoot}>
-        <Animated.View
-          entering={FadeIn.duration(180)}
-          exiting={FadeOut.duration(160)}
-          style={styles.modalBackdrop}
-        >
+        <Animated.View style={styles.modalBackdrop}>
           <Pressable
             accessibilityRole="button"
             onPress={onCancel}
@@ -924,11 +935,7 @@ function LeaveTableSheet({
           />
         </Animated.View>
 
-        <Animated.View
-          entering={ZoomIn.duration(190).springify().damping(18).stiffness(180)}
-          exiting={ZoomOut.duration(150)}
-          style={styles.dialogCard}
-        >
+        <Animated.View style={styles.dialogCard}>
           <View style={styles.leaveIcon}>
             <LogOut color="#DFA0A0" size={24} strokeWidth={2.4} />
           </View>
@@ -937,7 +944,9 @@ function LeaveTableSheet({
             Möchtest du {tableName || 'diesen Tisch'} wirklich verlassen?
           </AppText>
           <AppText style={styles.leaveHint}>
-            Der Tisch wird aus deiner Übersicht entfernt.
+            {isActive
+              ? 'Dieser Tisch bleibt in deiner Übersicht, solange der Spielabend läuft oder Zahlungen offen sind.'
+              : 'Der Tisch wird aus deiner Übersicht entfernt.'}
           </AppText>
 
           <View style={styles.sheetActions}>
@@ -983,21 +992,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 76,
+    minHeight: 68,
   },
   kicker: {
     color: screenColors.gold,
-    fontSize: authTypography.caption,
-    fontWeight: '900',
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   title: {
     color: screenColors.text,
-    fontSize: 38,
-    fontWeight: '900',
-    letterSpacing: 0,
-    marginTop: authSpacing.xs,
+    fontSize: 32,
+    fontWeight: '700',
+    marginTop: 4,
   },
   settingsButton: {
     alignItems: 'center',
@@ -1033,64 +1041,47 @@ const styles = StyleSheet.create({
     top: -88,
     transform: [{ rotate: '12deg' }],
   },
-  hero: {
-    borderRadius: 30,
-    elevation: 10,
-    marginTop: authSpacing.lg,
-    shadowColor: screenColors.shadow,
-    shadowOffset: { height: 18, width: 0 },
-    shadowOpacity: 0.34,
-    shadowRadius: 26,
-  },
+  hero: { borderRadius: 22, marginTop: 16 },
   heroBlur: {
-    backgroundColor: 'rgba(26, 45, 36, 0.84)',
-    borderColor: screenColors.border,
-    borderRadius: 30,
+    backgroundColor: 'rgba(26,45,36,0.84)',
+    borderColor: 'rgba(231,198,92,0.17)',
+    borderRadius: 22,
     borderWidth: 1,
     overflow: 'hidden',
-    padding: authSpacing.xl,
+    padding: 18,
   },
   heroTop: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: authSpacing.md,
-    marginBottom: authSpacing.xl,
+    gap: 12,
+    marginBottom: 16,
   },
   heroIcon: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
-    borderColor: 'rgba(231, 198, 92, 0.22)',
-    borderRadius: 24,
-    borderWidth: 1,
-    height: 52,
+    backgroundColor: 'rgba(231,198,92,0.08)',
+    borderRadius: 15,
+    height: 44,
     justifyContent: 'center',
-    width: 52,
+    width: 44,
   },
   heroCopyWrap: {
     flex: 1,
   },
-  heroTitle: {
-    color: screenColors.text,
-    fontSize: 22,
-    fontWeight: '900',
-  },
+  heroTitle: { color: screenColors.text, fontSize: 18, fontWeight: '700' },
   heroCopy: {
     color: screenColors.muted,
-    fontSize: authTypography.caption,
-    lineHeight: 20,
-    marginTop: authSpacing.xs,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
   sectionHeader: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: authSpacing.xxl,
+    marginTop: 24,
+    marginBottom: 2,
   },
-  sectionTitle: {
-    color: screenColors.text,
-    fontSize: 20,
-    fontWeight: '900',
-  },
+  sectionTitle: { color: screenColors.text, fontSize: 18, fontWeight: '700' },
   sectionHint: {
     color: screenColors.soft,
     fontSize: authTypography.caption,
@@ -1108,73 +1099,57 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.02 }],
     zIndex: 50,
   },
-  swipeContainer: {
-    borderRadius: 28,
-    overflow: 'visible',
-  },
+  swipeContainer: { borderRadius: 22, overflow: 'hidden' },
   swipeActions: {
     alignItems: 'stretch',
     flexDirection: 'row',
-    gap: authSpacing.sm,
+    gap: 4,
     justifyContent: 'flex-end',
-    marginLeft: authSpacing.sm,
-    width: 288,
+    paddingLeft: 4,
+    width: 216,
   },
   swipeAction: {
     alignItems: 'center',
-    borderRadius: 24,
-    gap: authSpacing.xs,
+    borderRadius: 14,
+    gap: 7,
     justifyContent: 'center',
-    minHeight: 108,
-    width: 90,
+    width: 68,
+    alignSelf: 'stretch',
   },
   favoriteAction: {
     alignItems: 'center',
-    backgroundColor: screenColors.gold,
-    borderRadius: 24,
-    gap: authSpacing.xs,
+    backgroundColor: '#C5AA54',
+    borderRadius: 14,
+    gap: 7,
     justifyContent: 'center',
-    marginRight: authSpacing.sm,
-    minHeight: 108,
-    width: 96,
+    marginRight: 4,
+    width: 68,
+    alignSelf: 'stretch',
   },
-  favoriteActionText: {
-    color: '#17150B',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  copyAction: {
-    backgroundColor: '#2F6EA5',
-  },
-  renameAction: {
-    backgroundColor: '#806934',
-  },
-  leaveAction: {
-    backgroundColor: '#692B2C',
-  },
+  favoriteActionText: { color: '#172219', fontSize: 10, fontWeight: '600' },
+  copyAction: { backgroundColor: '#27473E' },
+  renameAction: { backgroundColor: '#4D482F' },
+  leaveAction: { backgroundColor: '#563535' },
   swipePressed: {
     opacity: 0.82,
     transform: [{ scale: 0.97 }],
   },
   swipeText: {
     color: screenColors.text,
-    fontSize: 11,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   tableCard: {
     alignItems: 'center',
-    backgroundColor: 'rgba(34, 55, 45, 0.96)',
-    borderColor: 'rgba(231, 198, 92, 0.13)',
-    borderRadius: 28,
+    backgroundColor: '#1A3025',
+    borderColor: 'rgba(245,245,245,0.09)',
+    borderRadius: 22,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: authSpacing.md,
-    minHeight: 108,
-    padding: authSpacing.lg,
-    shadowColor: screenColors.shadow,
-    shadowOffset: { height: 16, width: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
+    gap: 8,
+    minHeight: 106,
+    padding: 14,
   },
   tableTapTarget: {
     alignItems: 'center',
@@ -1196,10 +1171,8 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
   },
   tableCardCurrent: {
-    backgroundColor: 'rgba(42, 57, 35, 0.96)',
-    borderColor: 'rgba(231, 198, 92, 0.36)',
-    shadowColor: screenColors.gold,
-    shadowOpacity: 0.2,
+    backgroundColor: '#1C3327',
+    borderColor: 'rgba(231,198,92,0.27)',
   },
   tableCardFavorite: {
     borderColor: 'rgba(231, 198, 92, 0.28)',
@@ -1208,25 +1181,14 @@ const styles = StyleSheet.create({
   },
   tableSymbol: {
     alignItems: 'center',
-    borderRadius: 26,
+    borderRadius: 16,
     borderWidth: 1,
-    elevation: 5,
-    height: 62,
+    height: 48,
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    width: 62,
+    width: 48,
   },
-  symbolGloss: {
-    borderRadius: 26,
-    height: 31,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-  },
+  symbolGloss: { height: 0 },
   symbolLabel: {
     fontSize: 8,
     fontWeight: '900',
@@ -1260,8 +1222,9 @@ const styles = StyleSheet.create({
   tableName: {
     color: screenColors.text,
     flexShrink: 1,
-    fontSize: 17,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 21,
   },
   favoriteBadge: {
     alignItems: 'center',
@@ -1275,31 +1238,27 @@ const styles = StyleSheet.create({
   },
   tablePlayers: {
     color: screenColors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: authSpacing.xs,
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 17,
+    marginTop: 4,
   },
   tableDate: {
-    color: screenColors.soft,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: authSpacing.sm,
+    color: '#A4B99C',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 7,
   },
   fab: {
     alignItems: 'center',
     backgroundColor: screenColors.gold,
-    borderRadius: authRadius.pill,
+    borderRadius: 27,
     bottom: 116,
-    elevation: 12,
-    height: 62,
+    height: 54,
     justifyContent: 'center',
     position: 'absolute',
-    right: authSpacing.xl,
-    shadowColor: screenColors.gold,
-    shadowOffset: { height: 12, width: 0 },
-    shadowOpacity: 0.34,
-    shadowRadius: 18,
-    width: 62,
+    right: 24,
+    width: 54,
   },
   fabPressed: {
     opacity: 0.88,
@@ -1312,7 +1271,7 @@ const styles = StyleSheet.create({
     padding: authSpacing.xl,
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   dialogCard: {

@@ -1,27 +1,17 @@
+import {
+  BottomSheetFlatList,
+  BottomSheetTextInput,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 import { Minus, Plus, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import type { FriendProfile } from '../../types/profile';
 import { AppText } from '../ui/AppText';
+import { InteractionSheet } from '../ui/InteractionSheet';
 import { AnimalAvatar } from './AnimalAvatar';
 
 type FriendPickerSheetProps = {
@@ -69,142 +59,114 @@ export function FriendPickerSheet({
   }, [friends, query]);
 
   return (
-    <Modal
-      animationType="none"
-      onRequestClose={onClose}
-      statusBarTranslucent
-      transparent
-      visible={visible}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.root}
-      >
-        <Animated.View
-          entering={FadeIn.duration(180)}
-          exiting={FadeOut.duration(160)}
-          style={styles.backdrop}
-        >
+    <InteractionSheet visible={visible} onClose={onClose}>
+      <BottomSheetView style={{ flex: 1, paddingHorizontal: authSpacing.xl }}>
+        <View style={styles.header}>
+          <View>
+            <AppText style={styles.title}>Freunde hinzufügen</AppText>
+            <AppText style={styles.subtitle}>
+              Wähle Freunde für diesen Tisch aus.
+            </AppText>
+          </View>
           <Pressable
             accessibilityRole="button"
             onPress={onClose}
-            style={StyleSheet.absoluteFill}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <X color={colors.gold} size={20} strokeWidth={2.5} />
+          </Pressable>
+        </View>
+
+        <View style={styles.searchBox}>
+          <Search color={colors.soft} size={18} />
+          <BottomSheetTextInput
+            keyboardAppearance="dark"
+            onChangeText={setQuery}
+            placeholder="Freunde suchen"
+            placeholderTextColor={colors.soft}
+            selectionColor={colors.gold}
+            style={styles.searchInput}
+            value={query}
           />
-        </Animated.View>
+        </View>
 
-        <Animated.View
-          entering={SlideInDown.springify().damping(20).stiffness(210)}
-          exiting={SlideOutDown.duration(180)}
-          style={styles.sheet}
-        >
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <View>
-              <AppText style={styles.title}>Freunde hinzufügen</AppText>
-              <AppText style={styles.subtitle}>
-                Wähle Freunde für diesen Tisch aus.
-              </AppText>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <X color={colors.gold} size={20} strokeWidth={2.5} />
-            </Pressable>
-          </View>
+        <BottomSheetFlatList<FriendProfile>
+          contentContainerStyle={styles.listContent}
+          data={filteredFriends}
+          keyExtractor={(friend) => friend.id}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => {
+            const isSelected = selectedFriendIdSet.has(item.id);
+            const isDisabled = maxPlayersReached && !isSelected;
 
-          <View style={styles.searchBox}>
-            <Search color={colors.soft} size={18} />
-            <TextInput
-              keyboardAppearance="dark"
-              onChangeText={setQuery}
-              placeholder="Freunde suchen"
-              placeholderTextColor={colors.soft}
-              selectionColor={colors.gold}
-              style={styles.searchInput}
-              value={query}
-            />
-          </View>
-
-          <FlatList
-            contentContainerStyle={styles.listContent}
-            data={filteredFriends}
-            keyExtractor={(friend) => friend.id}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
-              const isSelected = selectedFriendIdSet.has(item.id);
-              const isDisabled = maxPlayersReached && !isSelected;
-
-              return (
-                <Pressable
-                  accessibilityLabel={`${item.username} ${
-                    isSelected ? 'entfernen' : 'hinzufuegen'
-                  }`}
-                  accessibilityRole="button"
-                  accessibilityState={{
-                    disabled: isDisabled,
-                    selected: isSelected,
-                  }}
-                  disabled={isDisabled}
-                  onPress={() => onToggleFriend(item)}
-                  style={({ pressed }) => [
-                    styles.friendRow,
-                    isSelected && {
-                      borderColor: item.accentColor,
-                      shadowColor: item.accentColor,
-                    },
-                    isDisabled && styles.friendRowDisabled,
-                    pressed && styles.rowPressed,
+            return (
+              <Pressable
+                accessibilityLabel={`${item.username} ${
+                  isSelected ? 'entfernen' : 'hinzufuegen'
+                }`}
+                accessibilityRole="button"
+                accessibilityState={{
+                  disabled: isDisabled,
+                  selected: isSelected,
+                }}
+                disabled={isDisabled}
+                onPress={() => onToggleFriend(item)}
+                style={({ pressed }) => [
+                  styles.friendRow,
+                  isSelected && {
+                    borderColor: item.accentColor,
+                    shadowColor: item.accentColor,
+                  },
+                  isDisabled && styles.friendRowDisabled,
+                  pressed && styles.rowPressed,
+                ]}
+              >
+                <View>
+                  <AnimalAvatar
+                    accentColor={item.accentColor}
+                    animalId={item.avatarId}
+                    highlighted={isSelected}
+                    size={50}
+                  />
+                  {item.isOnline ? <View style={styles.onlineDot} /> : null}
+                </View>
+                <View style={styles.friendBody}>
+                  <Text numberOfLines={1} style={styles.friendName}>
+                    {item.username}
+                  </Text>
+                  <AppText style={styles.friendMeta}>
+                    {item.isOnline ? 'Gerade online' : 'Stammtisch-Freund'}
+                  </AppText>
+                </View>
+                <View
+                  style={[
+                    styles.toggleButton,
+                    isSelected && { backgroundColor: item.accentColor },
+                    isDisabled && styles.toggleButtonDisabled,
                   ]}
                 >
-                  <View>
-                    <AnimalAvatar
-                      accentColor={item.accentColor}
-                      animalId={item.avatarId}
-                      highlighted={isSelected}
-                      size={50}
+                  {isSelected ? (
+                    <Minus color="#17150B" size={18} strokeWidth={3} />
+                  ) : (
+                    <Plus
+                      color={
+                        isDisabled ? 'rgba(245, 245, 245, 0.36)' : colors.gold
+                      }
+                      size={18}
+                      strokeWidth={2.8}
                     />
-                    {item.isOnline ? <View style={styles.onlineDot} /> : null}
-                  </View>
-                  <View style={styles.friendBody}>
-                    <Text numberOfLines={1} style={styles.friendName}>
-                      {item.username}
-                    </Text>
-                    <AppText style={styles.friendMeta}>
-                      {item.isOnline ? 'Gerade online' : 'Stammtisch-Freund'}
-                    </AppText>
-                  </View>
-                  <View
-                    style={[
-                      styles.toggleButton,
-                      isSelected && { backgroundColor: item.accentColor },
-                      isDisabled && styles.toggleButtonDisabled,
-                    ]}
-                  >
-                    {isSelected ? (
-                      <Minus color="#17150B" size={18} strokeWidth={3} />
-                    ) : (
-                      <Plus
-                        color={
-                          isDisabled ? 'rgba(245, 245, 245, 0.36)' : colors.gold
-                        }
-                        size={18}
-                        strokeWidth={2.8}
-                      />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            }}
-            showsVerticalScrollIndicator={false}
-          />
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+                  )}
+                </View>
+              </Pressable>
+            );
+          }}
+          showsVerticalScrollIndicator={false}
+        />
+      </BottomSheetView>
+    </InteractionSheet>
   );
 }
 
@@ -214,7 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.56)',
   },
   sheet: {

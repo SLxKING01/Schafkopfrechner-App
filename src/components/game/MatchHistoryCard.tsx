@@ -11,6 +11,9 @@ type MatchHistoryCardProps = {
   amount: string;
   time: string;
   gameType: string;
+  stockDeposit?: boolean;
+  stockBooking?: string;
+  details?: string;
 };
 
 export function MatchHistoryCard({
@@ -19,15 +22,24 @@ export function MatchHistoryCard({
   amount,
   time,
   gameType,
+  stockDeposit,
+  stockBooking,
+  details,
 }: MatchHistoryCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.timelineDot} />
       <View style={styles.copy}>
-        <AppText style={styles.title}>{winner} gewinnt</AppText>
-        <AppText style={styles.subtitle}>
-          {gameType} · gegen {losers}
+        <AppText style={styles.title}>
+          {stockBooking ??
+            (stockDeposit ? 'Stock eingezahlt' : `${winner} gewinnt`)}
         </AppText>
+        <AppText style={styles.subtitle}>
+          {stockDeposit || stockBooking
+            ? `Alle vier · ${losers}`
+            : `${gameType} · gegen ${losers}`}
+        </AppText>
+        {details ? <AppText style={styles.subtitle}>{details}</AppText> : null}
         <AppText style={styles.time}>{time}</AppText>
       </View>
       <AppText style={styles.amount}>+{amount}</AppText>

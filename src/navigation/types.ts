@@ -14,8 +14,9 @@ export type AppStackParamList = {
   AppTabs: NavigatorScreenParams<AppTabParamList> | undefined;
   CreateTable: undefined;
   EditTable: undefined;
+  MatchDayDetails: { matchDayId: string };
   ActiveGame: undefined;
-  Settlement: undefined;
+  Settlement: { tableId: string } | undefined;
 };
 
 export type AppTabParamList = {

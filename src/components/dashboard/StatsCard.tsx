@@ -17,9 +17,15 @@ type StatsCardProps = {
   title: string;
   subtitle: string;
   stats: StatItem[];
+  badge?: string;
 };
 
-export function StatsCard({ title, subtitle, stats }: StatsCardProps) {
+export function StatsCard({
+  title,
+  subtitle,
+  stats,
+  badge = 'Gesamt',
+}: StatsCardProps) {
   return (
     <LinearGradient
       colors={['rgba(212, 175, 55, 0.28)', 'rgba(13, 27, 19, 0.94)']}
@@ -33,7 +39,7 @@ export function StatsCard({ title, subtitle, stats }: StatsCardProps) {
           <AppText style={styles.subtitle}>{subtitle}</AppText>
         </View>
         <View style={styles.badge}>
-          <AppText style={styles.badgeText}>Heute</AppText>
+          <AppText style={styles.badgeText}>{badge}</AppText>
         </View>
       </View>
 
@@ -98,6 +104,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(7, 17, 11, 0.42)',
     borderRadius: authRadius.lg,
     minWidth: '46%',
+    flexGrow: 1,
+    flexBasis: '46%',
     padding: authSpacing.md,
   },
   statValue: {

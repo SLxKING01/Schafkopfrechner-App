@@ -1,23 +1,23 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ChevronRight,
-  Crown,
+  Ellipsis,
   History,
+  ListOrdered,
   Plus,
   ReceiptText,
   SlidersHorizontal,
   Trash2,
   UsersRound,
-  X,
 } from 'lucide-react-native';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   type LayoutChangeEvent,
   type ListRenderItem,
   Modal,
@@ -25,42 +25,40 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import Animated, {
-  FadeInDown,
-  FadeInUp,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Ellipse, G, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Ellipse, G, Path, Rect } from 'react-native-svg';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
-import { GameTypeSelector } from '../../components/game/GameTypeSelector';
+import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
-import { PlayerChip } from '../../components/game/PlayerChip';
+import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
+import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
-import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
-import type {
-  GameRound,
-  GameType,
-  Player,
-  PlayerBalance,
-  TableGameTypeId,
-} from '../../types/game';
+import type { GameRound, Player, PlayerBalance } from '../../types/game';
 import type { AnimalAvatarId } from '../../types/profile';
+import {
+  getStockBalanceCents,
+  isStockBooking,
+  roundWinnerIds,
+} from '../../utils/accounting';
+import { formatRoundGameType } from '../../utils/cardSuits';
+import { getCurrentDealerId, getNextDealerId } from '../../utils/dealerOrder';
 
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 type ActiveTab = 'players' | 'history';
@@ -122,42 +120,8 @@ function triggerSaveHaptic() {
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
 
-function triggerWarningHaptic() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-}
-
 function formatAmount(amount: number) {
   return `${amount.toFixed(2).replace('.', ',')} €`;
-}
-
-function formatGameType(gameType: GameType) {
-  const labels: Record<GameType, string> = {
-    bettel: 'Bettel',
-    custom: 'Custom',
-    farbgeier: 'Farbgeier',
-    farbwenz: 'FarbWenz',
-    geier: 'Geier',
-    hochzeit: 'Hochzeit',
-    kreuzbock: 'Kreuzbock',
-    ramsch: 'Ramsch',
-    rufspiel: 'Rufspiel',
-    sauspiel: 'Sauspiel',
-    solo: 'Solo',
-    stock: 'Stock',
-    wenz: 'Wenz',
-  };
-
-  return labels[gameType];
-}
-
-function formatTableMonth(date: string) {
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return 'Spieltag';
-  }
-
-  return parsedDate.toLocaleDateString('de-DE', { month: 'long' });
 }
 
 function getPlayerVisual(index: number) {
@@ -171,58 +135,55 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
   const insets = useSafeAreaInsets();
   const currentTable = useGameStore((state) => state.currentTable);
   const players = useGameStore((state) => state.players);
+  const setPlayerOrder = useGameStore((state) => state.setPlayerOrder);
+  const setTurboRamsch = useGameStore((state) => state.setTurboRamsch);
+  const togglePlayerLeger = useGameStore((state) => state.togglePlayerLeger);
+  const turboRamschEnabled = currentTable?.turboRamschEnabled ?? false;
   const rounds = useGameStore((state) => state.rounds);
   const balances = useGameStore((state) => state.balances);
-  const addRound = useGameStore((state) => state.addRound);
   const finishGameDay = useGameStore((state) => state.finishGameDay);
   const persistGame = useGameStore((state) => state.persistGame);
+  const scrollPositions = useRef({ players: 0, history: 0 });
+  const leavingRef = useRef(false);
+  const [leaving, setLeaving] = useState(false);
+  const [roundSaved, setRoundSaved] = useState(false);
+  const [scrollOffsets, setScrollOffsets] = useState({
+    players: 0,
+    history: 0,
+  });
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [seatOrderVisible, setSeatOrderVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
-  const [winnerId, setWinnerId] = useState('');
-  const [loserIds, setLoserIds] = useState<string[]>([]);
-  const [amount, setAmount] = useState('10');
-  const [gameType, setGameType] = useState<GameType>('rufspiel');
-  const [placedCoinsByPlayerId, setPlacedCoinsByPlayerId] = useState<
-    Record<string, number>
-  >({});
-
-  const openAmount = useMemo(
+  const [composerSession, setComposerSession] = useState(0);
+  const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
+  const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
+  const editingRound =
+    rounds.find((round) => round.id === editingRoundId) ?? null;
+  const placedCoinsByPlayerId = useMemo<Record<string, number>>(
     () =>
-      balances.reduce((sum, balance) => sum + Math.max(0, balance.amount), 0),
-    [balances],
+      Object.fromEntries(
+        (currentTable?.placedLegerPlayerIds ?? []).map((id) => [id, 1]),
+      ),
+    [currentTable?.placedLegerPlayerIds],
   );
-  const totalTurnover = useMemo(
-    () => rounds.reduce((sum, round) => sum + round.amount, 0),
-    [rounds],
-  );
+
   const rankedPlayers = useMemo(
     () => createRankedPlayers(players, balances, placedCoinsByPlayerId),
     [balances, placedCoinsByPlayerId, players],
   );
-  const leader = rankedPlayers[0];
-  const currentDealerId = useMemo(() => {
-    if (players.length === 0) {
-      return null;
-    }
-
-    return players[rounds.length % players.length]?.id ?? null;
-  }, [players, rounds.length]);
-  const tableMonth = useMemo(
-    () => formatTableMonth(currentTable?.createdAt ?? ''),
-    [currentTable?.createdAt],
+  const currentDealerId = getCurrentDealerId(
+    currentTable,
+    players,
+    rounds.length,
   );
+  const nextDealerId = getNextDealerId(currentTable, players, rounds.length);
+  const dealerName =
+    players.find(({ id }) => id === currentDealerId)?.name ?? '–';
+  const nextDealerName =
+    players.find(({ id }) => id === nextDealerId)?.name ?? '–';
   const recentRounds = useMemo(() => [...rounds].reverse(), [rounds]);
-  const enabledGameTypes = useMemo(
-    () =>
-      Object.entries(currentTable?.settings.games ?? {})
-        .filter(([, entry]) => entry.enabled)
-        .map(([id]) => id as TableGameTypeId),
-    [currentTable?.settings.games],
-  );
-  const numericAmount = useMemo(
-    () => Number(amount.replace(',', '.')),
-    [amount],
-  );
+  const playedRounds = rounds.filter((round) => !isStockBooking(round)).length;
   const placedCoinCount = useMemo(
     () =>
       Math.min(
@@ -234,48 +195,44 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       ),
     [placedCoinsByPlayerId],
   );
-  const roundMultiplier = useMemo(
-    () => 2 ** placedCoinCount,
-    [placedCoinCount],
-  );
-  const isRoundDraftValid = useMemo(
-    () =>
-      Boolean(winnerId) &&
-      loserIds.length > 0 &&
-      Number.isFinite(numericAmount) &&
-      numericAmount > 0,
-    [loserIds.length, numericAmount, winnerId],
-  );
+  const roundMultiplier =
+    (currentTable?.settings.bonusRules.leger.enabled
+      ? currentTable.settings.bonusRules.leger.value ** placedCoinCount
+      : 1) * (turboRamschEnabled ? 2 : 1);
   const playerNameById = useMemo(
     () => new Map(players.map((player) => [player.id, player.name])),
     [players],
   );
-
-  useEffect(() => {
-    if (roundComposerVisible) {
-      AccessibilityInfo.announceForAccessibility('Rundeneingabe geöffnet');
-    }
-  }, [roundComposerVisible]);
-
-  useEffect(() => {
-    if (
-      enabledGameTypes.length > 0 &&
-      !enabledGameTypes.includes(gameType as TableGameTypeId)
-    ) {
-      setGameType(enabledGameTypes[0]);
-    }
-  }, [enabledGameTypes, gameType]);
 
   const getPlayerName = useCallback(
     (id: string) => playerNameById.get(id) ?? 'Unbekannt',
     [playerNameById],
   );
 
+  const editRound = useCallback((round: GameRound) => {
+    setComposerSession((value) => value + 1);
+    setEditingRoundId(round.id);
+    setRoundComposerVisible(true);
+  }, []);
   const renderHistoryRound: ListRenderItem<GameRound> = useCallback(
     ({ item }) => (
-      <HistoryRoundRow round={item} getPlayerName={getPlayerName} />
+      <HistoryRoundRow
+        round={item}
+        stockPayoutCents={
+          item.stockAction === 'payout'
+            ? getStockBalanceCents(
+                rounds.slice(
+                  0,
+                  rounds.findIndex((round) => round.id === item.id),
+                ),
+              )
+            : 0
+        }
+        getPlayerName={getPlayerName}
+        onEdit={editRound}
+      />
     ),
-    [getPlayerName],
+    [getPlayerName, editRound, rounds],
   );
 
   const keyExtractorRound = useCallback((round: GameRound) => round.id, []);
@@ -290,6 +247,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       triggerSelectionHaptic();
     }
 
+    setScrollOffsets({ ...scrollPositions.current });
     setActiveTab('players');
   }, [activeTab]);
 
@@ -298,30 +256,22 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
       triggerSelectionHaptic();
     }
 
+    setScrollOffsets({ ...scrollPositions.current });
     setActiveTab('history');
   }, [activeTab]);
 
-  const resetRoundDraft = useCallback(() => {
-    setWinnerId('');
-    setLoserIds([]);
-    setAmount('10');
-    setGameType(enabledGameTypes[0] ?? 'rufspiel');
-  }, [enabledGameTypes]);
-
-  const resetPlacedCoins = useCallback(() => {
-    setPlacedCoinsByPlayerId({});
-  }, []);
-
   const openRoundComposer = useCallback(() => {
+    setComposerSession((value) => value + 1);
     triggerSelectionHaptic();
+    setRoundSaved(false);
+    setEditingRoundId(null);
     setRoundComposerVisible(true);
   }, []);
 
   const closeRoundComposer = useCallback(() => {
     triggerSelectionHaptic();
     setRoundComposerVisible(false);
-    resetRoundDraft();
-  }, [resetRoundDraft]);
+  }, []);
 
   const showPlayerDetails = useCallback((player: RankedPlayer) => {
     triggerSelectionHaptic();
@@ -331,76 +281,33 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     );
   }, []);
 
-  const toggleLoser = useCallback(
-    (id: string) => {
-      triggerSelectionHaptic();
-      setLoserIds((currentLosers) => {
-        if (id === winnerId) {
-          return currentLosers;
-        }
-
-        return currentLosers.includes(id)
-          ? currentLosers.filter((loserId) => loserId !== id)
-          : [...currentLosers, id];
-      });
-    },
-    [winnerId],
-  );
-
-  const changeGameType = useCallback((nextGameType: GameType) => {
-    triggerSelectionHaptic();
-    setGameType(nextGameType);
-  }, []);
-
-  const saveRound = useCallback(() => {
-    if (!isRoundDraftValid) {
-      triggerWarningHaptic();
-      Alert.alert('Betrag prüfen', 'Bitte gib einen gültigen Betrag ein.');
-      return;
-    }
-
-    const didAdd = addRound({
-      winnerId,
-      loserIds,
-      amount: numericAmount * roundMultiplier,
-      gameType,
-    });
-
-    if (!didAdd) {
-      triggerWarningHaptic();
-      Alert.alert(
-        'Runde unvollständig',
-        'Bitte Gewinner, mindestens einen Verlierer und Betrag > 0 wählen.',
-      );
-      return;
-    }
-
-    triggerSaveHaptic();
-    resetRoundDraft();
-    resetPlacedCoins();
-    setRoundComposerVisible(false);
-  }, [
-    addRound,
-    gameType,
-    isRoundDraftValid,
-    loserIds,
-    numericAmount,
-    resetPlacedCoins,
-    resetRoundDraft,
-    roundMultiplier,
-    winnerId,
-  ]);
-
   const finishDay = useCallback(() => {
     triggerSelectionHaptic();
-    const didFinish = finishGameDay();
-
-    if (!didFinish) {
-      Alert.alert('Kein aktiver Spieltag', 'Starte zuerst einen Spieltisch.');
-      return;
-    }
-
-    navigation.navigate('Settlement');
+    const complete = (resolution?: 'refund' | 'carry') => {
+      const finishedTableId = useGameStore.getState().currentTable?.id;
+      if (!finishGameDay(resolution)) {
+        Alert.alert(
+          'Abschluss nicht möglich',
+          'Bitte prüfe den aktiven Tisch und seine Rundeneinträge. Ungültige Abrechnungsdaten werden nicht abgeschlossen.',
+        );
+        return;
+      }
+      if (finishedTableId) {
+        navigation.navigate('Settlement', { tableId: finishedTableId });
+      }
+    };
+    const pot = getStockBalanceCents(useGameStore.getState().rounds);
+    if (pot > 0) {
+      Alert.alert(
+        'Rest-Stock abschließen',
+        `${formatAmount(pot / 100)} liegen im Stock. Zurückgeben erstattet jedem Einzahler seinen Anteil. Übernehmen eröffnet einen Folgetisch mit denselben vier Spielern und demselben Stock.`,
+        [
+          { text: 'Abbrechen', style: 'cancel' },
+          { text: 'Stock zurückgeben', onPress: () => complete('refund') },
+          { text: 'Stock übernehmen', onPress: () => complete('carry') },
+        ],
+      );
+    } else complete();
   }, [finishGameDay, navigation]);
 
   const confirmArchiveTable = useCallback(() => {
@@ -424,38 +331,32 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     navigation.navigate('EditTable');
   }, [navigation]);
 
-  const goToTablesOverview = useCallback(() => {
+  const goToTablesOverview = useCallback(async () => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    setLeaving(true);
     triggerSelectionHaptic();
-
-    void persistGame().finally(() => {
+    try {
+      await persistGame();
       navigation.navigate('AppTabs', { screen: 'GameLobby' });
-    });
+    } catch {
+      Alert.alert(
+        'Speichern fehlgeschlagen',
+        'Dein Spiel bleibt geöffnet. Bitte versuche es erneut.',
+      );
+    } finally {
+      leavingRef.current = false;
+      setLeaving(false);
+    }
   }, [navigation, persistGame]);
 
-  const selectWinner = useCallback((playerId: string) => {
-    triggerSelectionHaptic();
-    setWinnerId(playerId);
-    setLoserIds((currentLosers) =>
-      currentLosers.filter((loserId) => loserId !== playerId),
-    );
-  }, []);
-
-  const togglePlacedCoin = useCallback((playerId: string) => {
-    triggerSelectionHaptic();
-
-    setPlacedCoinsByPlayerId((currentCoins) => {
-      const currentCoinCount = normalizeCoinCount(currentCoins[playerId]);
-      const nextCoins = { ...currentCoins };
-
-      if (currentCoinCount > 0) {
-        delete nextCoins[playerId];
-      } else {
-        nextCoins[playerId] = 1;
-      }
-
-      return nextCoins;
-    });
-  }, []);
+  const togglePlacedCoin = useCallback(
+    (playerId: string) => {
+      triggerSelectionHaptic();
+      togglePlayerLeger(playerId);
+    },
+    [togglePlayerLeger],
+  );
 
   const replaceWithCreateTable = useCallback(() => {
     navigation.replace('CreateTable');
@@ -481,12 +382,14 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
 
   const tableOverviewHeader = (
     <>
-      <Animated.View entering={FadeInDown.duration(360)} style={styles.topBar}>
+      <Animated.View style={styles.topBar}>
         <Pressable
           accessibilityHint="Kehrt zur Tische-Übersicht zurück, ohne den Spieltag zu beenden"
           accessibilityLabel="Zurück zu Tische"
           accessibilityRole="button"
           hitSlop={touchHitSlop}
+          disabled={leaving}
+          accessibilityState={{ busy: leaving, disabled: leaving }}
           onPress={goToTablesOverview}
           style={({ pressed }) => [
             styles.navPill,
@@ -495,84 +398,45 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           ]}
         >
           <ArrowLeft color={screenColors.text} size={24} strokeWidth={2.7} />
-          <AppText style={styles.navPillText}>Tische</AppText>
+          <AppText style={styles.navPillText}>
+            {leaving ? 'Speichert …' : 'Tische'}
+          </AppText>
         </Pressable>
-        <View style={styles.topBarActions}>
-          <Pressable
-            accessibilityHint="Öffnet Regeln und Tarife für diesen Tisch"
-            accessibilityLabel="Tisch bearbeiten"
-            accessibilityRole="button"
-            hitSlop={touchHitSlop}
-            onPress={openTableSettings}
-            style={({ pressed }) => [
-              styles.navPill,
-              styles.archivePill,
-              pressed && styles.pressed,
-            ]}
-          >
-            <SlidersHorizontal
-              color={screenColors.gold}
-              size={21}
-              strokeWidth={2.5}
-            />
-          </Pressable>
-          <Pressable
-            accessibilityHint="Archiviert den Tisch nach Bestätigung"
-            accessibilityLabel="Tisch archivieren"
-            accessibilityRole="button"
-            hitSlop={touchHitSlop}
-            onPress={confirmArchiveTable}
-            style={({ pressed }) => [
-              styles.navPill,
-              styles.archivePill,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Trash2 color={screenColors.gold} size={22} strokeWidth={2.5} />
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityLabel="Tischmenü öffnen"
+          accessibilityRole="button"
+          onPress={() => setMenuVisible(true)}
+          style={styles.menuButton}
+        >
+          <Ellipsis color={screenColors.gold} size={24} />
+        </Pressable>
       </Animated.View>
 
-      <Animated.View
-        entering={FadeInDown.duration(360).delay(60)}
-        style={styles.tableHeader}
-      >
+      <Animated.View style={styles.tableHeader}>
         <View style={styles.tableTitleBlock}>
-          <Text numberOfLines={1} style={styles.title}>
-            {currentTable.name}
-          </Text>
-          <AppText style={styles.monthLabel}>{tableMonth}</AppText>
-        </View>
-        <View style={styles.gameBadge}>
-          <AppText style={styles.gameBadgeLabel}>Spiel</AppText>
-          <AppText style={styles.gameBadgeValue}>{rounds.length + 1}</AppText>
+          <Text style={styles.title}>{currentTable.name}</Text>
+          <View style={styles.statusRow}>
+            <View style={styles.statusDot} />
+            <AppText style={styles.statusText}>Runde läuft</AppText>
+            <AppText style={styles.playerCount}>
+              {players.length} Spieler
+            </AppText>
+          </View>
         </View>
       </Animated.View>
 
       <View style={styles.compactStats}>
         <View style={styles.statChip}>
-          <AppText style={styles.statChipLabel}>Offen</AppText>
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.statChipValue,
-              openAmount > 0 && styles.statChipValueGold,
-            ]}
-          >
-            {formatAmount(openAmount)}
-          </Text>
+          <AppText style={styles.statChipLabel}>Spiel Nr.</AppText>
+          <Text style={styles.statChipValue}>{playedRounds + 1}</Text>
         </View>
         <View style={styles.statChip}>
-          <AppText style={styles.statChipLabel}>Umsatz</AppText>
-          <Text numberOfLines={1} style={styles.statChipValue}>
-            {formatAmount(totalTurnover)}
-          </Text>
+          <AppText style={styles.statChipLabel}>Geber</AppText>
+          <Text style={styles.statChipValue}>{dealerName}</Text>
         </View>
         <View style={styles.statChip}>
-          <AppText style={styles.statChipLabel}>Leader</AppText>
-          <Text numberOfLines={1} style={styles.statChipValue}>
-            {leader?.name ?? 'Offen'}
-          </Text>
+          <AppText style={styles.statChipLabel}>Danach</AppText>
+          <Text style={styles.statChipValue}>{nextDealerName}</Text>
         </View>
       </View>
 
@@ -613,16 +477,26 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.goldGlow} pointerEvents="none" />
-      <View style={styles.greenGlow} pointerEvents="none" />
 
+      {roundSaved ? (
+        <View
+          accessibilityLiveRegion="polite"
+          pointerEvents="none"
+          style={[styles.savedNotice, { bottom: 190 }]}
+        >
+          <AppText style={{ color: screenColors.gold }}>
+            Auf Gerät gespeichert · Spielstände aktualisiert
+          </AppText>
+        </View>
+      ) : null}
       {activeTab === 'history' ? (
         <FlatList
           style={styles.scroller}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Math.max(insets.bottom, 18) + 118 },
-          ]}
+          contentContainerStyle={[styles.content, { paddingBottom: 16 }]}
+          contentOffset={{ x: 0, y: scrollOffsets.history }}
+          onScroll={(event) => {
+            scrollPositions.current.history = event.nativeEvent.contentOffset.y;
+          }}
           data={recentRounds}
           initialNumToRender={12}
           ItemSeparatorComponent={renderHistorySeparator}
@@ -639,17 +513,13 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
             <EmptyGameState
               icon={ReceiptText}
               title="Noch keine Runden"
-              message="Tippe auf +, um das erste Spiel zu erfassen."
+              message="Tippe auf Spiel eintragen, um das erste Spiel zu erfassen."
             />
           }
-          ListFooterComponent={finishDayButton}
           ListHeaderComponent={
             <>
               {tableOverviewHeader}
-              <Animated.View
-                entering={FadeInUp.duration(260)}
-                style={[styles.stack, styles.historyHeaderStack]}
-              >
+              <Animated.View style={[styles.stack, styles.historyHeaderStack]}>
                 <View style={styles.sectionHeader}>
                   <View>
                     <AppText style={styles.sectionTitle}>Spielverlauf</AppText>
@@ -659,7 +529,10 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
                   </View>
                   <View style={styles.roundCountPill}>
                     <AppText style={styles.roundCountText}>
-                      {rounds.length} Runden
+                      {playedRounds} Spiele
+                      {rounds.length > playedRounds
+                        ? ` · ${rounds.length - playedRounds} Buchungen`
+                        : ''}
                     </AppText>
                   </View>
                 </View>
@@ -668,73 +541,376 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           }
         />
       ) : (
-        <ScrollView
+        <FlatList
+          testID="player-standings-list"
+          data={rankedPlayers}
+          keyExtractor={(player) => player.id}
           style={styles.scroller}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Math.max(insets.bottom, 18) + 118 },
-          ]}
+          contentContainerStyle={[styles.content, { paddingBottom: 16 }]}
+          contentOffset={{ x: 0, y: scrollOffsets.players }}
+          onScroll={(event) => {
+            scrollPositions.current.players = event.nativeEvent.contentOffset.y;
+          }}
+          scrollEnabled
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-        >
-          {tableOverviewHeader}
-          <Animated.View entering={FadeInUp.duration(260)} style={styles.stack}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <AppText style={styles.sectionTitle}>Spieler</AppText>
+          ListHeaderComponent={
+            <>
+              {tableOverviewHeader}
+              <View style={[styles.stack, styles.dragTableHeader]}>
+                <View style={styles.playerTableHeader}>
+                  <View style={[styles.nameColumn, styles.orderHeader]}>
+                    <AppText style={styles.columnLabel}>Spieler</AppText>
+                    <Pressable
+                      accessibilityLabel="Sitzreihenfolge ändern"
+                      accessibilityRole="button"
+                      onPress={() => setSeatOrderVisible(true)}
+                      style={styles.orderIcon}
+                    >
+                      <ListOrdered size={18} color={screenColors.gold} />
+                    </Pressable>
+                  </View>
+                  <AppText style={[styles.columnLabel, styles.balanceColumn]}>
+                    Saldo
+                  </AppText>
+                  <AppText style={[styles.columnLabel, styles.coinColumn]}>
+                    Leger
+                  </AppText>
+                </View>
               </View>
-              <AppText style={styles.sectionSubtitle}>
-                {rankedPlayers.length} Spieler
-              </AppText>
-            </View>
-
-            {rankedPlayers.map((player, index) => (
+            </>
+          }
+          renderItem={({ item: player }) => (
+            <View style={styles.dragTableRow}>
               <PlayerRankingRow
-                key={player.id}
                 isDealer={player.id === currentDealerId}
                 player={player}
                 onPressPlayer={showPlayerDetails}
                 onPressCoin={togglePlacedCoin}
-                delay={index * 55}
+                onReorder={() => setSeatOrderVisible(true)}
               />
-            ))}
-          </Animated.View>
-
-          {finishDayButton}
-        </ScrollView>
+            </View>
+          )}
+          ListFooterComponent={
+            <View>
+              <View style={styles.dragTableEnd} />
+              <AppText style={styles.dragHint}>
+                Sitzreihenfolge über das Listensymbol oder langes Drücken ändern
+              </AppText>
+              {balances.every((balance) => balance.amount === 0) ? (
+                <AppText style={styles.balancedHint}>
+                  Alle Spielstände ausgeglichen
+                </AppText>
+              ) : null}
+              <View
+                style={[
+                  styles.turboCard,
+                  turboRamschEnabled && styles.turboCardActive,
+                ]}
+              >
+                <View style={styles.turboCopy}>
+                  <AppText style={styles.turboTitle}>Turbo Ramsch</AppText>
+                  <AppText style={styles.turboHint}>
+                    Spielwert ×2, zusätzlich zu den Legern
+                  </AppText>
+                </View>
+                <Switch
+                  accessibilityLabel="Turbo Ramsch"
+                  accessibilityHint="Verdoppelt den Spielwert zusätzlich zu den Legern"
+                  value={turboRamschEnabled}
+                  onValueChange={setTurboRamsch}
+                  thumbColor="#F5F5F5"
+                  ios_backgroundColor="#3B4C42"
+                  trackColor={{ false: '#3B4C42', true: '#6FA972' }}
+                />
+              </View>
+            </View>
+          }
+        />
       )}
 
-      <Pressable
-        accessibilityLabel="Runde hinzufügen"
-        accessibilityRole="button"
-        hitSlop={touchHitSlop}
-        onPress={openRoundComposer}
-        style={({ pressed }) => [
-          styles.fab,
-          { bottom: Math.max(insets.bottom, 18) + 18 },
-          pressed && styles.fabPressed,
+      <View
+        style={[
+          styles.actionDock,
+          { paddingBottom: Math.max(8, insets.bottom > 0 ? 4 : 12) },
         ]}
       >
-        <Plus color={screenColors.text} size={30} strokeWidth={3} />
-      </Pressable>
+        <SyncStatus />
+        <View
+          style={styles.multiplierKpi}
+          accessibilityLabel={`Gesamtmultiplikator: ${roundMultiplier}x`}
+          accessibilityLiveRegion="polite"
+        >
+          <AppText style={styles.multiplierKpiLabel}>
+            Gesamtfaktor · {placedCoinCount} Leger
+            {turboRamschEnabled ? ' + Turbo' : ''}
+          </AppText>
+          <AppText style={styles.multiplierKpiValue}>
+            {roundMultiplier}×
+          </AppText>
+        </View>
+        {currentTable?.settings.games.stock.enabled ||
+        getStockBalanceCents(rounds) > 0 ? (
+          <View
+            accessible
+            accessibilityLabel={`Stock: ${formatAmount(getStockBalanceCents(rounds) / 100)}`}
+          >
+            <AppText style={styles.multiplierKpiLabel}>
+              Stock: {formatAmount(getStockBalanceCents(rounds) / 100)}
+            </AppText>
+          </View>
+        ) : null}
+        <Pressable
+          accessibilityLabel="Spiel eintragen"
+          accessibilityRole="button"
+          onPress={openRoundComposer}
+          style={({ pressed }) => [
+            styles.addGameButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Plus color="#15241B" size={24} />
+          <AppText style={styles.addGameText}>Spiel eintragen</AppText>
+        </Pressable>
+        {finishDayButton}
+      </View>
+      <Modal
+        transparent
+        visible={menuVisible}
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <View style={styles.menuRoot}>
+          <Pressable
+            accessibilityLabel="Menü schließen"
+            accessibilityRole="button"
+            style={styles.menuBackdrop}
+            onPress={() => setMenuVisible(false)}
+          />
+          <View style={styles.menuCard}>
+            <AppText style={styles.menuTitle}>Tisch verwalten</AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tisch bearbeiten"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                openTableSettings();
+              }}
+            >
+              <SlidersHorizontal color={screenColors.gold} size={20} />
+              <AppText style={styles.menuText}>Regeln & Tarife</AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tisch archivieren"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                confirmArchiveTable();
+              }}
+            >
+              <Trash2 color={screenColors.red} size={20} />
+              <AppText style={styles.menuText}>Tisch archivieren</AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Letzte Runde zurücknehmen"
+              disabled={
+                !rounds.length || rounds.at(-1)?.stockAction === 'carryIn'
+              }
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                setUndoConfirmVisible(true);
+              }}
+            >
+              <AppText style={styles.menuText}>
+                Letzte Runde zurücknehmen
+              </AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.menuItem}
+              onPress={() => setMenuVisible(false)}
+            >
+              <AppText style={styles.menuText}>Schließen</AppText>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
-      <RoundComposerModal
-        amount={amount}
-        enabledGameTypes={enabledGameTypes}
-        gameType={gameType}
-        loserIds={loserIds}
+      {seatOrderVisible ? (
+        <SeatOrderModal
+          players={players}
+          dealerId={currentDealerId}
+          onClose={() => setSeatOrderVisible(false)}
+          onSave={(ids) => {
+            if (setPlayerOrder(ids)) setSeatOrderVisible(false);
+            else
+              Alert.alert(
+                'Reihenfolge nicht gespeichert',
+                'Die Spieler haben sich geändert. Bitte öffne die Reihenfolge erneut.',
+              );
+          }}
+        />
+      ) : null}
+      <RoundEntrySheet
+        key={`${currentTable?.id ?? 'none'}:${editingRoundId ?? 'new-round'}:${composerSession}`}
+        table={currentTable}
         players={players}
+        editingRound={editingRound}
         visible={roundComposerVisible}
-        winnerId={winnerId}
-        onAmountChange={setAmount}
         onClose={closeRoundComposer}
-        onGameTypeChange={changeGameType}
-        onSave={saveRound}
-        roundMultiplier={roundMultiplier}
-        saveDisabled={!isRoundDraftValid}
-        onSelectWinner={selectWinner}
-        onToggleLoser={toggleLoser}
+        onDismiss={() => {
+          if (!roundComposerVisible) setEditingRoundId(null);
+        }}
+        onSaved={() => {
+          triggerSaveHaptic();
+          setRoundSaved(true);
+          setRoundComposerVisible(false);
+        }}
       />
+      <Modal
+        transparent
+        visible={undoConfirmVisible}
+        animationType="fade"
+        onRequestClose={() => setUndoConfirmVisible(false)}
+      >
+        <View style={styles.menuRoot}>
+          <View style={styles.menuCard}>
+            <AppText style={styles.menuTitle}>
+              Letzte Runde zurücknehmen?
+            </AppText>
+            <AppText style={styles.menuText}>
+              Die Salden werden neu berechnet. Geber, Leger und Turbo werden auf
+              den gespeicherten Stand vor dieser Runde zurückgesetzt. Später
+              gesetzte Leger werden dabei ersetzt. Bei älteren Runden ohne
+              Geberprotokoll gilt die aktuelle Sitzreihenfolge.
+            </AppText>
+            <GoldButton
+              title="Runde zurücknehmen"
+              accessibilityLabel="Runde zurücknehmen bestätigen"
+              onPress={() => {
+                if (!useGameStore.getState().undoLastRound())
+                  Alert.alert(
+                    'Nicht möglich',
+                    'Die Runde konnte nicht zurückgenommen werden.',
+                  );
+                setUndoConfirmVisible(false);
+                setRoundSaved(false);
+              }}
+            />
+            <GoldButton
+              title="Abbrechen"
+              accessibilityLabel="Zurücknehmen abbrechen"
+              onPress={() => setUndoConfirmVisible(false)}
+            />
+          </View>
+        </View>
+      </Modal>
     </AuthBackground>
+  );
+}
+
+function SeatOrderModal({
+  players,
+  dealerId,
+  onClose,
+  onSave,
+}: {
+  players: Player[];
+  dealerId: string | null;
+  onClose: () => void;
+  onSave: (ids: string[]) => void;
+}) {
+  const [order, setOrder] = useState(() => players.map((player) => player.id));
+  const move = (index: number, offset: number) => {
+    setOrder((current) => {
+      const target = index + offset;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+  return (
+    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
+      <View style={styles.menuRoot}>
+        <Pressable
+          accessibilityLabel="Reihenfolge abbrechen"
+          accessibilityRole="button"
+          style={styles.menuBackdrop}
+          onPress={onClose}
+        />
+        <View style={[styles.menuCard, styles.orderCard]}>
+          <AppText style={styles.menuTitle}>Sitzreihenfolge</AppText>
+          <AppText style={styles.orderHelp}>
+            Ordne die Spieler wie am Tisch im Uhrzeigersinn. Der aktuelle Geber
+            bleibt erhalten; danach wird in dieser Reihenfolge weitergegeben.
+          </AppText>
+          <ScrollView style={styles.orderScroller}>
+            {order.map((id, index) => {
+              const player = players.find((candidate) => candidate.id === id);
+              if (!player) return null;
+              return (
+                <View key={id} style={styles.orderRow}>
+                  <AppText style={styles.orderNumber}>{index + 1}</AppText>
+                  <View style={styles.playerCopy}>
+                    <Text style={styles.playerName}>{player.name}</Text>
+                    {id === dealerId ? (
+                      <AppText style={styles.dealerLabel}>Geber</AppText>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    accessibilityLabel={`${player.name} nach oben`}
+                    accessibilityRole="button"
+                    disabled={index === 0}
+                    accessibilityState={{ disabled: index === 0 }}
+                    style={[
+                      styles.orderIcon,
+                      index === 0 && styles.orderDisabled,
+                    ]}
+                    onPress={() => move(index, -1)}
+                  >
+                    <ArrowUp size={20} color={screenColors.gold} />
+                  </Pressable>
+                  <Pressable
+                    accessibilityLabel={`${player.name} nach unten`}
+                    accessibilityRole="button"
+                    disabled={index === order.length - 1}
+                    accessibilityState={{
+                      disabled: index === order.length - 1,
+                    }}
+                    style={[
+                      styles.orderIcon,
+                      index === order.length - 1 && styles.orderDisabled,
+                    ]}
+                    onPress={() => move(index, 1)}
+                  >
+                    <ArrowDown size={20} color={screenColors.gold} />
+                  </Pressable>
+                </View>
+              );
+            })}
+          </ScrollView>
+          <GoldButton
+            title="Reihenfolge speichern"
+            accessibilityLabel="Reihenfolge speichern"
+            onPress={() => onSave(order)}
+          />
+          <Pressable
+            style={styles.menuItem}
+            accessibilityRole="button"
+            accessibilityLabel="Reihenfolge abbrechen"
+            onPress={onClose}
+          >
+            <AppText style={styles.menuText}>Abbrechen</AppText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -762,9 +938,6 @@ function createRankedPlayers(
         seatIndex: index,
       };
     })
-    .sort(
-      (firstPlayer, secondPlayer) => secondPlayer.amount - firstPlayer.amount,
-    )
     .map((player, index) => ({
       ...player,
       isLeader: index === 0 && player.amount > 0,
@@ -865,7 +1038,7 @@ const SegmentButton = memo(function SegmentButton({
 });
 
 type PlayerRankingRowProps = {
-  delay: number;
+  onReorder: () => void;
   isDealer: boolean;
   player: RankedPlayer;
   onPressCoin: (playerId: string) => void;
@@ -873,7 +1046,7 @@ type PlayerRankingRowProps = {
 };
 
 const PlayerRankingRow = memo(function PlayerRankingRow({
-  delay,
+  onReorder,
   isDealer,
   onPressCoin,
   player,
@@ -890,127 +1063,142 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
   }, [onPressCoin, player.id]);
 
   return (
-    <Animated.View entering={FadeInDown.duration(260).delay(delay)}>
+    <View style={[styles.playerRow, hovered && styles.rowHovered]}>
       <Pressable
-        accessibilityLabel={`${player.name}, ${formatAmount(
-          player.amount,
-        )}, ${player.placedCoins} gelegte Münzen, Multiplikator ${getMultiplierLabel(
-          player.placedCoins,
-        )}`}
+        accessibilityLabel={`${player.name}, ${formatAmount(player.amount)}${isDealer ? ', Geber' : ''}`}
         accessibilityRole="button"
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
         onPress={handlePress}
+        onLongPress={onReorder}
+        accessibilityHint="Gedrückt halten, um die Sitzreihenfolge zu ändern"
         style={({ pressed }) => [
-          styles.playerRow,
-          player.isLeader && styles.playerRowLeader,
-          hovered && styles.rowHovered,
+          styles.playerIdentity,
           pressed && styles.rowPressed,
         ]}
       >
-        <CardStackIcon
-          accentColor={player.accentColor}
-          isDealer={isDealer}
-          seatIndex={player.seatIndex}
-        />
+        <CardStackIcon isDealer={isDealer} />
         <View style={styles.playerCopy}>
-          <View style={styles.playerNameRow}>
-            <Text numberOfLines={1} style={styles.playerName}>
-              {player.name}
-            </Text>
-            {player.isLeader ? (
-              <View style={styles.leaderBadge}>
-                <Crown color={screenColors.gold} size={11} strokeWidth={2.7} />
-              </View>
-            ) : null}
-          </View>
+          <Text style={styles.playerName}>{player.name}</Text>
+          {isDealer ? (
+            <AppText style={styles.dealerLabel}>Geber</AppText>
+          ) : null}
         </View>
-        <Text
-          adjustsFontSizeToFit
-          minimumFontScale={0.78}
-          numberOfLines={1}
-          style={[
-            styles.playerAmount,
-            isPositive && styles.amountPositive,
-            isNegative && styles.amountNegative,
-            !isPositive && !isNegative && styles.amountNeutral,
-          ]}
-        >
-          {isPositive ? '+' : ''}
-          {formatAmount(player.amount)}
-        </Text>
-        <CoinMultiplierBadge
-          coinCount={player.placedCoins}
-          onPress={handlePressCoin}
-        />
-        <ChevronRight
-          color="rgba(245, 245, 245, 0.5)"
-          size={22}
-          strokeWidth={2.4}
-        />
       </Pressable>
-    </Animated.View>
-  );
-});
-
-type CardStackIconProps = {
-  accentColor: string;
-  isDealer: boolean;
-  seatIndex: number;
-};
-
-const CardStackIcon = memo(function CardStackIcon({
-  accentColor,
-  isDealer,
-  seatIndex,
-}: CardStackIconProps) {
-  const cardColors = [
-    PROFILE_ACCENTS.forestGreen,
-    PROFILE_ACCENTS.amber,
-    PROFILE_ACCENTS.mutedBlue,
-    PROFILE_ACCENTS.warmRed,
-  ];
-  const activeCardIndex = seatIndex % cardColors.length;
-
-  return (
-    <View style={styles.cardIconWrap}>
-      {cardColors.map((cardColor, index) => {
-        const isActiveDealerCard = isDealer && index === activeCardIndex;
-
-        return (
-          <View
-            key={cardColor}
-            style={[
-              styles.cardIcon,
-              {
-                backgroundColor: isActiveDealerCard
-                  ? cardColor
-                  : 'rgba(7, 17, 11, 0.3)',
-                borderColor: isActiveDealerCard ? screenColors.gold : cardColor,
-                left: 4 + index * 9,
-                shadowColor: isActiveDealerCard
-                  ? screenColors.gold
-                  : accentColor,
-                shadowOpacity: isActiveDealerCard ? 0.3 : 0,
-                transform: [{ rotate: `${-10 + index * 6}deg` }],
-                zIndex: isActiveDealerCard ? 6 : index,
-              },
-              isActiveDealerCard && styles.cardIconDealer,
-            ]}
-          />
-        );
-      })}
+      <Text
+        style={[
+          styles.playerAmount,
+          isPositive && styles.amountPositive,
+          isNegative && styles.amountNegative,
+          !isPositive && !isNegative && styles.amountNeutral,
+        ]}
+      >
+        {isPositive ? '+' : ''}
+        {formatAmount(player.amount)}
+      </Text>
+      <CoinMultiplierBadge
+        coinCount={player.placedCoins}
+        playerName={player.name}
+        onPress={handlePressCoin}
+      />
     </View>
   );
 });
 
+const CardStackIcon = memo(function CardStackIcon({
+  isDealer,
+}: {
+  isDealer: boolean;
+}) {
+  return (
+    <Svg
+      {...(Platform.OS === 'web'
+        ? { 'aria-hidden': true }
+        : {
+            accessibilityElementsHidden: true,
+            importantForAccessibility: 'no-hide-descendants' as const,
+          })}
+      width={38}
+      height={46}
+      viewBox="0 0 38 46"
+    >
+      <Rect
+        x="3"
+        y="6"
+        width="23"
+        height="33"
+        rx="4"
+        fill="#254235"
+        stroke="#77937B"
+        strokeWidth="1"
+        transform="rotate(-12 15 23)"
+      />
+      <Rect
+        x="12"
+        y="5"
+        width="23"
+        height="34"
+        rx="4"
+        fill={isDealer ? '#EAE3CB' : '#254235'}
+        stroke={isDealer ? '#C5AB62' : '#77937B'}
+        strokeWidth="1"
+        transform="rotate(7 24 22)"
+      />
+      {isDealer ? (
+        <G testID="dealer-acorn">
+          <Path
+            d="M24 15 Q24 11 27 11"
+            stroke="#6D5528"
+            strokeWidth="1.5"
+            fill="none"
+          />
+          <Path
+            d="M18 23 Q17 32 23 33 Q29 31 29 23 Z"
+            fill="#B29A55"
+            stroke="#6D5528"
+            strokeWidth="1"
+          />
+          <Path
+            d="M17 23 Q17 16 23 16 Q30 16 30 23 Z"
+            fill="#8B793F"
+            stroke="#6D5528"
+            strokeWidth="1"
+          />
+          <Ellipse cx="23" cy="23" rx="6.5" ry="1.5" fill="#C1AB6B" />
+        </G>
+      ) : (
+        <G testID="covered-cards">
+          <Rect
+            x="16"
+            y="9"
+            width="15"
+            height="26"
+            rx="2"
+            fill="none"
+            stroke="#607F68"
+            strokeWidth="0.7"
+            transform="rotate(7 24 22)"
+          />
+          <Path
+            d="M24 15 L28 22 L24 29 L20 22 Z"
+            fill="none"
+            stroke="#7D967B"
+            strokeWidth="0.8"
+          />
+        </G>
+      )}
+    </Svg>
+  );
+});
+
 type CoinMultiplierBadgeProps = {
+  disabled?: boolean;
   coinCount: number;
-  maxCoins?: number;
+  playerName: string;
   onPress?: () => void;
 };
 
-function normalizeCoinCount(coinCount: number, maxCoins = 4) {
+function normalizeCoinCount(coinCount: number, maxCoins = 1) {
   if (!Number.isFinite(coinCount)) {
     return 0;
   }
@@ -1025,225 +1213,46 @@ function getMultiplierLabel(coinCount: number) {
 }
 
 const CoinMultiplierBadge = memo(function CoinMultiplierBadge({
+  disabled = false,
   coinCount,
-  maxCoins = 4,
+  playerName,
   onPress,
 }: CoinMultiplierBadgeProps) {
-  const safeCoinCount = normalizeCoinCount(coinCount, maxCoins);
-  const multiplierLabel = `${2 ** safeCoinCount}x`;
-  const progress = maxCoins > 0 ? safeCoinCount / maxCoins : 0;
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  useEffect(() => {
-    scale.value = withSpring(1.08, { damping: 12, stiffness: 260 }, () => {
-      scale.value = withSpring(1, { damping: 14, stiffness: 220 });
-    });
-  }, [safeCoinCount, scale]);
-
-  const coins = Array.from({ length: safeCoinCount });
-  const isEmpty = safeCoinCount === 0;
-  const glowOpacity = 0.12 + progress * 0.32;
-  const coinTint = safeCoinCount === maxCoins ? '#F9DB78' : screenColors.gold;
-
+  const count = normalizeCoinCount(coinCount);
   return (
     <Pressable
-      accessibilityHint="Markiert, ob dieser Spieler in der aktuellen Runde einmal gelegt hat"
-      accessibilityLabel={`${safeCoinCount} gelegte Münzen, Multiplikator ${multiplierLabel}`}
       accessibilityRole="button"
-      hitSlop={touchHitSlop}
+      accessibilityLabel={`Leger ${playerName}: ${getMultiplierLabel(count)}`}
+      disabled={disabled}
+      accessibilityState={{ selected: count > 0, disabled }}
+      accessibilityHint={
+        count > 0
+          ? 'Nimmt den Leger dieses Spielers zurück'
+          : 'Legt einmal und verdoppelt den gemeinsamen Faktor'
+      }
       onPress={onPress}
       style={({ pressed }) => [
         styles.coinBadgeTapTarget,
         pressed && styles.coinBadgePressed,
       ]}
     >
-      <Animated.View
-        style={[
-          styles.coinBadge,
-          isEmpty && styles.coinBadgeEmpty,
-          !isEmpty && {
-            borderColor: `rgba(231, 198, 92, ${0.34 + progress * 0.36})`,
-            shadowOpacity: glowOpacity,
-          },
-          animatedStyle,
-        ]}
-      >
-        <View style={styles.coinStack}>
-          {isEmpty ? (
-            <EuroStyleCoin label={multiplierLabel} muted />
-          ) : (
-            coins.map((_, index) => {
-              const offset = index * -5;
-              const opacity = 0.78 + (index + 1) * (0.2 / safeCoinCount);
-              const isTopCoin = index === safeCoinCount - 1;
-
-              return (
-                <View
-                  key={`coin-${index}`}
-                  style={{
-                    opacity,
-                    position: 'absolute',
-                    transform: [{ translateY: offset }],
-                    zIndex: index + 1,
-                  }}
-                >
-                  <EuroStyleCoin
-                    label={isTopCoin ? multiplierLabel : ''}
-                    tint={coinTint}
-                  />
-                </View>
-              );
-            })
-          )}
-        </View>
-        <Text
-          adjustsFontSizeToFit
-          minimumFontScale={0.72}
-          numberOfLines={1}
-          style={[styles.multiplierText, isEmpty && styles.multiplierTextMuted]}
-        >
-          {multiplierLabel}
-        </Text>
-      </Animated.View>
+      <EuroStyleCoin label={`${2 ** count}×`} muted={count === 0} />
     </Pressable>
   );
 });
 
-type EuroStyleCoinProps = {
-  label: string;
-  muted?: boolean;
-  tint?: string;
-};
-
-const ridgeLines = Array.from({ length: 14 });
-
-const EuroStyleCoin = memo(function EuroStyleCoin({
-  label,
-  muted = false,
-  tint = screenColors.gold,
-}: EuroStyleCoinProps) {
-  const faceColor = muted ? 'rgba(245, 245, 245, 0.055)' : tint;
-  const sideColor = muted ? 'rgba(245, 245, 245, 0.08)' : '#B88322';
-  const edgeColor = muted ? 'rgba(245, 245, 245, 0.26)' : '#FFF0A7';
-  const imprintColor = muted ? 'rgba(245, 245, 245, 0.38)' : '#3B2B0A';
-  const ridgeColor = muted ? 'rgba(245, 245, 245, 0.26)' : '#FFF4BC';
-
-  return (
-    <Svg height={34} viewBox="0 0 52 38" width={46}>
-      <Ellipse cx="24" cy="31" fill="rgba(0,0,0,0.22)" rx="20" ry="5" />
-      <Rect
-        fill={sideColor}
-        height="9"
-        rx="2"
-        stroke={edgeColor}
-        strokeWidth="1"
-        width="42"
-        x="5"
-        y="18"
-      />
-      <G>
-        {ridgeLines.map((_, index) => {
-          const x = 8 + index * 2.8;
-
-          return (
-            <Line
-              key={`ridge-${index}`}
-              stroke={ridgeColor}
-              strokeLinecap="round"
-              strokeWidth="1.2"
-              x1={x}
-              x2={x}
-              y1="20"
-              y2="28"
-            />
-          );
-        })}
-      </G>
-      <Ellipse
-        cx="26"
-        cy="17"
-        fill={faceColor}
-        rx="22"
-        ry="13"
-        stroke={edgeColor}
-        strokeWidth="1.6"
-      />
-      <Ellipse
-        cx="26"
-        cy="17"
-        fill="transparent"
-        rx="17"
-        ry="9"
-        stroke={imprintColor}
-        strokeOpacity={muted ? 0.48 : 0.34}
-        strokeWidth="1"
-      />
-      <Ellipse
-        cx="26"
-        cy="17"
-        fill="transparent"
-        rx="20"
-        ry="11.4"
-        stroke={imprintColor}
-        strokeOpacity={muted ? 0.42 : 0.28}
-        strokeWidth="1"
-      />
-      {label ? (
-        <SvgText
-          fill={imprintColor}
-          fontSize="13"
-          fontWeight="900"
-          textAnchor="middle"
-          x="25.5"
-          y="20.7"
-        >
-          {label}
-        </SvgText>
-      ) : null}
-      <G opacity={muted ? 0.34 : 0.6}>
-        <Line
-          stroke={edgeColor}
-          strokeLinecap="round"
-          strokeWidth="1"
-          x1="35"
-          x2="39"
-          y1="10"
-          y2="8"
-        />
-        <Line
-          stroke={edgeColor}
-          strokeLinecap="round"
-          strokeWidth="1"
-          x1="38"
-          x2="42"
-          y1="13"
-          y2="12"
-        />
-        <Line
-          stroke={edgeColor}
-          strokeLinecap="round"
-          strokeWidth="1"
-          x1="36"
-          x2="41"
-          y1="18"
-          y2="19"
-        />
-      </G>
-    </Svg>
-  );
-});
-
 type HistoryRoundRowProps = {
+  stockPayoutCents: number;
+  onEdit: (round: GameRound) => void;
   round: GameRound;
   getPlayerName: (playerId: string) => string;
 };
 
 const HistoryRoundRow = memo(function HistoryRoundRow({
+  stockPayoutCents,
   round,
   getPlayerName,
+  onEdit,
 }: HistoryRoundRowProps) {
   const losers = useMemo(
     () => round.loserIds.map(getPlayerName).join(', '),
@@ -1258,223 +1267,289 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
     [round.createdAt],
   );
   const winner = useMemo(
-    () => getPlayerName(round.winnerId),
-    [getPlayerName, round.winnerId],
+    () => roundWinnerIds(round).map(getPlayerName).join(' & '),
+    [getPlayerName, round],
   );
 
   return (
-    <MatchHistoryCard
-      amount={formatAmount(round.amount)}
-      gameType={formatGameType(round.gameType)}
-      losers={losers}
-      time={time}
-      winner={winner}
-    />
-  );
-});
-
-type RoundPlayerChipProps = {
-  disabled?: boolean;
-  name: string;
-  playerId: string;
-  selected: boolean;
-  type: 'winner' | 'loser';
-  onPressPlayer: (playerId: string) => void;
-};
-
-const RoundPlayerChip = memo(function RoundPlayerChip({
-  disabled = false,
-  name,
-  playerId,
-  selected,
-  type,
-  onPressPlayer,
-}: RoundPlayerChipProps) {
-  const handlePress = useCallback(() => {
-    onPressPlayer(playerId);
-  }, [onPressPlayer, playerId]);
-
-  return (
-    <PlayerChip
-      accessibilityHint={
-        type === 'winner'
-          ? 'Wählt diesen Spieler als Gewinner aus'
-          : 'Wählt diesen Spieler als Verlierer aus oder entfernt ihn'
-      }
-      accessibilityLabel={`${name} als ${
-        type === 'winner' ? 'Gewinner' : 'Verlierer'
-      } ${selected ? 'ausgewählt' : 'auswählen'}`}
-      disabled={disabled}
-      name={name}
-      selected={selected}
-      onPress={handlePress}
-    />
-  );
-});
-
-type RoundComposerModalProps = {
-  amount: string;
-  enabledGameTypes: GameType[];
-  gameType: GameType;
-  loserIds: string[];
-  players: Player[];
-  roundMultiplier: number;
-  saveDisabled: boolean;
-  visible: boolean;
-  winnerId: string;
-  onAmountChange: (amount: string) => void;
-  onClose: () => void;
-  onGameTypeChange: (gameType: GameType) => void;
-  onSave: () => void;
-  onSelectWinner: (playerId: string) => void;
-  onToggleLoser: (playerId: string) => void;
-};
-
-const RoundComposerModal = memo(function RoundComposerModal({
-  amount,
-  enabledGameTypes,
-  gameType,
-  loserIds,
-  players,
-  roundMultiplier,
-  saveDisabled,
-  visible,
-  winnerId,
-  onAmountChange,
-  onClose,
-  onGameTypeChange,
-  onSave,
-  onSelectWinner,
-  onToggleLoser,
-}: RoundComposerModalProps) {
-  const loserIdSet = useMemo(() => new Set(loserIds), [loserIds]);
-
-  return (
-    <Modal
-      animationType="fade"
-      onRequestClose={onClose}
-      accessibilityViewIsModal
-      statusBarTranslucent
-      transparent
-      visible={visible}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.modalRoot}
-      >
+    <View>
+      <MatchHistoryCard
+        details={
+          round.declarerId && round.partnerId
+            ? `Spieler: ${getPlayerName(round.declarerId)} · Partner: ${getPlayerName(round.partnerId)} · ${roundWinnerIds(round).includes(round.declarerId) ? 'gewonnen' : 'verloren'}`
+            : undefined
+        }
+        stockBooking={
+          round.stockAction === 'carryIn'
+            ? 'Stock übernommen'
+            : round.stockAction === 'carryOut'
+              ? 'Stock übertragen'
+              : round.stockAction === 'refund'
+                ? 'Stock zurückgegeben'
+                : undefined
+        }
+        stockDeposit={round.stockAction === 'deposit'}
+        amount={formatAmount(round.amount + stockPayoutCents / 100)}
+        gameType={`${formatRoundGameType(round.gameType, round.suit)}${round.stockAction === 'payout' ? ` + Stock ${formatAmount(stockPayoutCents / 100)}` : ''}`}
+        losers={losers}
+        time={time}
+        winner={winner}
+      />
+      {!round.stockAction ||
+      ['deposit', 'payout'].includes(round.stockAction) ? (
         <Pressable
-          accessibilityHint="Verwirft die aktuelle Rundeneingabe"
-          accessibilityLabel="Rundeneingabe schließen"
           accessibilityRole="button"
-          hitSlop={touchHitSlop}
-          onPress={onClose}
-          style={styles.modalBackdrop}
-        />
-        <Animated.View
-          accessibilityViewIsModal
-          entering={FadeInUp.duration(220)}
-          importantForAccessibility="yes"
-          style={styles.sheet}
+          accessibilityLabel={`Runde ${round.id} bearbeiten`}
+          onPress={() => onEdit(round)}
+          style={styles.menuItem}
         >
-          <View style={styles.sheetHeader}>
-            <View>
-              <AppText style={styles.sheetKicker}>Neue Runde</AppText>
-              <AppText style={styles.sheetTitle}>Spiel erfassen</AppText>
-            </View>
-            <Pressable
-              accessibilityHint="Verwirft die aktuelle Rundeneingabe"
-              accessibilityLabel="Rundeneingabe schließen"
-              accessibilityRole="button"
-              hitSlop={touchHitSlop}
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <X color={screenColors.gold} size={20} strokeWidth={2.5} />
-            </Pressable>
-          </View>
-
-          <ScrollView
-            contentContainerStyle={styles.sheetContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <AppText style={styles.label}>Gewinner</AppText>
-            <View style={styles.chipWrap}>
-              {players.map((player) => (
-                <RoundPlayerChip
-                  key={player.id}
-                  name={player.name}
-                  playerId={player.id}
-                  selected={winnerId === player.id}
-                  type="winner"
-                  onPressPlayer={onSelectWinner}
-                />
-              ))}
-            </View>
-
-            <AppText style={styles.label}>Verlierer</AppText>
-            <View style={styles.chipWrap}>
-              {players.map((player) => (
-                <RoundPlayerChip
-                  key={player.id}
-                  disabled={player.id === winnerId}
-                  name={player.name}
-                  playerId={player.id}
-                  selected={loserIdSet.has(player.id)}
-                  type="loser"
-                  onPressPlayer={onToggleLoser}
-                />
-              ))}
-            </View>
-
-            <AppText style={styles.label}>Spieltyp</AppText>
-            <GameTypeSelector
-              enabledTypes={enabledGameTypes}
-              selectedType={gameType}
-              onSelect={onGameTypeChange}
-            />
-
-            <AppText style={styles.label}>Betrag</AppText>
-            <TextInput
-              accessibilityHint="Gib den Einsatzbetrag für diese Runde ein"
-              accessibilityLabel="Betrag"
-              keyboardAppearance="dark"
-              keyboardType="decimal-pad"
-              placeholder="10"
-              placeholderTextColor={authColors.textSecondary}
-              selectionColor={authColors.gold}
-              style={styles.amountInput}
-              value={amount}
-              onChangeText={onAmountChange}
-            />
-            <View style={styles.multiplierHint}>
-              <AppText style={styles.multiplierHintText}>
-                Legen aktiv: {roundMultiplier}x
-              </AppText>
-            </View>
-
-            <GoldButton
-              accessibilityHint="Speichert die Runde, sobald Gewinner, Verlierer und Betrag gültig sind"
-              accessibilityLabel="Runde speichern"
-              disabled={saveDisabled}
-              title="Runde speichern"
-              onPress={onSave}
-            />
-          </ScrollView>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </Modal>
+          <AppText style={styles.menuText}>Runde bearbeiten</AppText>
+        </Pressable>
+      ) : null}
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  turboCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    marginTop: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245,245,245,0.1)',
+    backgroundColor: '#142A20',
+  },
+  turboCardActive: { borderColor: 'rgba(231,198,92,0.4)' },
+  turboCopy: { flex: 1, minWidth: 0 },
+  turboTitle: { color: screenColors.text, fontSize: 16, fontWeight: '700' },
+  turboHint: {
+    color: screenColors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 4,
+  },
+
+  dragTableEnd: {
+    height: 20,
+    backgroundColor: '#10251C',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(245,245,245,0.1)',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+
+  dragTableHeader: {
+    backgroundColor: 'rgba(20,42,32,0.42)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(245,245,245,0.1)',
+  },
+  dragTableRow: {
+    backgroundColor: '#10251C',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(245,245,245,0.1)',
+  },
+  draggedPlayerRow: {
+    backgroundColor: '#2A4433',
+    borderColor: screenColors.gold,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  dragHint: {
+    color: screenColors.soft,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+
+  orderHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  orderIcon: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderCard: { maxHeight: '85%' },
+  orderHelp: {
+    color: screenColors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  orderScroller: { flexShrink: 1, marginBottom: 16 },
+  orderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 64,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: screenColors.border,
+  },
+  orderNumber: { color: screenColors.soft, fontSize: 12, width: 16 },
+  orderDisabled: { opacity: 0.25 },
+
+  multiplierKpi: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(231,198,92,0.07)',
+  },
+  multiplierKpiLabel: {
+    color: screenColors.muted,
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  multiplierKpiValue: {
+    color: screenColors.gold,
+    fontSize: 18,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: screenColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#82B37C',
+  },
+  statusText: { color: screenColors.muted, fontSize: 12 },
+  playerCount: { color: screenColors.muted, fontSize: 12, marginLeft: 'auto' },
+  playerTable: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245,245,245,0.1)',
+    backgroundColor: 'rgba(20,42,32,0.42)',
+    overflow: 'hidden',
+  },
+  playerTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  columnLabel: {
+    color: screenColors.soft,
+    fontSize: 10,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  nameColumn: { flex: 1, minWidth: 0 },
+  balanceColumn: { width: 82, textAlign: 'right' },
+  coinColumn: { width: 52, textAlign: 'center' },
+  playerIdentity: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    minHeight: 52,
+  },
+  dealerLabel: {
+    color: screenColors.gold,
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: screenColors.border,
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  balancedHint: {
+    color: screenColors.soft,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  actionDock: {
+    backgroundColor: '#0B1D16',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(245,245,245,0.07)',
+  },
+  addGameButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: screenColors.gold,
+    borderRadius: 24,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  addGameText: { color: '#15241B', fontSize: 17, fontWeight: '700' },
+  menuRoot: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  menuBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  menuCard: {
+    backgroundColor: '#142A20',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: screenColors.border,
+  },
+  menuTitle: {
+    color: screenColors.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  menuItem: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuText: { color: screenColors.text, fontSize: 16 },
+
+  savedNotice: {
+    position: 'absolute',
+    zIndex: 2,
+    left: 20,
+    right: 20,
+    padding: 12,
+    borderRadius: 16,
+    backgroundColor: screenColors.cardStrong,
+  },
   content: {
     paddingBottom: 132,
     paddingHorizontal: 20,
-    paddingTop: authSpacing.lg,
+    paddingTop: authSpacing.sm,
   },
   scroller: {
     flex: 1,
@@ -1507,47 +1582,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: authSpacing.xl,
+    marginBottom: 16,
   },
   topBarActions: {
     flexDirection: 'row',
     gap: authSpacing.sm,
   },
-  navPill: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(245, 245, 245, 0.06)',
-    borderColor: 'rgba(231, 198, 92, 0.16)',
-    borderRadius: authRadius.pill,
-    borderWidth: 1,
-    flexDirection: 'row',
-    minHeight: 54,
-    shadowColor: screenColors.gold,
-    shadowOffset: { height: 10, width: 0 },
-    shadowOpacity: 0.13,
-    shadowRadius: 18,
-  },
-  backPill: {
-    gap: authSpacing.sm,
-    paddingLeft: authSpacing.md,
-    paddingRight: authSpacing.lg,
-  },
+  navPill: { alignItems: 'center', flexDirection: 'row', minHeight: 44 },
+  backPill: { gap: 8 },
   archivePill: {
     height: 54,
     justifyContent: 'center',
     width: 54,
   },
-  navPillText: {
-    color: screenColors.text,
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  tableHeader: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: authSpacing.md,
-    justifyContent: 'space-between',
-    marginBottom: authSpacing.md,
-  },
+  navPillText: { color: screenColors.text, fontSize: 18, fontWeight: '600' },
+  tableHeader: { marginBottom: 16 },
   tableTitleBlock: {
     flex: 1,
     minWidth: 0,
@@ -1561,30 +1610,33 @@ const styles = StyleSheet.create({
   },
   compactStats: {
     flexDirection: 'row',
-    gap: authSpacing.sm,
-    marginBottom: authSpacing.lg,
+    marginBottom: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(245,245,245,0.025)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,245,245,0.09)',
+    borderRadius: 18,
   },
   statChip: {
-    backgroundColor: 'rgba(245, 245, 245, 0.045)',
-    borderColor: 'rgba(245, 245, 245, 0.075)',
-    borderRadius: 18,
-    borderWidth: 1,
     flex: 1,
-    minHeight: 58,
-    paddingHorizontal: authSpacing.md,
-    paddingVertical: authSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    minHeight: 44,
   },
   statChipLabel: {
     color: screenColors.soft,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   statChipValue: {
     color: screenColors.text,
-    fontSize: 13,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '700',
     marginTop: 4,
+    fontVariant: ['tabular-nums'],
   },
   statChipValueGold: {
     color: screenColors.gold,
@@ -1647,9 +1699,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: screenColors.text,
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontSize: 25,
+    lineHeight: 32,
+    fontWeight: '700',
   },
   gameBadge: {
     alignItems: 'center',
@@ -1762,7 +1814,7 @@ const styles = StyleSheet.create({
     borderRadius: authRadius.pill,
     borderWidth: 1,
     flexDirection: 'row',
-    minHeight: 54,
+    minHeight: 48,
     overflow: 'hidden',
     padding: 3,
     position: 'relative',
@@ -1790,7 +1842,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: authSpacing.xs,
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 42,
     zIndex: 1,
   },
   segmentButtonActive: {
@@ -1804,10 +1856,7 @@ const styles = StyleSheet.create({
   segmentTextActive: {
     color: '#17150B',
   },
-  stack: {
-    gap: 0,
-    marginTop: authSpacing.xl,
-  },
+  stack: { marginTop: 16 },
   historyHeaderStack: {
     marginBottom: authSpacing.md,
   },
@@ -1853,16 +1902,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   playerRow: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(20, 42, 32, 0.36)',
-    borderBottomColor: 'rgba(245, 245, 245, 0.08)',
-    borderBottomWidth: 1,
-    borderRadius: 0,
     flexDirection: 'row',
-    gap: authSpacing.md,
-    minHeight: 88,
-    paddingHorizontal: authSpacing.sm,
-    paddingVertical: authSpacing.md,
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 72,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(245,245,245,0.1)',
   },
   playerRowLeader: {
     backgroundColor: 'rgba(231, 198, 92, 0.075)',
@@ -1878,33 +1925,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(42, 73, 55, 0.54)',
   },
   coinBadgeTapTarget: {
-    borderRadius: 20,
+    width: 52,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
   },
   coinBadgePressed: {
     opacity: 0.82,
     transform: [{ scale: 0.94 }],
   },
   coinBadge: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
-    borderColor: 'rgba(231, 198, 92, 0.42)',
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 4,
-    height: 46,
+    borderColor: '#9C884E',
+    backgroundColor: '#B6A16B',
+    alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: screenColors.gold,
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    width: 82,
   },
-  coinBadgeEmpty: {
-    backgroundColor: 'rgba(245, 245, 245, 0.045)',
-    borderColor: 'rgba(245, 245, 245, 0.12)',
-    shadowOpacity: 0,
-  },
+  coinBadgeEmpty: { backgroundColor: '#34443A', borderColor: '#6E7969' },
   coinStack: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1913,14 +1954,12 @@ const styles = StyleSheet.create({
     width: 46,
   },
   multiplierText: {
-    color: screenColors.gold,
-    fontSize: 13,
-    fontWeight: '900',
-    minWidth: 24,
+    color: '#18251B',
+    fontSize: 17,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  multiplierTextMuted: {
-    color: screenColors.soft,
-  },
+  multiplierTextMuted: { color: '#CAD0BD' },
   cardIconWrap: {
     height: 46,
     marginRight: authSpacing.xs,
@@ -1952,9 +1991,9 @@ const styles = StyleSheet.create({
   },
   playerName: {
     color: screenColors.text,
+    fontSize: 16,
+    fontWeight: '600',
     flexShrink: 1,
-    fontSize: 20,
-    fontWeight: '900',
   },
   leaderBadge: {
     alignItems: 'center',
@@ -1972,11 +2011,12 @@ const styles = StyleSheet.create({
   },
   playerAmount: {
     color: screenColors.text,
-    fontSize: 18,
-    fontWeight: '900',
-    maxWidth: 112,
-    minWidth: 86,
+    fontSize: 15,
+    fontWeight: '700',
     textAlign: 'right',
+    width: 82,
+    fontVariant: ['tabular-nums'],
+    flexShrink: 1,
   },
   amountPositive: {
     color: screenColors.gold,
@@ -1989,28 +2029,16 @@ const styles = StyleSheet.create({
   },
   finishButton: {
     alignItems: 'center',
-    alignSelf: 'stretch',
-    backgroundColor: 'rgba(245, 245, 245, 0.055)',
-    borderColor: 'rgba(231, 198, 92, 0.14)',
-    borderRadius: 24,
-    borderWidth: 1,
     flexDirection: 'row',
-    gap: authSpacing.sm,
+    gap: 6,
     justifyContent: 'center',
-    marginTop: authSpacing.xl,
-    minHeight: 58,
-    paddingHorizontal: authSpacing.lg,
+    minHeight: 44,
   },
   finishPressed: {
     opacity: 0.82,
     transform: [{ scale: 0.988 }],
   },
-  finishText: {
-    color: screenColors.gold,
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: '900',
-  },
+  finishText: { color: screenColors.gold, fontSize: 14, fontWeight: '600' },
   fab: {
     alignItems: 'center',
     backgroundColor: '#3F7A4E',
@@ -2035,7 +2063,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   sheet: {

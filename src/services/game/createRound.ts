@@ -12,10 +12,21 @@ export function createGameRound(
     id: crypto.randomUUID(),
     tableId,
     winnerId: payload.winnerId,
-    loserIds: payload.loserIds,
+    ...(payload.winnerIds ? { winnerIds: [...payload.winnerIds] } : {}),
+    loserIds: [...payload.loserIds],
     amount: payload.amount,
     gameType: payload.gameType,
+    ...(payload.suit ? { suit: payload.suit } : {}),
+    ...(payload.stockAction ? { stockAction: payload.stockAction } : {}),
+    ...(payload.stockCompletesDeal !== undefined
+      ? { stockCompletesDeal: payload.stockCompletesDeal }
+      : {}),
+    ...(payload.declarerId ? { declarerId: payload.declarerId } : {}),
+    ...(payload.partnerId ? { partnerId: payload.partnerId } : {}),
     settingsSnapshot: normalizeTableSettings(payload.settingsSnapshot),
     createdAt: new Date().toISOString(),
+    ...(payload.tariffOptions
+      ? { tariffOptions: { ...payload.tariffOptions } }
+      : {}),
   };
 }

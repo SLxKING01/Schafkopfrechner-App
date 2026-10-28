@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backgroundPattern: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   patternSuit: {

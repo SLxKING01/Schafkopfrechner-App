@@ -1,13 +1,10 @@
 import { NavigationContainer } from '@react-navigation/native';
-import {
-  createNativeStackNavigator,
-  type NativeStackNavigationOptions,
-} from '@react-navigation/native-stack';
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { useEffect } from 'react';
 
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { AppLoadingScreen } from '../components/AppLoadingScreen';
-import { useRealtimeTable } from '../hooks/useRealtimeTable';
+import { useCloudSync } from '../hooks/useCloudSync';
 import { useRestoreGame } from '../hooks/useRestoreGame';
 import { useStoresHydrated } from '../hooks/useStoresHydrated';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
@@ -23,18 +20,27 @@ import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { authColors } from '../theme/colors';
 import { AppTabs } from './AppTabs';
-import { TabNavigator } from './TabNavigator';
+import {
+  createAppStackNavigator,
+  usesExpoGoIOSStack,
+} from './createAppStackNavigator';
 import type {
   AppStackParamList,
   AuthStackParamList,
   RootStackParamList,
 } from './types';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-const AppStack = createNativeStackNavigator<AppStackParamList>();
+const Stack = createAppStackNavigator<RootStackParamList>();
+const AuthStack = createAppStackNavigator<AuthStackParamList>();
+const AppStack = createAppStackNavigator<AppStackParamList>();
 
+// Leave native-stack statusBar* options unset, including explicit animation defaults.
+// Expo Go cannot change its controller-based Info.plist setting; App.tsx owns the
+// status bar through expo-status-bar instead.
 const sharedStackScreenOptions: NativeStackNavigationOptions = {
+  ...(usesExpoGoIOSStack
+    ? { cardStyle: { backgroundColor: authColors.background } }
+    : {}),
   contentStyle: {
     backgroundColor: authColors.background,
   },
@@ -42,7 +48,6 @@ const sharedStackScreenOptions: NativeStackNavigationOptions = {
     backgroundColor: authColors.background,
   },
   headerTintColor: authColors.textPrimary,
-  statusBarStyle: 'light',
 };
 
 const rootStackScreenOptions: NativeStackNavigationOptions = {
@@ -73,7 +78,7 @@ function AuthStackNavigator() {
       />
       <AuthStack.Screen
         name="MainTabs"
-        component={TabNavigator}
+        component={AppStackNavigator}
         options={{ headerShown: false }}
       />
       <AuthStack.Screen
@@ -92,8 +97,6 @@ function AuthStackNavigator() {
 
 function AppStackNavigator() {
   const activeGame = useGameStore((state) => state.activeGame);
-  const currentTable = useGameStore((state) => state.currentTable);
-  useRealtimeTable(currentTable?.id);
 
   return (
     <AppStack.Navigator
@@ -121,6 +124,11 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <AppStack.Screen
+        name="MatchDayDetails"
+        component={MatchDayDetailsScreen}
+        options={{ title: 'Spieltag' }}
+      />
+      <AppStack.Screen
         name="Settlement"
         component={SettlementScreen}
         options={{ headerShown: false }}
@@ -131,7 +139,8 @@ function AppStackNavigator() {
 
 export function RootNavigator() {
   const storesHydrated = useStoresHydrated();
-  const gameRestore = useRestoreGame();
+  const gameRestore = useRestoreGame(storesHydrated);
+  useCloudSync(storesHydrated && gameRestore.restored);
   const authInitialized = useAuthStore((state) => state.initialized);
   const authLoading = useAuthStore((state) => state.loading);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);

@@ -1,5 +1,10 @@
 import { useMatchDayStore } from '../store/matchDayStore';
 
+jest.mock('../lib/supabase', () => ({
+  isSupabaseConfigured: false,
+  supabase: {},
+}));
+
 function resetMatchDayStore() {
   useMatchDayStore.setState({
     activeMatchDayId: null,

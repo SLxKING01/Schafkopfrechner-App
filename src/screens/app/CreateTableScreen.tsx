@@ -1,6 +1,12 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Plus, Spade, UserPlus, X } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  type ComponentRef,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -63,6 +69,7 @@ const screenColors = {
 const maxPlayers = 8;
 
 export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
+  const playerInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const user = useAuthStore((state) => state.user);
   const accentId = useProfileAppearanceStore((state) => state.accentId);
   const avatarId = useProfileAppearanceStore((state) => state.avatarId);
@@ -80,7 +87,14 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     () => [currentUserProfile, ...FRIEND_PREVIEWS],
     [currentUserProfile],
   );
-  const [tableName, setTableName] = useState('');
+  const [tableName, setTableName] = useState(
+    () =>
+      `Tisch vom ${new Date().toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })}`,
+  );
   const [playerName, setPlayerName] = useState('');
   const [players, setPlayers] = useState<TablePlayer[]>(() => [
     createProfilePlayer(currentUserProfile),
@@ -117,45 +131,28 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
       return;
     }
 
-    let didAdd = false;
-    let didHitDuplicate = false;
-
-    setPlayers((currentPlayers) => {
-      if (currentPlayers.length >= maxPlayers) {
-        return currentPlayers;
-      }
-
-      const exists = currentPlayers.some(
+    if (players.length >= maxPlayers) return;
+    if (
+      players.some(
         (player) => player.name.trim().toLowerCase() === nextName.toLowerCase(),
-      );
-
-      if (exists) {
-        didHitDuplicate = true;
-        return currentPlayers;
-      }
-
-      didAdd = true;
-
-      return [
-        ...currentPlayers,
-        {
-          ...createLocalPlayer(nextName),
-          accentColor: getManualPlayerAccent(currentPlayers.length),
-          animalId: getManualPlayerAnimal(currentPlayers.length),
-        },
-      ];
-    });
-
-    if (didHitDuplicate) {
+      )
+    ) {
       Alert.alert(
         'Name bereits vorhanden',
         'Dieser Spieler ist schon am Tisch.',
       );
+      return;
     }
-
-    if (didAdd) {
-      setPlayerName('');
-    }
+    setPlayers((currentPlayers) => [
+      ...currentPlayers,
+      {
+        ...createLocalPlayer(nextName),
+        accentColor: getManualPlayerAccent(currentPlayers.length),
+        animalId: getManualPlayerAnimal(currentPlayers.length),
+      },
+    ]);
+    setPlayerName('');
+    playerInputRef.current?.focus();
   }
 
   const toggleFriend = useCallback((friend: FriendProfile) => {
@@ -204,12 +201,23 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     if (!didCreate) {
       Alert.alert(
         'Tisch nicht bereit',
-        'Bitte gib einen Tischnamen ein und füge mindestens zwei Spieler hinzu.',
+        useGameStore.getState().activeGame
+          ? 'Es läuft bereits ein Tisch. Bitte schließe diesen zuerst ab.'
+          : 'Bitte gib einen Tischnamen ein und füge mindestens zwei Spieler hinzu.',
       );
       return;
     }
 
     navigation.replace('ActiveGame');
+  }
+
+  function closeCreateTable() {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+
+    navigation.navigate('AppTabs', { screen: 'GameLobby' });
   }
 
   return (
@@ -245,8 +253,9 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               <AppText style={styles.title}>Runde erstellen</AppText>
             </View>
             <Pressable
+              accessibilityLabel="Runde erstellen schließen"
               accessibilityRole="button"
-              onPress={() => navigation.goBack()}
+              onPress={closeCreateTable}
               style={({ pressed }) => [
                 styles.closeButton,
                 pressed && styles.pressed,
@@ -292,6 +301,8 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                 placeholder="z. B. Freitag Stammtisch"
                 placeholderTextColor={screenColors.soft}
                 returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => playerInputRef.current?.focus()}
                 selectionColor={screenColors.gold}
                 style={[
                   styles.input,
@@ -310,6 +321,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
 
             <View style={styles.addPlayerRow}>
               <TextInput
+                ref={playerInputRef}
                 autoCapitalize="words"
                 keyboardAppearance="dark"
                 onBlur={() => setFocusedInput(null)}
@@ -318,7 +330,8 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                 onSubmitEditing={canAddPlayer ? addPlayer : undefined}
                 placeholder="Spielername"
                 placeholderTextColor={screenColors.soft}
-                returnKeyType="done"
+                returnKeyType="next"
+                submitBehavior="submit"
                 selectionColor={screenColors.gold}
                 style={[
                   styles.playerInput,
@@ -437,7 +450,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           <Pressable
             accessibilityLabel="Abbrechen"
             accessibilityRole="button"
-            onPress={() => navigation.goBack()}
+            onPress={closeCreateTable}
             style={({ pressed }) => [
               styles.floatingButton,
               styles.cancelFloating,

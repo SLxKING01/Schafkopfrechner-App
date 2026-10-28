@@ -29,6 +29,7 @@ export function createGameTable(payload: CreateTablePayload): GameTable {
     name: payload.name.trim(),
     createdAt: new Date().toISOString(),
     isActive: true,
+    dealerId: payload.players[0]?.id,
     settings: normalizeTableSettings(payload.settings),
   };
 }
