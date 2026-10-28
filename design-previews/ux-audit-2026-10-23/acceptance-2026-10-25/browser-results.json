@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-25",
+  "browser": "Installed Microsoft Edge, headless mobile emulation",
+  "authentication": "Synthetic local session only; audit.invalid is blocked. Not a real login test.",
+  "widths": [
+    360,
+    390,
+    430
+  ],
+  "shortViewport": [
+    390,
+    568
+  ],
+  "errors": [],
+  "checks": [
+    {
+      "screenshot": "modern-history-bottom-360x568",
+      "viewport": {
+        "width": 360,
+        "height": 568
+      },
+      "docWidth": 360
+    },
+    {
+      "screenshot": "modern-history-bottom-390x568",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "modern-history-bottom-430x568",
+      "viewport": {
+        "width": 430,
+        "height": 568
+      },
+      "docWidth": 430
+    },
+    {
+      "screenshot": "modern-input-text-200-percent",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "modern-reduced-height-390x360",
+      "viewport": {
+        "width": 390,
+        "height": 360
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "modern-real-statistics",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "modern-settlement-390x568",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "storage-failure-prevents-switch",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "archive-restored-after-reload",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "archive-text-200-percent",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "archived-settlement-360x568",
+      "viewport": {
+        "width": 360,
+        "height": 568
+      },
+      "docWidth": 360
+    },
+    {
+      "screenshot": "archived-settlement-390x568",
+      "viewport": {
+        "width": 390,
+        "height": 568
+      },
+      "docWidth": 390
+    },
+    {
+      "screenshot": "archived-settlement-430x568",
+      "viewport": {
+        "width": 430,
+        "height": 568
+      },
+      "docWidth": 430
+    }
+  ],
+  "modern": {
+    "players": 8,
+    "rounds": 12,
+    "editSameId": true,
+    "centsSum": 0,
+    "storageFailureBlockedSwitch": true,
+    "reloadRestoredArchive": true,
+    "archivedPaymentsIsolated": true,
+    "osKeyboardTest": false
+  },
+  "offline": {
+    "players": 8,
+    "partySaved": true,
+    "partyEdited": true,
+    "referencedDeletionBlocked": true,
+    "historyOpened": true
+  },
+  "unreadableSavePreserved": true,
+  "result": "PASS"
+}

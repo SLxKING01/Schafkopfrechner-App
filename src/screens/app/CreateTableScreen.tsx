@@ -195,8 +195,8 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     );
   }
 
-  function startGame() {
-    const didCreate = createTable(tableName, players, tableSettings);
+  async function startGame() {
+    const didCreate = await createTable(tableName, players, tableSettings);
 
     if (!didCreate) {
       Alert.alert(
@@ -236,7 +236,13 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
       <View style={styles.greenGlow} pointerEvents="none" />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={
+          Platform.OS === 'ios'
+            ? 'padding'
+            : Platform.OS === 'android'
+              ? 'height'
+              : undefined
+        }
         style={styles.keyboardRoot}
       >
         <ScrollView
@@ -341,6 +347,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               />
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Spieler zum Tisch hinzufuegen"
                 disabled={!canAddPlayer}
                 onPress={addPlayer}
                 style={({ pressed }) => [

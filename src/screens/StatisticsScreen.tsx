@@ -13,6 +13,7 @@ import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 import { calculatePlayerStats } from '../utils/calculatePlayerStats';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
 
 export function StatisticsScreen() {
   const games = useGameStore((state) => state.games);
@@ -31,12 +32,13 @@ export function StatisticsScreen() {
     [players, activeGames],
   );
   const playerNameById = useMemo(
-    () => new Map(players.map((player) => [player.id, player.name])),
-    [players],
+    () => historicalNames(players, games),
+    [players, games],
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 

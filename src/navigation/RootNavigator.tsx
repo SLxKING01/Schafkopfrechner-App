@@ -11,6 +11,7 @@ import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
+import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
 import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
@@ -131,6 +132,11 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="Settlement"
         component={SettlementScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="TableArchive"
+        component={TableArchiveScreen}
         options={{ headerShown: false }}
       />
     </AppStack.Navigator>

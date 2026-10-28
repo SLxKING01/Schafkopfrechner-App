@@ -3,7 +3,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
 import { AppButton } from '../components/ui/AppButton';
@@ -24,6 +24,8 @@ import { calculateBaseAmount } from '../utils/calculateBaseAmount';
 import { formatGameAmountSummary } from '../utils/calculateGameAmount';
 import { calculateSettlements } from '../utils/calculateSettlements';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
+import { winningIds } from '../utils/winningParty';
 
 type HomeNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Games'>,
@@ -51,12 +53,13 @@ export function HomeScreen() {
   );
   const settlements = useMemo(() => calculateSettlements(balances), [balances]);
   const playerNameById = useMemo(
-    () => new Map(players.map((player) => [player.id, player.name])),
-    [players],
+    () => historicalNames(players, games),
+    [players, games],
   );
 
   const getPlayerName = useCallback(
-    (id: string) => playerNameById.get(id) ?? 'Unbekannt',
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
     [playerNameById],
   );
 
@@ -106,7 +109,9 @@ export function HomeScreen() {
       <AppCard style={styles.gameCard}>
         <View style={styles.gameHeader}>
           <View style={styles.gameInfo}>
-            <AppText variant="subtitle">{getPlayerName(item.winnerId)}</AppText>
+            <AppText variant="subtitle">
+              {winningIds(item).map(getPlayerName).join(' & ')}
+            </AppText>
             <AppText variant="caption">
               {getGameTypeById(item.gameTypeId).name}
             </AppText>
@@ -141,7 +146,7 @@ export function HomeScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <AppText variant="title">Schafkopfrechner</AppText>
 
       <AppCard style={styles.matchDayCard}>
@@ -161,7 +166,7 @@ export function HomeScreen() {
       />
 
       <AppSection title="Salden">
-        {players.length === 0 ? (
+        {balances.length === 0 ? (
           <EmptyState
             title="Noch keine Spieler"
             message="Lege zuerst Spieler an, damit Salden berechnet werden können."
@@ -169,12 +174,11 @@ export function HomeScreen() {
             onAction={() => navigation.navigate('Players')}
           />
         ) : (
-          <FlatList
-            data={balances}
-            keyExtractor={(balance) => balance.playerId}
-            renderItem={renderBalance}
-            contentContainerStyle={styles.compactList}
-          />
+          <View style={styles.compactList}>
+            {balances.map((item) => (
+              <View key={item.playerId}>{renderBalance({ item })}</View>
+            ))}
+          </View>
         )}
       </AppSection>
 
@@ -185,14 +189,13 @@ export function HomeScreen() {
             message="Sobald Salden entstehen, zeigen wir hier die passenden Zahlungen."
           />
         ) : (
-          <FlatList
-            data={settlements}
-            keyExtractor={(settlement) =>
-              `${settlement.fromPlayerId}-${settlement.toPlayerId}-${settlement.amount}`
-            }
-            renderItem={renderSettlement}
-            contentContainerStyle={styles.compactList}
-          />
+          <View style={styles.compactList}>
+            {settlements.map((item) => (
+              <View key={`${item.fromPlayerId}-${item.toPlayerId}`}>
+                {renderSettlement({ item })}
+              </View>
+            ))}
+          </View>
         )}
       </AppSection>
 
@@ -211,22 +214,21 @@ export function HomeScreen() {
             onAction={() => navigation.navigate('CreateGame')}
           />
         ) : (
-          <FlatList
-            data={activeGames}
-            keyExtractor={(game) => game.id}
-            renderItem={renderGame}
-            contentContainerStyle={styles.list}
-          />
+          <View style={styles.list}>
+            {activeGames.map((item) => (
+              <View key={item.id}>{renderGame({ item })}</View>
+            ))}
+          </View>
         )}
       </AppSection>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    flex: 1,
+    flexGrow: 1,
     gap: theme.spacing.lg,
     padding: theme.spacing.xl,
   },

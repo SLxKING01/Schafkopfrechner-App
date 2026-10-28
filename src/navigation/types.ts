@@ -17,6 +17,7 @@ export type AppStackParamList = {
   MatchDayDetails: { matchDayId: string };
   ActiveGame: undefined;
   Settlement: { tableId: string } | undefined;
+  TableArchive: undefined;
 };
 
 export type AppTabParamList = {

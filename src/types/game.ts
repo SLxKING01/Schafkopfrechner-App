@@ -118,6 +118,15 @@ export type Settlement = {
   isPaid: boolean;
 };
 
+export type ArchivedTable = {
+  currentTable: GameTable;
+  players: Player[];
+  rounds: GameRound[];
+  balances: PlayerBalance[];
+  settlements: Settlement[];
+  archivedAt: string;
+};
+
 export type CreateTablePayload = {
   existingHashCodes?: string[];
   name: string;

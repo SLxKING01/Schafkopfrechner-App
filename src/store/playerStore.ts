@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import type { Player } from '../models/Player';
 import { reliableStorage } from '../storage/reliableStorage';
+import { roundWinnerIds } from '../utils/accounting';
 import { useGameStore } from './gameStore';
 
 type PlayerStore = {
@@ -38,7 +39,8 @@ export const usePlayerStore = create<PlayerStore>()(
           useGameStore
             .getState()
             .games.some(
-              (game) => game.winnerId === id || game.loserIds.includes(id),
+              (game) =>
+                roundWinnerIds(game).includes(id) || game.loserIds.includes(id),
             )
         )
           return false;

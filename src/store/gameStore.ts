@@ -218,6 +218,15 @@ export const useGameStore = create<GameStore>()(
             ...state.games,
             {
               ...game,
+              ...(game.winnerIds ? { winnerIds: [...game.winnerIds] } : {}),
+              participantNames: Object.fromEntries(
+                usePlayerStore
+                  .getState()
+                  .players.filter(({ id }) =>
+                    [...roundWinnerIds(game), ...game.loserIds].includes(id),
+                  )
+                  .map(({ id, name }) => [id, name]),
+              ),
               loserIds: [...game.loserIds],
               amount: toSafeCents(game.amount)! / 100,
               gameTypeId: game.gameTypeId || DEFAULT_GAME_TYPE_ID,
@@ -308,6 +317,23 @@ export const useGameStore = create<GameStore>()(
 
             return {
               ...updatedGame,
+              ...(updatedGame.winnerIds
+                ? { winnerIds: [...updatedGame.winnerIds] }
+                : {}),
+              participantNames: {
+                ...game.participantNames,
+                ...Object.fromEntries(
+                  usePlayerStore
+                    .getState()
+                    .players.filter(({ id }) =>
+                      [
+                        ...roundWinnerIds(updatedGame),
+                        ...updatedGame.loserIds,
+                      ].includes(id),
+                    )
+                    .map(({ id, name }) => [id, name]),
+                ),
+              },
               id: game.id,
               createdAt: game.createdAt,
               loserIds: [...updatedGame.loserIds],
