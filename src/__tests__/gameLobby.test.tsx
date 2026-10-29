@@ -128,6 +128,37 @@ it('shows an empty state instead of nonfunctional example tables', async () => {
   await act(async () => view.unmount());
 });
 
+it.each([false, true])(
+  'opens working settings instead of a placeholder, active table=%s',
+  async (active) => {
+    if (active)
+      useGameStore.getState().createTable('Regeltest', [
+        { id: 'a', name: 'Anna', isLocal: true },
+        { id: 'b', name: 'Max', isLocal: true },
+      ]);
+    let view: ReturnType<typeof renderer.create>;
+    await act(async () => {
+      view = renderer.create(<GameLobbyScreen />);
+    });
+    const label = active
+      ? 'Tischregeln bearbeiten'
+      : 'Profil und Einstellungen öffnen';
+    const button = view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!;
+    await act(async () => button.props.onPress());
+    if (active) expect(mockNavigate).toHaveBeenCalledWith('EditTable');
+    else
+      expect(mockNavigate).toHaveBeenCalledWith('AppTabs', {
+        screen: 'Profile',
+      });
+    await act(async () => view.unmount());
+  },
+);
+
 it.each(['web', 'ios'] as const)(
   'keeps a new empty table visible after leaving on %s',
   async (platform) => {

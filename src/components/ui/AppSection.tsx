@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { theme } from '../../constants/theme';
+import { theme } from '../../theme';
 import { AppText } from './AppText';
 
 type AppSectionProps = {

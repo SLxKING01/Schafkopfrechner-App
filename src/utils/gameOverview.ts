@@ -18,6 +18,11 @@ import {
   toSafeCents,
 } from './accounting';
 import { formatRoundGameType } from './cardSuits';
+import {
+  createStatisticsTable,
+  type StatisticsSourceRound,
+  type StatisticsTable,
+} from './statistics';
 
 type OverviewInput = {
   currentTable: GameTable | null;
@@ -87,6 +92,7 @@ export function buildGameOverview(input: OverviewInput, now = new Date()) {
   const rounds: OverviewRound[] = [];
   const payments: OverviewPayment[] = [];
   const playerStats: OverviewPlayer[] = [];
+  const statisticsTables: StatisticsTable[] = [];
   const days = new Map<
     string,
     {
@@ -107,22 +113,14 @@ export function buildGameOverview(input: OverviewInput, now = new Date()) {
   function addRounds(
     key: string,
     tableName: string,
-    roster: { id: string; name: string }[],
-    source: {
-      id: string;
-      winnerId: string;
-      winnerIds?: string[];
-      loserIds: string[];
-      amount: number;
-      createdAt: string;
-      gameType?: string;
-      gameTypeId?: string;
-      suit?: GameRound['suit'];
-      stockAction?: GameRound['stockAction'];
-    }[],
+    roster: { id: string; name: string; userId?: string }[],
+    source: StatisticsSourceRound[],
     target: OverviewTarget,
     order: 'id' | 'input',
   ) {
+    statisticsTables.push(
+      createStatisticsTable(key, tableName, roster, source, target, order),
+    );
     const names = new Map(roster.map((player) => [player.id, player.name]));
     const balances = calculateRoundBalances(roster, source, order);
     for (const [index, round] of source.entries()) {
@@ -235,6 +233,8 @@ export function buildGameOverview(input: OverviewInput, now = new Date()) {
       (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
     )[0]?.[0] ?? '–';
   return {
+    asOf: now.getTime(),
+    statisticsTables,
     rounds,
     payments,
     playerStats,

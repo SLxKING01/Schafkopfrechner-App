@@ -97,7 +97,10 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   );
   const [playerName, setPlayerName] = useState('');
   const [players, setPlayers] = useState<TablePlayer[]>(() => [
-    createProfilePlayer(currentUserProfile),
+    {
+      ...createProfilePlayer(currentUserProfile),
+      ...(user?.id ? { userId: user.id } : {}),
+    },
   ]);
   const [friendPickerVisible, setFriendPickerVisible] = useState(false);
   const [tableSettings, setTableSettings] = useState<TableSettings>(() =>
@@ -155,39 +158,43 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     playerInputRef.current?.focus();
   }
 
-  const toggleFriend = useCallback((friend: FriendProfile) => {
-    setPlayers((currentPlayers) => {
-      const existingFriendPlayer = currentPlayers.find(
-        (player) => player.friendId === friend.id,
-      );
-
-      if (existingFriendPlayer) {
-        return currentPlayers.filter(
-          (player) => player.id !== existingFriendPlayer.id,
+  const toggleFriend = useCallback(
+    (friend: FriendProfile) => {
+      setPlayers((currentPlayers) => {
+        const existingFriendPlayer = currentPlayers.find(
+          (player) => player.friendId === friend.id,
         );
-      }
 
-      const existsByName = currentPlayers.some(
-        (player) =>
-          player.name.trim().toLowerCase() ===
-          friend.username.trim().toLowerCase(),
-      );
+        if (existingFriendPlayer) {
+          return currentPlayers.filter(
+            (player) => player.id !== existingFriendPlayer.id,
+          );
+        }
 
-      if (existsByName || currentPlayers.length >= maxPlayers) {
-        return currentPlayers;
-      }
+        const existsByName = currentPlayers.some(
+          (player) =>
+            player.name.trim().toLowerCase() ===
+            friend.username.trim().toLowerCase(),
+        );
 
-      return [
-        ...currentPlayers,
-        {
-          ...createLocalPlayer(friend.username),
-          accentColor: friend.accentColor,
-          animalId: friend.avatarId,
-          friendId: friend.id,
-        },
-      ];
-    });
-  }, []);
+        if (existsByName || currentPlayers.length >= maxPlayers) {
+          return currentPlayers;
+        }
+
+        return [
+          ...currentPlayers,
+          {
+            ...createLocalPlayer(friend.username),
+            accentColor: friend.accentColor,
+            animalId: friend.avatarId,
+            friendId: friend.id,
+            ...(user?.id === friend.id ? { userId: user.id } : {}),
+          },
+        ];
+      });
+    },
+    [user],
+  );
 
   function removePlayer(id: string) {
     setPlayers((currentPlayers) =>

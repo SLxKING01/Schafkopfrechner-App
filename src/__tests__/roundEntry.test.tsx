@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
+import { ScrollView } from 'react-native';
 
 import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { reliableStorage } from '../storage/reliableStorage';
@@ -95,12 +96,12 @@ afterEach(async () => {
   await reliableStorage.retryWrites();
   await reliableStorage.flush();
 });
-async function mount(editingRound: GameRound | null = null) {
+async function mount(editingRound: GameRound | null = null, roster = players) {
   const onSaved = jest.fn();
   const onClose = jest.fn();
   const props = {
     table: useGameStore.getState().currentTable,
-    players,
+    players: roster,
     editingRound,
     visible: true,
     onClose,
@@ -142,6 +143,34 @@ function addPartnerRound() {
   });
   return useGameStore.getState().rounds[0];
 }
+it('keeps full player names and independent coin/result actions available at large system font sizes', async () => {
+  jest
+    .spyOn(jest.requireActual('react-native'), 'useWindowDimensions')
+    .mockReturnValue({ width: 375, height: 812, scale: 3, fontScale: 2 });
+  const roster = players.map((player) => ({
+    ...player,
+    name: `Alexandra mit sehr langem Namen ${player.id}`,
+  }));
+  const ui = await mount(null, roster);
+  await ui.press('Spieltyp Wenz');
+  await ui.press(`Alleinspieler ${roster[0].name}`);
+  const names = ui.view.root.findAllByProps({ children: roster[0].name });
+  expect(names.length).toBeGreaterThan(0);
+  expect(
+    names.every(
+      (node: { props: { numberOfLines?: number } }) =>
+        node.props.numberOfLines !== 1,
+    ),
+  ).toBe(true);
+  await ui.press(`Klopfen ${roster[1].name}`);
+  await ui.press('Runde speichern');
+  expect(useGameStore.getState().rounds[0]).toMatchObject({
+    amount: 3,
+    winnerId: 'a',
+    tariffOptions: { legerCount: 1 },
+  });
+  await act(async () => ui.view.unmount());
+});
 it('uses independent coin buttons to add and undo knocking during entry and saves the resulting tariff', async () => {
   const ui = await mount();
   await ui.press('Spieltyp Wenz');
@@ -288,31 +317,100 @@ it('keeps separate Kontra and Re controls consistent with the saved multiplier',
   });
   await act(async () => ui.view.unmount());
 });
-it('preserves a lost result while changing either partner and highlights the selected result', async () => {
+it('edits Kontra and Re on an older round with disabled Stoss and keeps the original table tariffs', async () => {
+  const settings = structuredClone(
+    useGameStore.getState().currentTable!.settings,
+  );
+  settings.bonusRules.stoss.enabled = false;
+  useGameStore.getState().updateCurrentTableSettings(settings);
+  const original = addPartnerRound();
+  addPartnerRound();
+  const other = useGameStore.getState().rounds.at(-1)!;
+  const ui = await mount(original);
+  const headers = ui.view.root.findAllByProps({ accessibilityRole: 'header' });
+  expect(
+    headers.some(
+      (node: { props: { children: unknown } }) =>
+        node.props.children === 'Rufspiel',
+    ),
+  ).toBe(true);
+  expect(
+    headers.some((node: { props: { children: unknown } }) =>
+      String(node.props.children).includes('Korrektur'),
+    ),
+  ).toBe(false);
+  // The save action participates in the same scroll content as the final options.
+  expect(
+    ui.view.root
+      .findByType(ScrollView)
+      .findAllByProps({ accessibilityLabel: 'Korrektur speichern' }).length,
+  ).toBeGreaterThan(0);
+  const kontra = ui.view.root
+    .findAllByProps({ accessibilityLabel: 'Kontra' })
+    .find(
+      (node: { props: { onValueChange?: unknown } }) =>
+        typeof node.props.onValueChange === 'function',
+    )!;
+  await act(async () => kontra.props.onValueChange(true));
+  await ui.press('Re erhöhen');
+  await ui.press('Korrektur speichern');
+  const corrected = useGameStore
+    .getState()
+    .rounds.find(({ id }) => id === original.id)!;
+  expect(corrected).toMatchObject({
+    amount: original.amount * 4,
+    tariffOptions: { stoss: 2 },
+    settingsSnapshot: { bonusRules: { stoss: { enabled: true } } },
+  });
+  expect(corrected.settingsSnapshot.games).toEqual(
+    original.settingsSnapshot.games,
+  );
+  expect(
+    useGameStore.getState().currentTable!.settings.bonusRules.stoss.enabled,
+  ).toBe(false);
+  expect(
+    useGameStore.getState().rounds.find(({ id }) => id === other.id),
+  ).toEqual(other);
+  await act(async () => ui.view.unmount());
+});
+it('automatically completes two result teams without separate declarer or partner selectors', async () => {
   const ui = await mount();
   await ui.press('Spieltyp Rufspiel');
-  await ui.press('Spieler A');
-  await ui.press('Partner B');
-  await ui.press('Spielerpartei verloren');
-  await ui.press('Partner C');
   expect(
-    ui.button('Spielerpartei verloren').props.accessibilityState.selected,
-  ).toBe(true);
-  expect(ui.button('Spielerpartei verloren').props.style).not.toEqual(
-    ui.button('Spielerpartei gewonnen').props.style,
-  );
-  await ui.press('Spieler D');
+    ui.view.root.findAllByProps({ accessibilityLabel: 'Spieler A' }),
+  ).toHaveLength(0);
   expect(
-    ui.button('Spielerpartei verloren').props.accessibilityState.selected,
-  ).toBe(true);
+    ui.view.root.findAllByProps({ accessibilityLabel: 'Partner B' }),
+  ).toHaveLength(0);
+  await ui.press('A verloren');
+  expect(ui.button('Runde speichern').props.disabled).toBe(true);
+  await ui.press('B verloren');
+  expect(ui.button('C gewonnen').props.accessibilityState.selected).toBe(true);
+  expect(ui.button('D gewonnen').props.accessibilityState.selected).toBe(true);
+  await ui.press('C verloren');
+  expect(ui.button('Runde speichern').props.disabled).toBe(true);
+  await ui.press('D verloren');
   await ui.press('Runde speichern');
-  expect(useGameStore.getState().rounds[0]).toMatchObject({
-    declarerId: 'd',
-    partnerId: 'c',
-    winnerIds: ['a', 'b'],
-    loserIds: ['d', 'c'],
-  });
+  const round = useGameStore.getState().rounds[0];
+  expect(round.winnerIds).toEqual(['a', 'b']);
+  expect(round.loserIds).toEqual(['c', 'd']);
+  expect(round.declarerId).toBeUndefined();
+  expect(round.partnerId).toBeUndefined();
   expect(ui.onSaved).toHaveBeenCalledTimes(1);
+  await act(async () => ui.view.unmount());
+});
+it('changes teams on an older round without keeping incorrect caller metadata', async () => {
+  const original = addPartnerRound();
+  const ui = await mount(original);
+  await ui.press('C gewonnen');
+  await ui.press('B gewonnen');
+  await ui.press('Korrektur speichern');
+  const round = useGameStore.getState().rounds[0];
+  expect(round.id).toBe(original.id);
+  expect(round.winnerIds).toEqual(['c', 'b']);
+  expect(round.loserIds).toEqual(['a', 'd']);
+  expect(round.declarerId).toBeUndefined();
+  expect(round.partnerId).toBeUndefined();
   await act(async () => ui.view.unmount());
 });
 it('corrects an older game type using its original tariffs and immutable Leger context', async () => {
@@ -359,10 +457,9 @@ it.each([false, true])(
     const ui = await mount(original);
     if (!editing) {
       await ui.press('Spieltyp Rufspiel');
-      await ui.press('Spieler A');
-      await ui.press('Partner B');
     }
-    await ui.press('Spielerpartei verloren');
+    await ui.press('A verloren');
+    await ui.press('B verloren');
     await ui.press('Rundeneingabe schließen');
     expect(ui.onClose).not.toHaveBeenCalled();
     await ui.press('Entwurf behalten');
@@ -370,21 +467,19 @@ it.each([false, true])(
     await act(async () => ui.view.unmount());
     const reopened = await mount(original);
     expect(
-      reopened.button('Spielerpartei verloren').props.accessibilityState
-        .selected,
+      reopened.button('A verloren').props.accessibilityState.selected,
     ).toBe(true);
     await reopened.press('Rundeneingabe schließen');
     await reopened.press('Entwurf verwerfen');
     await act(async () => reopened.view.unmount());
     const blank = await mount(original);
     expect(
-      blank.button(editing ? 'Spielerpartei gewonnen' : 'Spieltyp Rufspiel'),
+      blank.button(editing ? 'A gewonnen' : 'Spieltyp Rufspiel'),
     ).toBeTruthy();
     if (editing)
-      expect(
-        blank.button('Spielerpartei gewonnen').props.accessibilityState
-          .selected,
-      ).toBe(true);
+      expect(blank.button('A gewonnen').props.accessibilityState.selected).toBe(
+        true,
+      );
     expect(useGameStore.getState().rounds).toHaveLength(editing ? 1 : 0);
     await act(async () => blank.view.unmount());
   },

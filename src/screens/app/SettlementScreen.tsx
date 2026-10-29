@@ -7,6 +7,13 @@ import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
 import { ScoreCard } from '../../components/game/ScoreCard';
 import { SettlementCard } from '../../components/game/SettlementCard';
+import {
+  Money,
+  StatAction,
+  StatHeading,
+  StatNote,
+  StatPanel,
+} from '../../components/statistics/StatisticsPanels';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
@@ -19,6 +26,7 @@ import {
   roundWinnerIds,
 } from '../../utils/accounting';
 import { formatRoundGameType } from '../../utils/cardSuits';
+import { createStatisticsTable } from '../../utils/statistics';
 
 type SettlementScreenProps = AppStackScreenProps<'Settlement'>;
 
@@ -77,6 +85,17 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
     );
   }
 
+  const selected =
+    table && route?.params?.roundId
+      ? createStatisticsTable(
+          `table:${table.id}`,
+          table.name,
+          players,
+          rounds,
+          { kind: 'archive', tableId: table.id },
+          'id',
+        ).rounds.find((r) => r.id === route.params?.roundId)
+      : undefined;
   return (
     <AuthBackground>
       <ScrollView
@@ -85,6 +104,44 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
       >
         <AppText style={styles.kicker}>Abrechnung</AppText>
         <AppText style={styles.title}>{table.name}</AppText>
+        {selected ? (
+          <StatPanel>
+            <StatHeading>
+              {formatRoundGameType(selected.type, selected.suit)}
+            </StatHeading>
+            <StatNote>
+              Ausgewähltes Spiel ·{' '}
+              {new Date(selected.createdAt).toLocaleString('de-DE')}
+            </StatNote>
+            {players
+              .filter((p) => selected.participants.includes(p.id))
+              .map((p) => (
+                <View
+                  key={p.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <AppText>{p.name}</AppText>
+                  <Money value={selected.deltas[p.id] ?? 0} />
+                </View>
+              ))}
+            <StatNote>
+              Reines Spielergebnis ohne Stock. Abgeschlossene Tische werden hier
+              nur angezeigt.
+            </StatNote>
+          </StatPanel>
+        ) : null}
+        <StatAction
+          onPress={() =>
+            navigation.navigate('TableStatistics', {
+              tableKey: `table:${table.id}`,
+            })
+          }
+        >
+          Tischstatistik öffnen
+        </StatAction>
         <AppText style={styles.subtitle}>
           {archived?.completedAt
             ? `Abgeschlossen am ${new Date(archived.completedAt).toLocaleDateString('de-DE')}. `

@@ -1,28 +1,34 @@
-import type { ReactNode } from 'react';
-import { type StyleProp, StyleSheet, Text, type TextStyle } from 'react-native';
+import { isLoaded } from 'expo-font';
+import { StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 
-import { theme } from '../../constants/theme';
+import { authColors, authTextStyles } from '../../theme';
+import { fontFamilyForWeight } from '../../theme/typography';
 
-type AppTextVariant = 'title' | 'subtitle' | 'body' | 'caption';
+type AppTextVariant = keyof typeof authTextStyles;
 
-type AppTextProps = {
-  children: ReactNode;
+type AppTextProps = TextProps & {
   variant?: AppTextVariant;
-  style?: StyleProp<TextStyle>;
-  numberOfLines?: number;
 };
 
 export function AppText({
   children,
   variant = 'body',
   style,
-  numberOfLines,
+  ...props
 }: AppTextProps) {
+  const textStyle = (StyleSheet.flatten([
+    styles.base,
+    authTextStyles[variant],
+    style,
+  ]) ?? {}) as TextStyle;
+  const family = fontFamilyForWeight(textStyle.fontWeight);
+  // Static font files carry their own weight; avoid synthesizing a second weight.
+  const font =
+    !textStyle.fontFamily && isLoaded(family)
+      ? { fontFamily: family, fontWeight: 'normal' as const }
+      : undefined;
   return (
-    <Text
-      numberOfLines={numberOfLines}
-      style={[styles.base, styles[variant], style]}
-    >
+    <Text {...props} style={[textStyle, font]}>
       {children}
     </Text>
   );
@@ -30,21 +36,6 @@ export function AppText({
 
 const styles = StyleSheet.create({
   base: {
-    color: theme.colors.text,
-  },
-  title: {
-    fontSize: theme.typography.title,
-    fontWeight: '700',
-  },
-  subtitle: {
-    fontSize: theme.typography.subtitle,
-    fontWeight: '600',
-  },
-  body: {
-    fontSize: theme.typography.body,
-  },
-  caption: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.caption,
+    color: authColors.textPrimary,
   },
 });

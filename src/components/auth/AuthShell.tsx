@@ -43,7 +43,9 @@ export function AuthShell({
             style={styles.head}
           >
             <AuthLogo />
-            <AppText style={styles.title}>{title}</AppText>
+            <AppText accessibilityRole="header" style={styles.title}>
+              {title}
+            </AppText>
             <AppText style={styles.subtitle}>{subtitle}</AppText>
           </Animated.View>
 

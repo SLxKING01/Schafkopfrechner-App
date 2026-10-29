@@ -15,8 +15,9 @@ export type AppStackParamList = {
   CreateTable: undefined;
   EditTable: undefined;
   MatchDayDetails: { matchDayId: string };
-  ActiveGame: undefined;
-  Settlement: { tableId: string } | undefined;
+  ActiveGame: { roundId?: string } | undefined;
+  TableStatistics: { tableKey: string };
+  Settlement: { tableId: string; roundId?: string } | undefined;
   TableArchive: undefined;
 };
 

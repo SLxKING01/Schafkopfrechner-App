@@ -1,17 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   type ViewStyle,
 } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
 
+import { authControlSizes, authShadows, authTextStyles } from '../../theme';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { AppText } from '../ui/AppText';
@@ -37,15 +35,24 @@ export function GoldButton({
   loading = false,
   style,
 }: GoldButtonProps) {
-  const scale = useSharedValue(1);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const [pressed, setPressed] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const blocked = disabled || loading;
 
   return (
     <Animated.View
-      style={[animatedStyle, disabled && styles.disabledContainer, style]}
+      style={[
+        styles.feedback,
+        {
+          transitionProperty: ['transform', 'opacity'],
+          transitionDuration: reduceMotion ? 0 : 120,
+          transitionTimingFunction: 'ease-out',
+        },
+        pressed && !blocked && styles.pressed,
+        pressed && !blocked && !reduceMotion && styles.pressedScale,
+        blocked && styles.disabledContainer,
+        style,
+      ]}
     >
       <Pressable
         accessibilityHint={accessibilityHint}
@@ -54,16 +61,8 @@ export function GoldButton({
         accessibilityState={{ disabled: disabled || loading, busy: loading }}
         disabled={disabled || loading}
         onPress={onPress}
-        onPressIn={() => {
-          if (disabled || loading) {
-            return;
-          }
-
-          scale.value = withSpring(0.975, { damping: 18, stiffness: 280 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 18, stiffness: 280 });
-        }}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
       >
         <LinearGradient
           colors={[authColors.goldHighlight, authColors.gold, '#B88920']}
@@ -80,26 +79,26 @@ export function GoldButton({
 }
 
 const styles = StyleSheet.create({
+  feedback: {
+    transform: [{ scale: 1 }],
+  },
+  pressed: { opacity: 0.88 },
+  pressedScale: { transform: [{ scale: 0.985 }] },
   button: {
     alignItems: 'center',
     borderRadius: authRadius.pill,
-    elevation: 8,
+    ...authShadows.gold,
     flexDirection: 'row',
     gap: authSpacing.sm,
     justifyContent: 'center',
-    minHeight: 60,
+    minHeight: authControlSizes.primaryButton,
     paddingHorizontal: authSpacing.xl,
-    shadowColor: authColors.gold,
-    shadowOffset: { height: 10, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
   },
   disabledContainer: {
     opacity: 0.68,
   },
   text: {
-    color: '#17150B',
-    fontSize: 17,
-    fontWeight: '800',
+    ...authTextStyles.button,
+    color: authColors.onGold,
   },
 });

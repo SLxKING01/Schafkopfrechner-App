@@ -697,6 +697,21 @@ export const useGameStore = create<GameStore>()(
           return false;
         const original = state.rounds.find((round) => round.id === id);
         if (!original) return false;
+        // Explicitly adding Kontra/Re to a past round enables only that rule
+        // in its own snapshot. All original tariffs and other rounds stay intact.
+        const correctedSettings =
+          (payload.tariffOptions?.stoss ?? 0) > 0
+            ? {
+                ...original.settingsSnapshot,
+                bonusRules: {
+                  ...original.settingsSnapshot.bonusRules,
+                  stoss: {
+                    ...original.settingsSnapshot.bonusRules.stoss,
+                    enabled: true,
+                  },
+                },
+              }
+            : original.settingsSnapshot;
         if (
           original.stockAction === 'deposit' &&
           payload.stockAction === 'deposit' &&
@@ -707,6 +722,7 @@ export const useGameStore = create<GameStore>()(
         if (
           original.declarerId &&
           ['rufspiel', 'sauspiel'].includes(payload.gameType) &&
+          !payload.clearPartyMetadata &&
           (!payload.declarerId || !payload.partnerId)
         )
           return false;
@@ -715,6 +731,13 @@ export const useGameStore = create<GameStore>()(
             !['deposit', 'payout'].includes(original.stockAction)) ||
           (payload.stockAction &&
             !['deposit', 'payout'].includes(payload.stockAction))
+        )
+          return false;
+        if (
+          payload.clearPartyMetadata &&
+          (payload.declarerId ||
+            payload.partnerId ||
+            !['rufspiel', 'sauspiel'].includes(payload.gameType))
         )
           return false;
         try {
@@ -747,7 +770,7 @@ export const useGameStore = create<GameStore>()(
             )
               return false;
             const tariff = calculateRoundTariff(
-              original.settingsSnapshot,
+              correctedSettings,
               payload.gameType,
               options,
             );
@@ -768,6 +791,7 @@ export const useGameStore = create<GameStore>()(
           }
           const changed: GameRound = {
             ...original,
+            settingsSnapshot: correctedSettings,
             ...(payload.legerPlayerIds && original.roundContext
               ? {
                   roundContext: {

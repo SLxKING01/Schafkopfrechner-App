@@ -2,9 +2,14 @@ import { act } from 'react';
 import { Alert, Platform, StyleSheet } from 'react-native';
 import { G } from 'react-native-svg';
 
+import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
+import { SyncStatus } from '../components/game/SyncStatus';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
+import { reliableStorage } from '../storage/reliableStorage';
+import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { emptyTariffOptions } from '../utils/roundTariff';
 
 const renderer = jest.requireActual('react-test-renderer');
 const navigate = jest.fn();
@@ -85,6 +90,126 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it('opens the round selected in statistics directly in the existing editor', async () => {
+  useGameStore.getState().addRound({
+    gameType: 'rufspiel',
+    winnerId: 'a',
+    winnerIds: ['a', 'b'],
+    loserIds: ['c', 'd'],
+    declarerId: 'a',
+    partnerId: 'b',
+    amount: 0.4,
+    tariffOptions: { ...emptyTariffOptions },
+  });
+  const roundId = useGameStore.getState().rounds[0].id;
+  const setParams = jest.fn();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate, setParams } as never}
+        route={{ params: { roundId } } as never}
+      />,
+    );
+  });
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Korrektur speichern' })
+      .length,
+  ).toBeGreaterThan(0);
+  expect(setParams).toHaveBeenCalledWith({ roundId: undefined });
+  await act(async () => view.unmount());
+});
+
+it('opens the saved configuration by tapping the compact history row and updates the same round', async () => {
+  useGameStore.getState().addRound({
+    gameType: 'rufspiel',
+    winnerId: 'a',
+    winnerIds: ['a', 'b'],
+    loserIds: ['c', 'd'],
+    amount: 0.4,
+    declarerId: 'a',
+    partnerId: 'b',
+    tariffOptions: { ...emptyTariffOptions },
+  });
+  const original = useGameStore.getState().rounds[0];
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const button = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!;
+  await act(async () => button('Verlauf Tab').props.onPress());
+  const row = view.root.findByType(MatchHistoryCard);
+  expect(row.props.compact).toBe(true);
+  expect(row.props.winner).toBe('Berkay & Flo');
+  await act(async () =>
+    button(`Runde ${original.id} bearbeiten`).props.onPress(),
+  );
+  expect(button('Berkay gewonnen').props.accessibilityState.selected).toBe(
+    true,
+  );
+  expect(button('Flo gewonnen').props.accessibilityState.selected).toBe(true);
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Schneider' })
+      .find(
+        (node: { props: { onValueChange?: unknown } }) =>
+          typeof node.props.onValueChange === 'function',
+      )!
+      .props.onValueChange(true),
+  );
+  await act(async () => button('Korrektur speichern').props.onPress());
+  const rounds = useGameStore.getState().rounds;
+  expect(rounds).toHaveLength(1);
+  expect(rounds[0]).toMatchObject({
+    id: original.id,
+    declarerId: 'a',
+    partnerId: 'b',
+    tariffOptions: { schneider: true },
+  });
+  expect(rounds[0].amount).toBeGreaterThan(original.amount);
+  expect(
+    useGameStore.getState().balances.find(({ playerId }) => playerId === 'a')
+      ?.amount,
+  ).toBe(rounds[0].amount / 2);
+  await act(async () => view.unmount());
+});
+
+it('hides routine local and cloud save information but keeps cloud errors visible', async () => {
+  jest.spyOn(reliableStorage, 'confirmWrite').mockResolvedValue(true);
+  const previousUser = useAuthStore.getState().user;
+  useAuthStore.setState({ user: { id: 'status-user' } as never });
+  useGameStore.setState({
+    syncError: null,
+    syncing: false,
+    isOffline: false,
+    lastSyncedAt: '2026-10-29T12:00:00Z',
+  });
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<SyncStatus />);
+  });
+  expect(view.toJSON()).toBeNull();
+  await act(async () => useGameStore.setState({ syncError: 'Offline' }));
+  expect(JSON.stringify(view.toJSON())).toContain(
+    'Cloud-Abgleich fehlgeschlagen',
+  );
+  expect(JSON.stringify(view.toJSON())).not.toContain('Letzter Cloud-Abgleich');
+  await act(async () => view.unmount());
+  useAuthStore.setState({ user: previousUser });
+  useGameStore.setState({ syncError: null });
+});
+
 it('lets all four deposit Stock and pays it to the two selected Sauspiel winners', async () => {
   const settings = structuredClone(
     useGameStore.getState().currentTable!.settings,
@@ -126,9 +251,7 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   ).toBeGreaterThan(0);
   await act(async () => button('Spiel eintragen').props.onPress());
   await act(async () => button('Spieltyp Rufspiel').props.onPress());
-  await act(async () => button('Spieler Berkay').props.onPress());
-  await act(async () => button('Partner Flo').props.onPress());
-  await act(async () => button('Spielerpartei verloren').props.onPress());
+  await act(async () => button('Berkay gewonnen').props.onPress());
   const stockSwitch = () =>
     view.root
       .findAllByProps({ accessibilityLabel: 'Stock auszahlen' })
@@ -137,7 +260,7 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
           typeof node.props.onValueChange === 'function',
       )!;
   expect(stockSwitch().props.disabled).toBe(true);
-  await act(async () => button('Spielerpartei gewonnen').props.onPress());
+  await act(async () => button('Flo gewonnen').props.onPress());
   expect(stockSwitch().props.disabled).toBe(false);
   await act(async () =>
     view.root
@@ -150,10 +273,9 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   );
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds[1].stockAction).toBe('payout');
-  expect(useGameStore.getState().rounds[1]).toMatchObject({
-    declarerId: 'a',
-    partnerId: 'b',
-  });
+  expect(useGameStore.getState().rounds[1].winnerIds).toEqual(['a', 'b']);
+  expect(useGameStore.getState().rounds[1].declarerId).toBeUndefined();
+  expect(useGameStore.getState().rounds[1].partnerId).toBeUndefined();
   expect(
     useGameStore.getState().balances.map((balance) => balance.amount),
   ).toEqual([0.7, 0.7, -0.7, -0.7]);
@@ -340,8 +462,8 @@ it('allows one Leger per player and combines four players into a 16x factor', as
         JSON.stringify(node.props.children).includes('Gesamtfaktor'),
       ),
   ).toBe(true);
-  await act(async () => button('Spieler Berkay').props.onPress());
-  await act(async () => button('Partner Simon').props.onPress());
+  await act(async () => button('Berkay gewonnen').props.onPress());
+  await act(async () => button('Simon gewonnen').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds).toHaveLength(1);
   expect(useGameStore.getState().rounds[0].amount).toBe(0.8);
@@ -587,8 +709,8 @@ it.each([false, true])(
       view.root.findAllByProps({ accessibilityLabel: 'Runde speichern' }),
     ).toHaveLength(0);
     await act(async () => button('Spieltyp Rufspiel').props.onPress());
-    await act(async () => button('Spieler Berkay').props.onPress());
-    await act(async () => button('Partner Simon').props.onPress());
+    await act(async () => button('Berkay gewonnen').props.onPress());
+    await act(async () => button('Simon gewonnen').props.onPress());
     await act(async () => button('Runde speichern').props.onPress());
     expect(useGameStore.getState().rounds[0].amount).toBe(
       withLeger ? 1.6 : 0.8,

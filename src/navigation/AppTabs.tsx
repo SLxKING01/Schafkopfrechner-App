@@ -1,11 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import { isLoaded } from 'expo-font';
 import {
   BarChart3,
   House,
   type LucideProps,
-  Spade,
   User,
+  Users,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { StyleSheet } from 'react-native';
@@ -20,7 +21,8 @@ import { GameLobbyScreen } from '../screens/app/GameLobbyScreen';
 import { ProfileScreen } from '../screens/app/ProfileScreen';
 import { StatisticsScreen } from '../screens/app/StatisticsScreen';
 import { authColors } from '../theme/colors';
-import { authRadius } from '../theme/spacing';
+import { authSpacing } from '../theme/spacing';
+import { authFontFamilies, authTypography } from '../theme/typography';
 import type { AppTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
@@ -56,12 +58,24 @@ export function AppTabs() {
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
+      initialRouteName="Dashboard"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: authColors.goldHighlight,
-        tabBarInactiveTintColor: 'rgba(139, 161, 148, 0.68)',
-        tabBarLabelStyle: styles.label,
-        tabBarStyle: [styles.tabBar, { bottom: Math.max(insets.bottom, 16) }],
+        tabBarInactiveTintColor: authColors.textSecondary,
+        tabBarLabelStyle: [
+          styles.label,
+          isLoaded(authFontFamilies[500])
+            ? { fontFamily: authFontFamilies[500], fontWeight: 'normal' }
+            : undefined,
+        ],
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: 80 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, authSpacing.sm),
+          },
+        ],
         tabBarBackground: () => (
           <BlurView intensity={28} tint="dark" style={styles.blur} />
         ),
@@ -91,9 +105,9 @@ export function AppTabs() {
         name="GameLobby"
         component={GameLobbyScreen}
         options={{
-          title: 'Spielen',
+          title: 'Tische',
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon focused={focused} color={color} icon={Spade} />
+            <AnimatedTabIcon focused={focused} color={color} icon={Users} />
           ),
         }}
       />
@@ -113,39 +127,30 @@ export function AppTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: 'rgba(16, 36, 28, 0.74)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
-    borderRadius: authRadius.pill,
-    borderTopWidth: 1,
-    bottom: 22,
-    elevation: 10,
-    height: 72,
-    left: 18,
-    overflow: 'hidden',
-    paddingBottom: 9,
-    paddingTop: 9,
+    backgroundColor: authColors.backgroundSoft,
+    borderTopColor: authColors.borderSoft,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: authSpacing.sm,
     position: 'absolute',
-    right: 18,
-    shadowColor: authColors.shadow,
-    shadowOffset: { height: 16, width: 0 },
-    shadowOpacity: 0.26,
-    shadowRadius: 20,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   blur: {
     ...StyleSheet.absoluteFill,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: authTypography.control,
+    fontWeight: '500',
   },
   iconWrap: {
     alignItems: 'center',
-    borderRadius: authRadius.pill,
+    borderRadius: authSpacing.sm,
     height: 30,
     justifyContent: 'center',
     width: 42,
   },
   iconActive: {
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
+    backgroundColor: authColors.transparent,
   },
 });

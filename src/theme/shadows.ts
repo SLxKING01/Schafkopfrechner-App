@@ -1,18 +1,8 @@
-import { authColors } from './colors';
-
 export const authShadows = {
   card: {
-    elevation: 8,
-    shadowColor: authColors.shadow,
-    shadowOffset: { height: 16, width: 0 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
   },
   gold: {
-    elevation: 6,
-    shadowColor: authColors.gold,
-    shadowOffset: { height: 10, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
+    boxShadow: '0 4px 12px rgba(212, 175, 55, 0.16)',
   },
 };

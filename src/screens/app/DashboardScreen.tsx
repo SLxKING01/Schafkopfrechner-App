@@ -1,234 +1,448 @@
 import {
-  BarChart3,
-  Handshake,
-  PlusCircle,
+  ArrowRight,
+  Check,
+  ChevronRight,
   ReceiptText,
-  TableProperties,
 } from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
-import { OpenSettlementCard } from '../../components/dashboard/OpenSettlementCard';
-import { QuickActionCard } from '../../components/dashboard/QuickActionCard';
-import { RecentGameCard } from '../../components/dashboard/RecentGameCard';
-import { SectionHeader } from '../../components/dashboard/SectionHeader';
-import { StatsCard } from '../../components/dashboard/StatsCard';
-import { EmptyGameState } from '../../components/game/EmptyGameState';
+import { DashboardSheet } from '../../components/dashboard/DashboardSheet';
+import { DashboardTotals } from '../../components/dashboard/DashboardTotals';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import { useAuthStore } from '../../store/authStore';
-import { useGameStore } from '../../store/gameStore';
-import { authColors } from '../../theme/colors';
-import { authRadius, authSpacing } from '../../theme/spacing';
+import { useDashboardIdentityStore } from '../../store/dashboardIdentityStore';
+import {
+  authColors as c,
+  authControlSizes,
+  authInteraction,
+  authRadius,
+  authSpacing as space,
+  authTextStyles,
+} from '../../theme';
+import { dashboardPersonal } from '../../utils/dashboardPersonal';
 import { formatOverviewMoney } from '../../utils/gameOverview';
 
+const emptySelections: Record<string, string> = {};
 export function DashboardScreen() {
-  const user = useAuthStore((state) => state.user);
-  const syncError = useGameStore((state) => state.syncError);
+  const user = useAuthStore((s) => s.user);
+  const selections = useDashboardIdentityStore((s) => s.selections);
+  const ready = useDashboardIdentityStore((s) => s.hydrated);
+  const select = useDashboardIdentityStore((s) => s.select);
   const overview = useGameOverview();
-  const { openTarget, openTables, openStatistics, createTable } =
+  const { openTarget, openProfile, openStatistics, openTables, createTable } =
     useOverviewNavigation();
+  const [sheet, setSheet] = useState<'identity' | 'payments' | null>(null);
+  const scope = user?.id ? `account:${user.id}` : 'guest';
+  const selected = selections[scope] ?? emptySelections;
+  const tables = overview.statisticsTables;
+  const personal = useMemo(
+    () => dashboardPersonal(tables, selected, user?.id),
+    [tables, selected, user?.id],
+  );
+  const active = tables.find((t) => t.target.kind === 'active');
+  const activePlayer = active?.players.find(
+    (p) => p.id === personal.memberships.get(active.id),
+  );
+  const displayPlayer =
+    activePlayer ??
+    tables.flatMap((t) =>
+      t.players.filter((p) => p.id === personal.memberships.get(t.id)),
+    )[0];
   const username =
-    typeof user?.user_metadata.username === 'string' &&
+    typeof user?.user_metadata?.username === 'string' &&
     user.user_metadata.username.trim()
-      ? user.user_metadata.username
-      : (user?.email?.split('@')[0] ?? 'Gast');
-  const latestClosed =
-    overview.payments[0]?.target ??
-    overview.rounds.find((round) => round.target.kind === 'archive')?.target;
+      ? user.user_metadata.username.trim()
+      : (user?.email?.split('@')[0] ?? displayPlayer?.name ?? 'Gast');
+  const known = ready && (personal.hasIdentity || !tables.length);
+  const tableBalance =
+    active && activePlayer
+      ? active.rounds.reduce(
+          (sum, r) => sum + (r.deltas[activePlayer.id] ?? 0),
+          0,
+        )
+      : null;
+  const payments = overview.payments;
+  const unpaid = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        name: string;
+        target: (typeof payments)[number]['target'];
+        count: number;
+      }
+    >();
+    for (const p of payments) {
+      const key = JSON.stringify(p.target);
+      const entry = map.get(key);
+      if (entry) entry.count++;
+      else map.set(key, { name: p.tableName, target: p.target, count: 1 });
+    }
+    return [...map.entries()];
+  }, [payments]);
   return (
     <AuthBackground>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={s.content}
         showsVerticalScrollIndicator={false}
       >
-        <DashboardHeader username={username} email={user?.email} />
-        {syncError ? (
-          <View accessibilityRole="alert">
-            <AppText>{syncError}</AppText>
-          </View>
-        ) : null}
-        <SyncStatus />
-        <Animated.View entering={FadeInDown.duration(520).delay(80)}>
-          <StatsCard
-            title="Deine Spielübersicht"
-            subtitle="Aus deinen gespeicherten Spielabenden"
-            stats={[
-              { label: 'Runden gesamt', value: String(overview.rounds.length) },
-              {
-                label: 'Heute gespielt',
-                value: String(overview.todayRounds),
-                tone: 'green',
-              },
-              {
-                label: 'Zahlungen offen',
-                value: formatOverviewMoney(overview.openPaymentCents),
-                tone: 'gold',
-              },
-              {
-                label: 'Abgeschlossene Tische',
-                value: String(overview.completedTables),
-              },
-            ]}
+        <DashboardHeader username={username} onProfile={openProfile} />
+        <View style={s.totals}>
+          <DashboardTotals
+            balance={personal.summary.balance}
+            count={personal.summary.count}
+            wins={personal.summary.wins}
+            known={known}
+            onManage={
+              ready && tables.length ? () => setSheet('identity') : undefined
+            }
+            caption={
+              !ready
+                ? 'Persönliche Werte werden geladen …'
+                : personal.hasIdentity
+                  ? personal.unassigned
+                    ? 'Über deine zugeordneten Tische'
+                    : 'Über alle deine Tische'
+                  : !tables.length
+                    ? 'Deine Bilanz beginnt mit dem ersten Spiel'
+                    : 'Wähle deinen Spieler für persönliche Werte'
+            }
+            onPress={() => {
+              if (ready) {
+                if (personal.hasIdentity || !tables.length) openStatistics();
+                else setSheet('identity');
+              }
+            }}
           />
-        </Animated.View>
-        {overview.activeTable ? (
-          <View style={styles.emptyCard}>
-            <AppText style={styles.emptyTitle}>
-              {overview.activeTable.name}
-            </AppText>
-            <AppText style={styles.emptyCopy}>
-              Dein Tisch ist gespeichert und bereit zum Weiterspielen.
-            </AppText>
-          </View>
-        ) : null}
-        <SectionHeader title="Schnellzugriff" />
-        <View style={styles.actionGrid}>
-          <QuickActionCard
-            icon={PlusCircle}
-            title={overview.activeTarget ? 'Weiterspielen' : 'Tisch erstellen'}
-            subtitle={overview.activeTable?.name ?? 'Neuen Spielabend beginnen'}
+          {ready && personal.unassigned > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Fehlende Spieler zuordnen"
+              onPress={() => setSheet('identity')}
+              style={({ pressed }) => [
+                s.identityAction,
+                pressed && authInteraction.pressed,
+              ]}
+            >
+              <AppText style={s.identityText}>
+                {personal.hasIdentity
+                  ? `${personal.unassigned} ${personal.unassigned === 1 ? 'Tisch ergänzen' : 'Tische ergänzen'}`
+                  : 'Spieler auswählen'}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+        <View style={s.section}>
+          <AppText accessibilityRole="header" style={s.sectionLabel}>
+            {overview.activeTable
+              ? 'Laufender Tisch'
+              : 'Dein nächster Spielabend'}
+          </AppText>
+          <AppText style={s.tableTitle}>
+            {overview.activeTable?.name ?? 'Bereit für eine Runde?'}
+          </AppText>
+          <AppText style={s.secondary}>
+            {active
+              ? `${active.players.length} Spieler · ${active.rounds.length} ${active.rounds.length === 1 ? 'Runde' : 'Runden'}`
+              : 'Erstelle einen Tisch und lade deine Mitspieler ein.'}
+          </AppText>
+          {ready && tableBalance !== null ? (
+            <View style={s.balanceRow}>
+              <AppText style={s.secondary}>Dein Stand</AppText>
+              <AppText
+                selectable
+                accessibilityLabel={`Dein Stand am Tisch, ohne Stock: ${formatOverviewMoney(tableBalance)}`}
+                style={[
+                  s.tableBalance,
+                  {
+                    color:
+                      tableBalance > 0
+                        ? c.accentGreen
+                        : tableBalance < 0
+                          ? c.error
+                          : c.textPrimary,
+                  },
+                ]}
+              >
+                {tableBalance > 0 ? '+' : ''}
+                {formatOverviewMoney(tableBalance)}
+              </AppText>
+            </View>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              overview.activeTarget ? 'Weiterspielen' : 'Tisch erstellen'
+            }
             onPress={() =>
               overview.activeTarget
                 ? openTarget(overview.activeTarget)
                 : createTable()
             }
-          />
-          <QuickActionCard
-            icon={TableProperties}
-            title="Meine Tische"
-            subtitle="Aktive Abende und Archiv"
-            onPress={openTables}
-          />
-          <QuickActionCard
-            icon={BarChart3}
-            title="Statistik"
-            subtitle="Runden und Spielerbilanzen"
-            onPress={openStatistics}
-          />
-          <QuickActionCard
-            icon={ReceiptText}
-            title="Abrechnung öffnen"
-            subtitle={
-              overview.payments.length
-                ? `${overview.payments.length} Zahlungen offen`
-                : 'Abgeschlossene Tische ansehen'
-            }
-            onPress={() =>
-              latestClosed ? openTarget(latestClosed) : openTables()
-            }
-          />
+            style={({ pressed }) => [
+              s.primary,
+              pressed && authInteraction.pressed,
+            ]}
+          >
+            <AppText style={s.primaryText}>
+              {overview.activeTarget ? 'Weiterspielen' : 'Tisch erstellen'}
+            </AppText>
+            <ArrowRight size={22} color={c.onGold} />
+          </Pressable>
         </View>
-        <SectionHeader
-          title="Letzte Spiele"
-          action="Alle anzeigen"
-          onAction={openStatistics}
-        />
-        <View style={styles.stack}>
-          {overview.rounds.length ? (
-            overview.rounds.slice(0, 5).map((round) => (
-              <RecentGameCard
-                key={round.id}
-                gameType={round.gameType}
-                date={new Date(round.createdAt).toLocaleString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                amount={formatOverviewMoney(round.amountCents)}
-                players={round.participants}
-                winner={round.winnerName}
-                tableName={round.tableName}
-                onPress={() => openTarget(round.target)}
-              />
-            ))
-          ) : (
-            <EmptyGameState
-              icon={PlusCircle}
-              title="Noch keine Spiele"
-              message="Sobald du eine Runde einträgst, erscheint sie hier mit dem echten Ergebnis."
-            />
-          )}
-        </View>
-        <SectionHeader
-          title="Offene Zahlungen"
-          action={String(overview.payments.length)}
-        />
-        <AppText style={styles.emptyCopy}>
-          Aus abgeschlossenen Tischen. Laufende Salden bleiben am aktiven Tisch.
-        </AppText>
-        <View style={styles.stack}>
-          {overview.payments.length ? (
-            overview.payments
-              .slice(0, 5)
-              .map((payment) => (
-                <OpenSettlementCard
-                  key={payment.id}
-                  from={payment.from}
-                  to={payment.to}
-                  tableName={payment.tableName}
-                  amount={formatOverviewMoney(payment.amountCents)}
-                  onOpen={() => openTarget(payment.target)}
-                />
-              ))
-          ) : (
-            <EmptyGameState
-              icon={Handshake}
-              title="Keine offenen Zahlungen"
-              message="Hier erscheinen unbezahlte Abrechnungen abgeschlossener Tische."
-            />
-          )}
-          {overview.payments.length > 5 ? (
-            <QuickActionCard
-              icon={ReceiptText}
-              title="Alle Abrechnungen"
-              subtitle={`${overview.payments.length} Zahlungen insgesamt offen`}
-              onPress={openTables}
-            />
-          ) : null}
-        </View>
+        {unpaid.length ? (
+          <View style={s.section}>
+            <AppText accessibilityRole="header" style={s.sectionLabel}>
+              ABRECHNUNGEN
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Offene Abrechnungen öffnen"
+              onPress={() =>
+                unpaid.length === 1
+                  ? openTarget(unpaid[0][1].target)
+                  : setSheet('payments')
+              }
+              style={({ pressed }) => [
+                s.paymentRow,
+                pressed && authInteraction.pressed,
+              ]}
+            >
+              <ReceiptText size={28} color={c.textMutedGreen} />
+              <View style={s.rowCopy}>
+                <AppText style={s.paymentTitle}>
+                  {unpaid.length}{' '}
+                  {unpaid.length === 1
+                    ? 'Tisch noch offen'
+                    : 'Tische noch offen'}
+                </AppText>
+                <AppText style={s.small}>Abgeschlossene Spielabende</AppText>
+              </View>
+              <ChevronRight size={22} color={c.textMutedGreen} />
+            </Pressable>
+          </View>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Alle Tische ansehen"
+          onPress={openTables}
+          style={({ pressed }) => [
+            s.newTable,
+            pressed && authInteraction.pressed,
+          ]}
+        >
+          <AppText style={s.secondary}>Alle Tische ansehen</AppText>
+          <ChevronRight size={22} color={c.textSecondary} />
+        </Pressable>
+        <SyncStatus />
+        {sheet === 'identity' ? (
+          <DashboardSheet
+            title="Deine Spielerzuordnung"
+            onClose={() => setSheet(null)}
+          >
+            <AppText style={s.secondary}>
+              Wähle pro Tisch deinen Spieler. Nur diese Ergebnisse zählen zu
+              deiner Gesamtbilanz. Gleiche Namen werden nicht automatisch
+              zusammengeführt.
+            </AppText>
+            {tables.map((t) => {
+              const linked = user?.id
+                ? t.players.filter((p) => p.userId === user.id)
+                : [];
+              const fixed = linked.length === 1;
+              return (
+                <View key={t.id} style={s.pickerGroup}>
+                  <AppText style={s.paymentTitle}>{t.name}</AppText>
+                  <AppText style={s.small}>
+                    {t.target.kind === 'active'
+                      ? 'Aktiver Tisch'
+                      : 'Archiv / Spieltag'}{' '}
+                    · {t.rounds.length} Runden
+                  </AppText>
+                  {fixed ? (
+                    <AppText style={s.small}>
+                      Über dein Konto zugeordnet
+                    </AppText>
+                  ) : (
+                    <Pressable
+                      accessibilityRole="radio"
+                      accessibilityLabel={`Keine Zuordnung für ${t.name}`}
+                      accessibilityState={{
+                        checked: !personal.memberships.has(t.id),
+                      }}
+                      onPress={() => select(scope, t.id, null)}
+                      style={s.pickerRow}
+                    >
+                      <AppText style={s.secondary}>Nicht zugeordnet</AppText>
+                      {!personal.memberships.has(t.id) ? (
+                        <Check color={c.gold} size={20} />
+                      ) : null}
+                    </Pressable>
+                  )}
+                  {t.players.map((p) => {
+                    const checked = personal.memberships.get(t.id) === p.id;
+                    const disabled =
+                      fixed || !!(p.userId && p.userId !== user?.id);
+                    return (
+                      <Pressable
+                        key={p.id}
+                        accessibilityRole="radio"
+                        accessibilityLabel={`${p.name} für ${t.name} zuordnen`}
+                        accessibilityState={{ checked, disabled }}
+                        disabled={disabled}
+                        onPress={() => select(scope, t.id, p.id)}
+                        style={({ pressed }) => [
+                          s.pickerRow,
+                          pressed && authInteraction.pressed,
+                        ]}
+                      >
+                        <AppText style={checked ? s.chosen : s.secondary}>
+                          {p.name}
+                        </AppText>
+                        {checked ? <Check color={c.gold} size={20} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </DashboardSheet>
+        ) : null}
+        {sheet === 'payments' ? (
+          <DashboardSheet
+            title="Offene Abrechnungen"
+            onClose={() => setSheet(null)}
+          >
+            {unpaid.map(([id, p]) => (
+              <Pressable
+                key={id}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrechnung ${p.name} öffnen`}
+                onPress={() => {
+                  setSheet(null);
+                  openTarget(p.target);
+                }}
+                style={({ pressed }) => [
+                  s.pickerRow,
+                  pressed && authInteraction.pressed,
+                ]}
+              >
+                <View style={s.rowCopy}>
+                  <AppText style={s.paymentTitle}>{p.name}</AppText>
+                  <AppText style={s.small}>
+                    {p.count} offene {p.count === 1 ? 'Zahlung' : 'Zahlungen'}
+                  </AppText>
+                </View>
+                <ChevronRight size={22} color={c.textMutedGreen} />
+              </Pressable>
+            ))}
+          </DashboardSheet>
+        ) : null}
       </ScrollView>
     </AuthBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    paddingBottom: 120,
-    paddingHorizontal: authSpacing.xl,
+const s = StyleSheet.create({
+  content: { paddingHorizontal: space.xl, paddingBottom: 120 },
+  totals: {
+    marginTop: space.xxxl,
+    paddingBottom: space.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.borderSoft,
   },
-  actionGrid: {
+  identityAction: {
+    minHeight: authControlSizes.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  identityText: { ...authTextStyles.caption, color: c.textMutedGreen },
+  section: {
+    paddingTop: space.xl,
+    paddingBottom: space.xl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.borderSoft,
+  },
+  sectionLabel: {
+    ...authTextStyles.subhead,
+    color: c.textMutedGreen,
+    fontWeight: '400',
+  },
+  tableTitle: {
+    ...authTextStyles.subtitle,
+    color: c.textPrimary,
+    fontWeight: '600',
+    marginTop: space.sm,
+    marginBottom: space.xs,
+  },
+  secondary: { ...authTextStyles.body, color: c.textSecondary, flexShrink: 1 },
+  small: { ...authTextStyles.caption, color: c.textSecondary },
+  balanceRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: authSpacing.md,
-  },
-  stack: {
-    gap: authSpacing.md,
-  },
-  emptyCard: {
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(13, 27, 19, 0.72)',
-    borderColor: authColors.borderSoft,
-    borderRadius: authRadius.xl,
-    borderWidth: 1,
-    padding: authSpacing.xl,
+    gap: space.sm,
+    marginTop: space.xl,
   },
-  emptyTitle: {
-    color: authColors.textPrimary,
-    fontSize: 17,
-    fontWeight: '900',
-    marginTop: authSpacing.md,
+  tableBalance: { ...authTextStyles.subtitle },
+  primary: {
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xl,
+    minHeight: authControlSizes.field,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lgPlus,
+    borderRadius: authRadius.sm,
+    backgroundColor: c.goldHighlight,
+    marginTop: space.lg,
   },
-  emptyCopy: {
-    color: authColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: authSpacing.xs,
-    textAlign: 'center',
+  primaryText: {
+    ...authTextStyles.button,
+    fontWeight: '600',
+    color: c.onGold,
+    flexShrink: 1,
   },
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: authControlSizes.touch,
+    paddingTop: space.lg,
+  },
+  rowCopy: { flex: 1, minWidth: 0, gap: space.xs },
+  paymentTitle: {
+    ...authTextStyles.label,
+    fontWeight: '600',
+    color: c.textPrimary,
+  },
+  newTable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+    minHeight: authControlSizes.touch,
+    paddingVertical: space.md,
+    marginTop: space.sm,
+  },
+  pickerGroup: { gap: space.xs, marginBottom: space.md },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.md,
+    minHeight: authControlSizes.touch,
+    paddingVertical: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: c.borderSoft,
+  },
+  chosen: { ...authTextStyles.body, color: c.gold },
 });

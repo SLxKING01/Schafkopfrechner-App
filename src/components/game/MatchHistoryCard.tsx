@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
@@ -14,6 +14,9 @@ type MatchHistoryCardProps = {
   stockDeposit?: boolean;
   stockBooking?: string;
   details?: string;
+  compact?: boolean;
+  onPress?: () => void;
+  accessibilityLabel?: string;
 };
 
 export function MatchHistoryCard({
@@ -25,7 +28,47 @@ export function MatchHistoryCard({
   stockDeposit,
   stockBooking,
   details,
+  compact = false,
+  onPress,
+  accessibilityLabel,
 }: MatchHistoryCardProps) {
+  if (compact) {
+    const content = (
+      <>
+        <View style={styles.gameColumn}>
+          <AppText numberOfLines={2} style={styles.tableTitle}>
+            {stockBooking ?? (stockDeposit ? 'Stock eingezahlt' : gameType)}
+          </AppText>
+          <AppText style={styles.tableTime}>{time}</AppText>
+        </View>
+        <View style={styles.winnerColumn}>
+          <AppText numberOfLines={2} style={styles.tableWinner}>
+            {stockBooking || stockDeposit ? 'Alle vier' : winner}
+          </AppText>
+        </View>
+        <AppText style={styles.tableAmount}>+{amount}</AppText>
+      </>
+    );
+    const label = `${gameType}, ${stockBooking ?? (stockDeposit ? 'Stock eingezahlt' : `Gewinner ${winner}, gegen ${losers}`)}, ${amount}, ${time}${details ? `, ${details}` : ''}`;
+    return onPress ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityHint={`${label}. Öffnet die Spielkonfiguration zum Bearbeiten.`}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.tableRow,
+          pressed && styles.tablePressed,
+        ]}
+      >
+        {content}
+      </Pressable>
+    ) : (
+      <View accessible accessibilityLabel={label} style={styles.tableRow}>
+        {content}
+      </View>
+    );
+  }
   return (
     <View style={styles.card}>
       <View style={styles.timelineDot} />
@@ -48,6 +91,42 @@ export function MatchHistoryCard({
 }
 
 const styles = StyleSheet.create({
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: authSpacing.sm,
+    minHeight: 60,
+    paddingHorizontal: authSpacing.md,
+    paddingVertical: authSpacing.sm,
+    backgroundColor: authColors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: authColors.borderSoft,
+  },
+  tablePressed: { backgroundColor: authColors.control },
+  gameColumn: { flex: 1.1, minWidth: 0 },
+  winnerColumn: { flex: 1, minWidth: 0 },
+  tableTitle: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.caption,
+    fontWeight: '700',
+  },
+  tableWinner: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.caption,
+  },
+  tableTime: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.tiny,
+    marginTop: 2,
+  },
+  tableAmount: {
+    width: 78,
+    textAlign: 'right',
+    color: authColors.accentGreen,
+    fontSize: authTypography.caption,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
   card: {
     alignItems: 'center',
     backgroundColor: 'rgba(13, 27, 19, 0.72)',

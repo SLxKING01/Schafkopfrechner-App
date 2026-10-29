@@ -9,7 +9,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Modal, StyleSheet } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,7 +31,62 @@ type InteractionSheetProps = {
 };
 
 /** Keep the modal mounted until the sheet's closing gesture/animation completes. */
-export function InteractionSheet({
+export function InteractionSheet(props: InteractionSheetProps) {
+  return props.fullScreen ? (
+    <FullScreenSheet {...props} />
+  ) : (
+    <BottomInteractionSheet {...props} />
+  );
+}
+
+function FullScreenSheet({
+  children,
+  visible,
+  onClose,
+  onDismiss,
+  dismissible = true,
+}: InteractionSheetProps) {
+  const insets = useSafeAreaInsets();
+  const wasVisible = useRef(visible);
+  useEffect(() => {
+    if (wasVisible.current && !visible) onDismiss?.();
+    wasVisible.current = visible;
+  }, [visible, onDismiss]);
+  return (
+    <Modal
+      transparent
+      animationType="none"
+      visible={visible}
+      onRequestClose={() => {
+        if (dismissible) onClose();
+      }}
+    >
+      <GestureHandlerRootView style={styles.root}>
+        <View
+          style={[
+            styles.root,
+            styles.background,
+            {
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left,
+              paddingRight: insets.right,
+            },
+          ]}
+        >
+          <KeyboardAvoidingView
+            style={styles.root}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            {children}
+          </KeyboardAvoidingView>
+        </View>
+      </GestureHandlerRootView>
+    </Modal>
+  );
+}
+
+function BottomInteractionSheet({
   children,
   visible,
   onClose,
@@ -77,6 +138,10 @@ export function InteractionSheet({
             enablePanDownToClose={dismissible}
             topInset={insets.top}
             bottomInset={insets.bottom}
+            containerStyle={{
+              marginLeft: insets.left,
+              marginRight: insets.right,
+            }}
             keyboardBehavior="interactive"
             keyboardBlurBehavior="restore"
             enableBlurKeyboardOnGesture

@@ -85,6 +85,8 @@ it('counts an archived table once even when it is still the current table', () =
     now,
   );
   expect(result.rounds).toHaveLength(1);
+  expect(result.statisticsTables).toHaveLength(1);
+  expect(result.statisticsTables[0].rounds).toHaveLength(1);
   expect(result.completedTables).toBe(1);
   expect(result.openPaymentCents).toBe(1n);
   expect(result.playerStats.find((p) => p.name === 'Anna')).toMatchObject({

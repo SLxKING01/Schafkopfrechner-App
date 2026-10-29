@@ -1,0 +1,873 @@
+{
+  "stats": [
+    {
+      "name": "Simon",
+      "rounds": 40,
+      "wins": 19,
+      "balance": -1130,
+      "own": 7,
+      "ownWins": 5
+    },
+    {
+      "name": "Flo",
+      "rounds": 40,
+      "wins": 21,
+      "balance": 230,
+      "own": 16,
+      "ownWins": 13
+    },
+    {
+      "name": "Alessandro",
+      "rounds": 40,
+      "wins": 18,
+      "balance": 1310,
+      "own": 10,
+      "ownWins": 7
+    },
+    {
+      "name": "Berkay",
+      "rounds": 40,
+      "wins": 18,
+      "balance": -410,
+      "own": 3,
+      "ownWins": 2
+    }
+  ],
+  "simonTypes": [
+    {
+      "type": "Rufspiel",
+      "n": 20,
+      "wins": 12,
+      "balance": 280
+    },
+    {
+      "type": "Ramsch",
+      "n": 4,
+      "wins": 3,
+      "balance": -60
+    },
+    {
+      "type": "Wenz",
+      "n": 8,
+      "wins": 2,
+      "balance": -850
+    },
+    {
+      "type": "Solo",
+      "n": 8,
+      "wins": 2,
+      "balance": -500
+    }
+  ],
+  "sessions": [
+    40,
+    -610,
+    -450,
+    -110
+  ],
+  "knocked": 10,
+  "knockBalance": -440,
+  "kontra": 6,
+  "re": 3,
+  "kontraBalance": -940,
+  "bestRound": 160,
+  "worstRound": -600,
+  "rounds": [
+    {
+      "round": 1,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": false,
+      "leger": 1,
+      "stoss": 2,
+      "winners": [
+        "Simon",
+        "Berkay"
+      ],
+      "amount": 320,
+      "deltas": [
+        160,
+        -160,
+        -160,
+        160
+      ]
+    },
+    {
+      "round": 2,
+      "session": 1,
+      "type": "Ramsch",
+      "declarer": null,
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 60,
+      "deltas": [
+        20,
+        -60,
+        20,
+        20
+      ]
+    },
+    {
+      "round": 3,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Alessandro"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        20,
+        20,
+        -20
+      ]
+    },
+    {
+      "round": 4,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Simon",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Flo"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        20,
+        -20,
+        -20
+      ]
+    },
+    {
+      "round": 5,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Simon"
+      ],
+      "amount": 80,
+      "deltas": [
+        40,
+        40,
+        -40,
+        -40
+      ]
+    },
+    {
+      "round": 6,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Alessandro",
+        "Flo"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        20,
+        20,
+        -20
+      ]
+    },
+    {
+      "round": 7,
+      "session": 1,
+      "type": "Rufspiel",
+      "declarer": "Alessandro",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        -20,
+        -20,
+        20
+      ]
+    },
+    {
+      "round": 8,
+      "session": 1,
+      "type": "Wenz",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 1,
+      "winners": [
+        "Flo"
+      ],
+      "amount": 300,
+      "deltas": [
+        -100,
+        300,
+        -100,
+        -100
+      ]
+    },
+    {
+      "round": 9,
+      "session": 1,
+      "type": "Solo",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Alessandro"
+      ],
+      "amount": 300,
+      "deltas": [
+        -100,
+        -100,
+        300,
+        -100
+      ]
+    },
+    {
+      "round": 10,
+      "session": 1,
+      "type": "Ramsch",
+      "declarer": null,
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 60,
+      "deltas": [
+        20,
+        -60,
+        20,
+        20
+      ]
+    },
+    {
+      "round": 11,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        20,
+        -20,
+        20
+      ]
+    },
+    {
+      "round": 12,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        -20,
+        20,
+        20
+      ]
+    },
+    {
+      "round": 13,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Simon"
+      ],
+      "amount": 80,
+      "deltas": [
+        40,
+        40,
+        -40,
+        -40
+      ]
+    },
+    {
+      "round": 14,
+      "session": 2,
+      "type": "Ramsch",
+      "declarer": null,
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 60,
+      "deltas": [
+        20,
+        -60,
+        20,
+        20
+      ]
+    },
+    {
+      "round": 15,
+      "session": 2,
+      "type": "Wenz",
+      "declarer": "Simon",
+      "won": false,
+      "leger": 0,
+      "stoss": 2,
+      "winners": [
+        "Flo",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 600,
+      "deltas": [
+        -600,
+        200,
+        200,
+        200
+      ]
+    },
+    {
+      "round": 16,
+      "session": 2,
+      "type": "Solo",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        150,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 17,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Berkay"
+      ],
+      "amount": 80,
+      "deltas": [
+        -40,
+        40,
+        -40,
+        40
+      ]
+    },
+    {
+      "round": 18,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Simon"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        20,
+        -20,
+        -20
+      ]
+    },
+    {
+      "round": 19,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Simon"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        20,
+        -20,
+        -20
+      ]
+    },
+    {
+      "round": 20,
+      "session": 2,
+      "type": "Rufspiel",
+      "declarer": "Simon",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        -20,
+        -20,
+        20
+      ]
+    },
+    {
+      "round": 21,
+      "session": 3,
+      "type": "Wenz",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Alessandro"
+      ],
+      "amount": 300,
+      "deltas": [
+        -100,
+        -100,
+        300,
+        -100
+      ]
+    },
+    {
+      "round": 22,
+      "session": 3,
+      "type": "Rufspiel",
+      "declarer": "Berkay",
+      "won": false,
+      "leger": 0,
+      "stoss": 1,
+      "winners": [
+        "Simon",
+        "Alessandro"
+      ],
+      "amount": 80,
+      "deltas": [
+        40,
+        -40,
+        40,
+        -40
+      ]
+    },
+    {
+      "round": 23,
+      "session": 3,
+      "type": "Solo",
+      "declarer": "Alessandro",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Flo",
+        "Berkay"
+      ],
+      "amount": 150,
+      "deltas": [
+        50,
+        50,
+        -150,
+        50
+      ]
+    },
+    {
+      "round": 24,
+      "session": 3,
+      "type": "Wenz",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Alessandro"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        -50,
+        150,
+        -50
+      ]
+    },
+    {
+      "round": 25,
+      "session": 3,
+      "type": "Ramsch",
+      "declarer": null,
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 120,
+      "deltas": [
+        -120,
+        40,
+        40,
+        40
+      ]
+    },
+    {
+      "round": 26,
+      "session": 3,
+      "type": "Wenz",
+      "declarer": "Alessandro",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Flo",
+        "Berkay"
+      ],
+      "amount": 150,
+      "deltas": [
+        50,
+        50,
+        -150,
+        50
+      ]
+    },
+    {
+      "round": 27,
+      "session": 3,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Alessandro"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        20,
+        20,
+        -20
+      ]
+    },
+    {
+      "round": 28,
+      "session": 3,
+      "type": "Solo",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        150,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 29,
+      "session": 3,
+      "type": "Solo",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 1,
+      "stoss": 2,
+      "winners": [
+        "Alessandro"
+      ],
+      "amount": 1200,
+      "deltas": [
+        -400,
+        -400,
+        1200,
+        -400
+      ]
+    },
+    {
+      "round": 30,
+      "session": 3,
+      "type": "Wenz",
+      "declarer": "Simon",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon"
+      ],
+      "amount": 150,
+      "deltas": [
+        150,
+        -50,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 31,
+      "session": 4,
+      "type": "Solo",
+      "declarer": "Berkay",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Berkay"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        -50,
+        -50,
+        150
+      ]
+    },
+    {
+      "round": 32,
+      "session": 4,
+      "type": "Solo",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        150,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 33,
+      "session": 4,
+      "type": "Rufspiel",
+      "declarer": "Alessandro",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Alessandro",
+        "Simon"
+      ],
+      "amount": 80,
+      "deltas": [
+        40,
+        -40,
+        40,
+        -40
+      ]
+    },
+    {
+      "round": 34,
+      "session": 4,
+      "type": "Solo",
+      "declarer": "Simon",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon"
+      ],
+      "amount": 150,
+      "deltas": [
+        150,
+        -50,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 35,
+      "session": 4,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        20,
+        -20,
+        -20,
+        20
+      ]
+    },
+    {
+      "round": 36,
+      "session": 4,
+      "type": "Rufspiel",
+      "declarer": "Berkay",
+      "won": true,
+      "leger": 0,
+      "stoss": 1,
+      "winners": [
+        "Berkay",
+        "Alessandro"
+      ],
+      "amount": 80,
+      "deltas": [
+        -40,
+        -40,
+        40,
+        40
+      ]
+    },
+    {
+      "round": 37,
+      "session": 4,
+      "type": "Rufspiel",
+      "declarer": "Simon",
+      "won": true,
+      "leger": 1,
+      "stoss": 0,
+      "winners": [
+        "Simon",
+        "Flo"
+      ],
+      "amount": 80,
+      "deltas": [
+        40,
+        40,
+        -40,
+        -40
+      ]
+    },
+    {
+      "round": 38,
+      "session": 4,
+      "type": "Wenz",
+      "declarer": "Flo",
+      "won": true,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo"
+      ],
+      "amount": 150,
+      "deltas": [
+        -50,
+        150,
+        -50,
+        -50
+      ]
+    },
+    {
+      "round": 39,
+      "session": 4,
+      "type": "Wenz",
+      "declarer": "Simon",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Flo",
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 150,
+      "deltas": [
+        -150,
+        50,
+        50,
+        50
+      ]
+    },
+    {
+      "round": 40,
+      "session": 4,
+      "type": "Rufspiel",
+      "declarer": "Flo",
+      "won": false,
+      "leger": 0,
+      "stoss": 0,
+      "winners": [
+        "Alessandro",
+        "Berkay"
+      ],
+      "amount": 40,
+      "deltas": [
+        -20,
+        -20,
+        20,
+        20
+      ]
+    }
+  ]
+}

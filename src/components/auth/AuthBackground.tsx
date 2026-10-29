@@ -30,7 +30,7 @@ export function AuthBackground({
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.vignette} pointerEvents="none" />
-      <View style={styles.patternLayer} pointerEvents="none">
+      <View style={styles.patternLayer} pointerEvents="none" aria-hidden>
         <AppText style={[styles.patternSuit, styles.patternTop]}>{'♥'}</AppText>
         <AppText style={[styles.patternSuit, styles.patternMiddle]}>
           {'♣'}

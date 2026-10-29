@@ -46,7 +46,7 @@ import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackParamList } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
-import { authRadius, authSpacing } from '../../theme/spacing';
+import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import { isStockBooking } from '../../utils/accounting';
 import {
@@ -299,11 +299,9 @@ export function GameLobbyScreen() {
   );
 
   const openSettings = useCallback(() => {
-    Alert.alert(
-      'Einstellungen vorbereitet',
-      'Tisch- und Freundesgruppen-Einstellungen werden hier später ergänzt.',
-    );
-  }, []);
+    if (activeGame && currentTable) navigation.navigate('EditTable');
+    else navigation.navigate('AppTabs', { screen: 'Profile' });
+  }, [activeGame, currentTable, navigation]);
 
   const copyTable = useCallback((table: TablePreview) => {
     Alert.alert(
@@ -451,6 +449,11 @@ export function GameLobbyScreen() {
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={
+            activeGame && currentTable
+              ? 'Tischregeln bearbeiten'
+              : 'Profil und Einstellungen öffnen'
+          }
           onPress={openSettings}
           style={({ pressed }) => [
             styles.settingsButton,
@@ -565,10 +568,19 @@ export function GameLobbyScreen() {
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={
+          activeGame && currentTable
+            ? 'Am Tisch weiterspielen'
+            : 'Neuen Tisch erstellen'
+        }
         onPress={openCreateTable}
         style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
       >
-        <Plus color="#17150B" size={28} strokeWidth={2.8} />
+        {activeGame && currentTable ? (
+          <ChevronRight color="#17150B" size={28} strokeWidth={2.8} />
+        ) : (
+          <Plus color="#17150B" size={28} strokeWidth={2.8} />
+        )}
       </Pressable>
 
       <RenameTableSheet
@@ -1013,9 +1025,9 @@ const styles = StyleSheet.create({
     borderColor: screenColors.border,
     borderRadius: authRadius.pill,
     borderWidth: 1,
-    height: 44,
+    height: authControlSizes.touch,
     justifyContent: 'center',
-    width: 44,
+    width: authControlSizes.touch,
   },
   pressed: {
     opacity: 0.76,

@@ -34,24 +34,19 @@ export function SyncStatus() {
   const userId = useAuthStore((state) => state.user?.id);
   const rounds = useGameStore((state) => state.rounds);
   const table = useGameStore((state) => state.currentTable);
-  const syncing = useGameStore((state) => state.syncing);
   const syncError = useGameStore((state) => state.syncError);
-  const lastSyncedAt = useGameStore((state) => state.lastSyncedAt);
-  const isOffline = useGameStore((state) => state.isOffline);
   const [deviceCheck, setDeviceCheck] = useState<{
     rounds: typeof rounds;
     table: typeof table;
     issues: typeof issues;
     saved: boolean;
   } | null>(null);
-  const device =
+  const deviceNotSaved =
     deviceCheck?.rounds === rounds &&
     deviceCheck?.table === table &&
     deviceCheck?.issues === issues
-      ? deviceCheck.saved
-        ? 'Auf Gerät gespeichert'
-        : 'Auf Gerät noch nicht gesichert'
-      : 'Gerätespeicherung wird geprüft …';
+      ? !deviceCheck.saved
+      : false;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -121,53 +116,47 @@ export function SyncStatus() {
   }
   return (
     <>
-      <View accessibilityLiveRegion="polite" style={styles.status}>
-        <AppText style={styles.caption}>{device}</AppText>
-        {userId ? (
-          <AppText style={styles.caption}>
-            {ownConflict
-              ? 'Cloud-Konflikt: keine Fassung überschrieben'
-              : syncing
-                ? 'Cloud-Abgleich läuft …'
-                : syncError
-                  ? 'Cloud-Abgleich fehlgeschlagen'
-                  : isOffline
-                    ? 'Cloud-Abgleich ausstehend'
-                    : lastSyncedAt
-                      ? `Letzter Cloud-Abgleich: ${new Date(lastSyncedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
-                      : 'Noch keine Cloud-Sicherung bestätigt'}
-          </AppText>
-        ) : (
-          <AppText style={styles.caption}>
-            Lokaler Spielmodus · ohne Cloud-Abgleich
-          </AppText>
-        )}
-        {ownConflict ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sicherungsfassungen vergleichen"
-            style={styles.action}
-            onPress={() => {
-              setError('');
-              setOpen(true);
-            }}
-          >
-            <AppText style={styles.gold}>Fassungen vergleichen</AppText>
-          </Pressable>
-        ) : userId && syncError ? (
-          <Pressable
-            accessibilityRole="button"
-            style={styles.action}
-            onPress={() => {
-              void useGameStore.getState().syncNow();
-            }}
-          >
-            <AppText style={styles.gold}>
-              Cloud-Abgleich erneut versuchen
+      {deviceNotSaved || ownConflict || (userId && syncError) ? (
+        <View accessibilityLiveRegion="polite" style={styles.status}>
+          {deviceNotSaved ? (
+            <AppText style={styles.caption}>
+              Auf Gerät noch nicht gesichert
             </AppText>
-          </Pressable>
-        ) : null}
-      </View>
+          ) : null}
+          {userId && (ownConflict || syncError) ? (
+            <AppText style={styles.caption}>
+              {ownConflict
+                ? 'Cloud-Konflikt: keine Fassung überschrieben'
+                : 'Cloud-Abgleich fehlgeschlagen'}
+            </AppText>
+          ) : null}
+          {ownConflict ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sicherungsfassungen vergleichen"
+              style={styles.action}
+              onPress={() => {
+                setError('');
+                setOpen(true);
+              }}
+            >
+              <AppText style={styles.gold}>Fassungen vergleichen</AppText>
+            </Pressable>
+          ) : userId && syncError ? (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => {
+                void useGameStore.getState().syncNow();
+              }}
+            >
+              <AppText style={styles.gold}>
+                Cloud-Abgleich erneut versuchen
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <Modal
         transparent
         visible={open && !!ownConflict}

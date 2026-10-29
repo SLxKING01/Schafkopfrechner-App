@@ -131,7 +131,7 @@ function getPlayerVisual(index: number) {
   };
 }
 
-export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
+export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   const insets = useSafeAreaInsets();
   const currentTable = useGameStore((state) => state.currentTable);
   const players = useGameStore((state) => state.players);
@@ -214,6 +214,22 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
     setEditingRoundId(round.id);
     setRoundComposerVisible(true);
   }, []);
+  useEffect(() => {
+    const id = route?.params?.roundId;
+    if (!id) return;
+    // Deliver the navigation request after its render has committed.
+    const timer = setTimeout(() => {
+      const round = rounds.find((r) => r.id === id);
+      if (
+        round &&
+        (!round.stockAction ||
+          ['deposit', 'payout'].includes(round.stockAction))
+      )
+        editRound(round);
+      navigation.setParams({ roundId: undefined });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [route?.params?.roundId, rounds, editRound, navigation]);
   const renderHistoryRound: ListRenderItem<GameRound> = useCallback(
     ({ item }) => (
       <HistoryRoundRow
@@ -524,7 +540,7 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
                   <View>
                     <AppText style={styles.sectionTitle}>Spielverlauf</AppText>
                     <AppText style={styles.sectionSubtitle}>
-                      Letzte Runden und Gewinner
+                      Spiel antippen, um es zu bearbeiten
                     </AppText>
                   </View>
                   <View style={styles.roundCountPill}>
@@ -535,6 +551,22 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
                         : ''}
                     </AppText>
                   </View>
+                </View>
+                <View style={styles.historyColumns}>
+                  <AppText style={[styles.columnLabel, { flex: 1.1 }]}>
+                    Spiel
+                  </AppText>
+                  <AppText style={[styles.columnLabel, { flex: 1 }]}>
+                    Gewinner
+                  </AppText>
+                  <AppText
+                    style={[
+                      styles.columnLabel,
+                      { width: 78, textAlign: 'right' },
+                    ]}
+                  >
+                    Betrag
+                  </AppText>
                 </View>
               </Animated.View>
             </>
@@ -690,6 +722,21 @@ export function ActiveGameScreen({ navigation }: ActiveGameScreenProps) {
           />
           <View style={styles.menuCard}>
             <AppText style={styles.menuTitle}>Tisch verwalten</AppText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tischstatistik öffnen"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                if (currentTable)
+                  navigation.navigate('TableStatistics', {
+                    tableKey: `table:${currentTable.id}`,
+                  });
+              }}
+            >
+              <History color={screenColors.gold} size={20} />
+              <AppText style={styles.menuText}>Tischstatistik</AppText>
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Tisch bearbeiten"
@@ -1272,41 +1319,35 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
   );
 
   return (
-    <View>
-      <MatchHistoryCard
-        details={
-          round.declarerId && round.partnerId
-            ? `Spieler: ${getPlayerName(round.declarerId)} · Partner: ${getPlayerName(round.partnerId)} · ${roundWinnerIds(round).includes(round.declarerId) ? 'gewonnen' : 'verloren'}`
-            : undefined
-        }
-        stockBooking={
-          round.stockAction === 'carryIn'
-            ? 'Stock übernommen'
-            : round.stockAction === 'carryOut'
-              ? 'Stock übertragen'
-              : round.stockAction === 'refund'
-                ? 'Stock zurückgegeben'
-                : undefined
-        }
-        stockDeposit={round.stockAction === 'deposit'}
-        amount={formatAmount(round.amount + stockPayoutCents / 100)}
-        gameType={`${formatRoundGameType(round.gameType, round.suit)}${round.stockAction === 'payout' ? ` + Stock ${formatAmount(stockPayoutCents / 100)}` : ''}`}
-        losers={losers}
-        time={time}
-        winner={winner}
-      />
-      {!round.stockAction ||
-      ['deposit', 'payout'].includes(round.stockAction) ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Runde ${round.id} bearbeiten`}
-          onPress={() => onEdit(round)}
-          style={styles.menuItem}
-        >
-          <AppText style={styles.menuText}>Runde bearbeiten</AppText>
-        </Pressable>
-      ) : null}
-    </View>
+    <MatchHistoryCard
+      compact
+      accessibilityLabel={`Runde ${round.id} bearbeiten`}
+      onPress={
+        !round.stockAction || ['deposit', 'payout'].includes(round.stockAction)
+          ? () => onEdit(round)
+          : undefined
+      }
+      details={
+        round.declarerId && round.partnerId
+          ? `Spieler: ${getPlayerName(round.declarerId)} · Partner: ${getPlayerName(round.partnerId)} · ${roundWinnerIds(round).includes(round.declarerId) ? 'gewonnen' : 'verloren'}`
+          : undefined
+      }
+      stockBooking={
+        round.stockAction === 'carryIn'
+          ? 'Stock übernommen'
+          : round.stockAction === 'carryOut'
+            ? 'Stock übertragen'
+            : round.stockAction === 'refund'
+              ? 'Stock zurückgegeben'
+              : undefined
+      }
+      stockDeposit={round.stockAction === 'deposit'}
+      amount={formatAmount(round.amount + stockPayoutCents / 100)}
+      gameType={`${formatRoundGameType(round.gameType, round.suit)}${round.stockAction === 'payout' ? ` + Stock ${formatAmount(stockPayoutCents / 100)}` : ''}`}
+      losers={losers}
+      time={time}
+      winner={winner}
+    />
   );
 });
 
@@ -1858,10 +1899,18 @@ const styles = StyleSheet.create({
   },
   stack: { marginTop: 16 },
   historyHeaderStack: {
-    marginBottom: authSpacing.md,
+    marginBottom: 0,
+  },
+  historyColumns: {
+    flexDirection: 'row',
+    gap: authSpacing.sm,
+    paddingHorizontal: authSpacing.md,
+    paddingVertical: authSpacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: screenColors.gold,
   },
   historySeparator: {
-    height: authSpacing.md,
+    height: 0,
   },
   sectionHeader: {
     alignItems: 'center',

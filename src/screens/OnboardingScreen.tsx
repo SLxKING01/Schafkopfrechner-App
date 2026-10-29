@@ -27,7 +27,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.backgroundPattern} pointerEvents="none">
+      <View style={styles.backgroundPattern} pointerEvents="none" aria-hidden>
         <AppText style={[styles.patternSuit, styles.patternSuitTop]}>♥</AppText>
         <AppText style={[styles.patternSuit, styles.patternSuitMiddle]}>
           ♣
@@ -40,7 +40,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
       <View style={styles.content}>
         <View style={styles.hero}>
           <View style={styles.logoShadow}>
-            <View style={styles.logo}>
+            <View style={styles.logo} aria-hidden>
               <Ionicons name="leaf-outline" size={34} color={colors.accent} />
               <Ionicons
                 name="heart-outline"
@@ -52,7 +52,9 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
           </View>
 
           <View style={styles.titleGroup}>
-            <AppText style={styles.title}>Schafkopfrechner</AppText>
+            <AppText accessibilityRole="header" style={styles.title}>
+              Schafkopfrechner
+            </AppText>
             <AppText style={styles.subtitle}>
               Gemeinsam spielen. Einfach abrechnen.
             </AppText>

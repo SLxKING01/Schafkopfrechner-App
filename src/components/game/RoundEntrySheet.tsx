@@ -1,17 +1,15 @@
-import {
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-} from '@gorhom/bottom-sheet';
+import { ChevronLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -21,7 +19,14 @@ import {
 } from '../../constants/tableSettings';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useGameStore } from '../../store/gameStore';
-import { authColors } from '../../theme/colors';
+import {
+  authColors,
+  authControlSizes,
+  authInteraction,
+  authRadius,
+  authSpacing,
+  authTextStyles,
+} from '../../theme';
 import type {
   CardSuit,
   CreateRoundPayload,
@@ -48,6 +53,7 @@ import {
   calculateRoundTariff,
   emptyTariffOptions,
 } from '../../utils/roundTariff';
+import { selectSauspielResult } from '../../utils/sauspielSelection';
 import { AuthBackground } from '../auth/AuthBackground';
 import { GoldButton } from '../auth/GoldButton';
 import { AppText } from '../ui/AppText';
@@ -55,10 +61,8 @@ import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
 import { EuroStyleCoin } from './EuroStyleCoin';
 import { GameTypeSelector } from './GameTypeSelector';
-
-const AmountInput = Platform.OS === 'web' ? TextInput : BottomSheetTextInput;
-const EntryScrollView =
-  Platform.OS === 'web' ? ScrollView : BottomSheetScrollView;
+const AmountInput = TextInput;
+const EntryScrollView = ScrollView;
 type Draft = {
   correctedLegerPlayerIds?: string[];
   suit?: CardSuit;
@@ -112,7 +116,9 @@ function initialDraft(table: GameTable | null, round: GameRound | null): Draft {
       ? winners.includes(round.declarerId)
       : winners.length !== 3,
     options: round?.tariffOptions
-      ? { ...round.tariffOptions }
+      ? {
+          ...round.tariffOptions,
+        }
       : {
           ...emptyTariffOptions,
           legerCount: round ? 0 : (table?.placedLegerPlayerIds?.length ?? 0),
@@ -133,6 +139,8 @@ export function RoundEntrySheet({
   onDismiss,
   onSaved,
 }: Props) {
+  const { width, fontScale } = useWindowDimensions();
+  const expandedPlayerLayout = fontScale >= 1.3 || width < 360;
   const rounds = useGameStore((state) => state.rounds);
   const currentTable = useGameStore((state) => state.currentTable);
   const key = `${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}`;
@@ -172,19 +180,35 @@ export function RoundEntrySheet({
           ...active.settings,
           bonusRules: {
             ...active.settings.bonusRules,
-            stoss: { ...active.settings.bonusRules.stoss, enabled: true },
+            stoss: {
+              ...active.settings.bonusRules.stoss,
+              enabled: true,
+            },
           },
         })
       )
         return;
     }
-    setDraft((current) => ({ ...current, ...change }));
+    setDraft((current) => ({
+      ...current,
+      ...change,
+    }));
   };
-  const settings =
+  const originalSettings =
     editingRound?.settingsSnapshot ??
     (currentTable?.id === table?.id ? currentTable?.settings : undefined) ??
     table?.settings ??
     createDefaultTableSettings();
+  const settings =
+    editingRound && draft.options.stoss > 0
+      ? {
+          ...originalSettings,
+          bonusRules: {
+            ...originalSettings.bonusRules,
+            stoss: { ...originalSettings.bonusRules.stoss, enabled: true },
+          },
+        }
+      : originalSettings;
   const rules = getGameRules(settings, draft.gameType);
   const enabledTypes = Object.entries(settings.games)
     .filter(([, entry]) => entry.enabled)
@@ -282,11 +306,18 @@ export function RoundEntrySheet({
       ? (manualCents ?? 0)
       : (party?.totalCents ?? 0);
   const payload: CreateRoundPayload = {
+    ...(sauspiel && editingRound?.declarerId && !draft.declarer
+      ? { clearPartyMetadata: true }
+      : {}),
     ...(editingRound && draft.correctedLegerPlayerIds
-      ? { legerPlayerIds: draft.correctedLegerPlayerIds }
+      ? {
+          legerPlayerIds: draft.correctedLegerPlayerIds,
+        }
       : {}),
     ...(draft.suit && supportsCardSuit(draft.gameType)
-      ? { suit: draft.suit }
+      ? {
+          suit: draft.suit,
+        }
       : {}),
     gameType: draft.gameType,
     winnerId: stockDeposit ? '' : (draft.winners[0] ?? ''),
@@ -294,19 +325,34 @@ export function RoundEntrySheet({
     loserIds: stockDeposit ? players.map(({ id }) => id) : draft.losers,
     amount: amountCents / 100,
     stockAction: stockDeposit ? 'deposit' : stockPayout ? 'payout' : undefined,
-    ...(stockDeposit ? { stockCompletesDeal: draft.stockCompletesDeal } : {}),
+    ...(stockDeposit
+      ? {
+          stockCompletesDeal: draft.stockCompletesDeal,
+        }
+      : {}),
     ...(sauspiel && (draft.declarer || draft.partner)
-      ? { declarerId: draft.declarer, partnerId: draft.partner }
+      ? {
+          declarerId: draft.declarer,
+          partnerId: draft.partner,
+        }
       : {}),
     ...(!draft.manual && !stockDeposit
-      ? { tariffOptions: effectiveOptions }
+      ? {
+          tariffOptions: effectiveOptions,
+        }
       : {}),
   };
   let hint = '';
-  if (!stockDeposit && guided && sauspiel && !draft.declarer)
-    hint = 'Bitte Sauspieler wählen.';
-  else if (!stockDeposit && guided && sauspiel && !draft.partner)
-    hint = 'Bitte Partner wählen.';
+  if (
+    !stockDeposit &&
+    guided &&
+    sauspiel &&
+    (draft.winners.length !== 2 || draft.losers.length !== 2)
+  )
+    hint =
+      players.length === 4
+        ? 'Zwei Gewinner oder zwei Verlierer wählen. Die andere Partei wird automatisch ergänzt.'
+        : 'Zwei Gewinner und zwei Verlierer wählen.';
   else if (!stockDeposit && guided && !partnerGame && !draft.solo)
     hint =
       draft.gameType === 'ramsch'
@@ -331,12 +377,10 @@ export function RoundEntrySheet({
     hint = 'Bitte das Ergebnis für alle beteiligten Spieler prüfen.';
   const immutable = saving || !!committedId;
   const gameLabel = formatRoundGameType(draft.gameType, draft.suit);
-
   useEffect(() => {
     if (!visible) return;
     AccessibilityInfo.announceForAccessibility('Rundeneingabe geöffnet');
   }, [visible]);
-
   function requestClose() {
     if (savingLock.current) return;
     if (JSON.stringify(draft) === baseline.current && !committed.current) {
@@ -348,7 +392,9 @@ export function RoundEntrySheet({
   function leave(keep: boolean) {
     if (keep)
       drafts.set(key, {
-        draft: { ...draft },
+        draft: {
+          ...draft,
+        },
         revision,
         committedId: committed.current,
       });
@@ -362,7 +408,9 @@ export function RoundEntrySheet({
   }
   function changeGame(type: GameType) {
     if (type === draft.gameType) {
-      patch({ choosing: false });
+      patch({
+        choosing: false,
+      });
       return;
     }
     const targetRules = getGameRules(settings, type);
@@ -383,24 +431,41 @@ export function RoundEntrySheet({
         ...emptyTariffOptions,
         legerCount: targetRules.bonuses.leger ? originalLeger : 0,
         turboRamsch: effectiveOptions.turboRamsch,
-        ...(type === 'ramsch' ? { durchmarsch: false, jungfrauen: 0 } : {}),
+        ...(type === 'ramsch'
+          ? {
+              durchmarsch: false,
+              jungfrauen: 0,
+            }
+          : {}),
       },
     });
     setSaveError('');
   }
-  function selectParty(declarer: string, partner: string, won = draft.won) {
-    const actualPartner = partner === declarer ? '' : partner;
-    const ids = [declarer, actualPartner].filter(Boolean);
-    const others = players
-      .map(({ id }) => id)
-      .filter((id) => !ids.includes(id));
-    patch({
-      declarer,
-      partner: actualPartner,
+  function selectSauspiel(id: string, won: boolean) {
+    const result = selectSauspielResult(
+      players.map((p) => p.id),
+      draft.winners,
+      draft.losers,
+      id,
       won,
+    );
+    if (result.winners === draft.winners && result.losers === draft.losers)
+      return;
+    const complete = result.winners.length === 2 && result.losers.length === 2;
+    const sameParty =
+      draft.declarer &&
+      draft.partner &&
+      [result.winners, result.losers].some(
+        (ids) => ids.includes(draft.declarer) && ids.includes(draft.partner),
+      );
+    patch({
+      ...result,
       payStock: false,
-      winners: ids.length === 2 ? (won ? ids : others) : [],
-      losers: ids.length === 2 ? (won ? others : ids) : [],
+      ...(complete
+        ? sameParty
+          ? { won: result.winners.includes(draft.declarer) }
+          : { declarer: '', partner: '' }
+        : {}),
     });
   }
   function selectSolo(id: string, won = draft.won) {
@@ -472,7 +537,6 @@ export function RoundEntrySheet({
           'Der Tisch wurde inzwischen geändert. Bitte den aktuellen Spielstand prüfen.',
         );
       drafts.delete(key);
-
       AccessibilityInfo.announceForAccessibility(
         'Runde auf dem Gerät gespeichert.',
       );
@@ -484,30 +548,15 @@ export function RoundEntrySheet({
           : 'Die Gerätespeicherung konnte nicht bestätigt werden.',
       );
       if (committed.current)
-        drafts.set(key, { draft, revision, committedId: committed.current });
+        drafts.set(key, {
+          draft,
+          revision,
+          committedId: committed.current,
+        });
     } finally {
       savingLock.current = false;
       setSaving(false);
     }
-  }
-  function choice(
-    label: string,
-    selected: boolean,
-    onPress: () => void,
-    text = label,
-  ) {
-    return (
-      <Pressable
-        key={label}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ selected }}
-        onPress={onPress}
-        style={[styles.choice, selected && styles.selected]}
-      >
-        <AppText style={selected ? styles.gold : styles.text}>{text}</AppText>
-      </Pressable>
-    );
   }
   function count(
     keyName: 'laufende' | 'stoss' | 'jungfrauen',
@@ -526,7 +575,11 @@ export function RoundEntrySheet({
             accessibilityRole="button"
             accessibilityLabel={`${label} verringern`}
             disabled={value === 0}
-            style={[styles.control, styles.stepButton, styles.stepDivider]}
+            style={({ pressed }) => [
+              [styles.control, styles.stepButton, styles.stepDivider],
+              pressed && authInteraction.pressed,
+              value === 0 && authInteraction.disabled,
+            ]}
             onPress={() =>
               patch({
                 options: {
@@ -542,7 +595,11 @@ export function RoundEntrySheet({
             accessibilityRole="button"
             accessibilityLabel={`${label} erhöhen`}
             disabled={value >= maximum}
-            style={[styles.control, styles.stepButton]}
+            style={({ pressed }) => [
+              [styles.control, styles.stepButton],
+              pressed && authInteraction.pressed,
+              value >= maximum && authInteraction.disabled,
+            ]}
             onPress={() =>
               patch({
                 options: {
@@ -578,22 +635,27 @@ export function RoundEntrySheet({
                 accessibilityLabel="Rundeneingabe schließen"
                 disabled={saving}
                 onPress={requestClose}
-                style={styles.backButton}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && authInteraction.pressed,
+                  saving && authInteraction.disabled,
+                ]}
               >
-                <AppText style={styles.backIcon}>‹</AppText>
+                <ChevronLeft
+                  size={authControlSizes.icon}
+                  color={authColors.textPrimary}
+                />
               </Pressable>
-              <AppText style={styles.title}>
-                {draft.choosing
-                  ? 'Spielauswahl'
-                  : editingRound
-                    ? `Korrektur · ${gameLabel}`
-                    : gameLabel}
+              <AppText accessibilityRole="header" style={styles.title}>
+                {draft.choosing ? 'Spielauswahl' : gameLabel}
               </AppText>
             </View>
             <EntryScrollView
               style={styles.scroll}
               contentContainerStyle={styles.content}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentInsetAdjustmentBehavior="automatic"
               showsVerticalScrollIndicator={false}
             >
               <View
@@ -627,8 +689,15 @@ export function RoundEntrySheet({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Spielart ändern"
-                      onPress={() => patch({ choosing: true })}
-                      style={styles.row}
+                      onPress={() =>
+                        patch({
+                          choosing: true,
+                        })
+                      }
+                      style={({ pressed }) => [
+                        styles.row,
+                        pressed && authInteraction.pressed,
+                      ]}
                     >
                       <AppText style={styles.gold}>‹ Spielart ändern</AppText>
                     </Pressable>
@@ -640,7 +709,7 @@ export function RoundEntrySheet({
                             ? 'Gewinnerpartei gesamt'
                             : 'Tarif pro Spieler'}
                       </AppText>
-                      <AppText style={styles.amount}>
+                      <AppText selectable style={styles.amount}>
                         {stockDeposit
                           ? formatOverviewMoney(stockUnit ?? 0)
                           : draft.manual
@@ -676,7 +745,9 @@ export function RoundEntrySheet({
                             value={draft.stockCompletesDeal}
                             disabled={!!editingRound}
                             onValueChange={(stockCompletesDeal) =>
-                              patch({ stockCompletesDeal })
+                              patch({
+                                stockCompletesDeal,
+                              })
                             }
                           />
                         </View>
@@ -688,52 +759,6 @@ export function RoundEntrySheet({
                       </View>
                     ) : (
                       <>
-                        {guided && sauspiel ? (
-                          <View style={styles.card}>
-                            <AppText style={styles.label}>Sauspieler</AppText>
-                            <View style={styles.chips}>
-                              {players.map((player) =>
-                                choice(
-                                  `Spieler ${player.name}`,
-                                  draft.declarer === player.id,
-                                  () => selectParty(player.id, draft.partner),
-                                  player.name,
-                                ),
-                              )}
-                            </View>
-                            <AppText style={styles.label}>Partner</AppText>
-                            <View style={styles.chips}>
-                              {players
-                                .filter(({ id }) => id !== draft.declarer)
-                                .map((player) =>
-                                  choice(
-                                    `Partner ${player.name}`,
-                                    draft.partner === player.id,
-                                    () =>
-                                      selectParty(draft.declarer, player.id),
-                                    player.name,
-                                  ),
-                                )}
-                            </View>
-                            {draft.declarer && draft.partner ? (
-                              <View style={styles.chips}>
-                                {[true, false].map((won) =>
-                                  choice(
-                                    `Spielerpartei ${won ? 'gewonnen' : 'verloren'}`,
-                                    draft.won === won,
-                                    () =>
-                                      selectParty(
-                                        draft.declarer,
-                                        draft.partner,
-                                        won,
-                                      ),
-                                    won ? 'Gewonnen' : 'Verloren',
-                                  ),
-                                )}
-                              </View>
-                            ) : null}
-                          </View>
-                        ) : null}
                         <View style={styles.playerList}>
                           {players.map((player, index) => {
                             const winner = draft.winners.includes(player.id);
@@ -756,6 +781,8 @@ export function RoundEntrySheet({
                                 key={player.id}
                                 style={[
                                   styles.playerRow,
+                                  expandedPlayerLayout &&
+                                    styles.expandedPlayerRow,
                                   index < players.length - 1 &&
                                     styles.optionRow,
                                 ]}
@@ -787,7 +814,15 @@ export function RoundEntrySheet({
                                       placedLegerIds.length >= 4)
                                   }
                                   onPress={() => toggleKnock(player.id)}
-                                  style={styles.coinButton}
+                                  style={({ pressed }) => [
+                                    styles.coinButton,
+                                    pressed && authInteraction.pressed,
+                                    (immutable ||
+                                      !canKnock ||
+                                      (!placedLegerIds.includes(player.id) &&
+                                        placedLegerIds.length >= 4)) &&
+                                      authInteraction.disabled,
+                                  ]}
                                 >
                                   <EuroStyleCoin
                                     label={
@@ -799,7 +834,13 @@ export function RoundEntrySheet({
                                   />
                                 </Pressable>
                                 <Pressable
-                                  accessibilityRole="button"
+                                  accessible={guided && !partnerGame}
+                                  focusable={guided && !partnerGame}
+                                  accessibilityRole={
+                                    guided && !partnerGame
+                                      ? 'button'
+                                      : undefined
+                                  }
                                   accessibilityLabel={
                                     guided && !partnerGame
                                       ? `${draft.gameType === 'ramsch' ? (draft.options.durchmarsch ? 'Durchmarsch-Gewinner' : 'Ramsch-Verlierer') : 'Alleinspieler'} ${player.name}`
@@ -812,11 +853,16 @@ export function RoundEntrySheet({
                                     if (guided && !partnerGame)
                                       selectSolo(player.id);
                                   }}
-                                  style={styles.playerIdentity}
+                                  style={({ pressed }) => [
+                                    styles.playerIdentity,
+                                    pressed && authInteraction.pressed,
+                                  ]}
                                 >
                                   <View style={styles.playerNameBlock}>
                                     <AppText
-                                      numberOfLines={1}
+                                      numberOfLines={
+                                        expandedPlayerLayout ? undefined : 1
+                                      }
                                       style={styles.playerName}
                                     >
                                       {player.name}
@@ -830,7 +876,13 @@ export function RoundEntrySheet({
                                     </AppText>
                                   </View>
                                 </Pressable>
-                                <View style={styles.segments}>
+                                <View
+                                  style={[
+                                    styles.segments,
+                                    expandedPlayerLayout &&
+                                      styles.expandedSegments,
+                                  ]}
+                                >
                                   {([true, false] as const).map((won) => (
                                     <Pressable
                                       key={String(won)}
@@ -845,12 +897,15 @@ export function RoundEntrySheet({
                                       accessibilityState={{
                                         selected: won ? winner : loser,
                                       }}
-                                      style={[
-                                        styles.segment,
-                                        (won ? winner : loser) &&
-                                          (won
-                                            ? styles.segmentWon
-                                            : styles.selected),
+                                      style={({ pressed }) => [
+                                        [
+                                          styles.segment,
+                                          (won ? winner : loser) &&
+                                            (won
+                                              ? styles.segmentWon
+                                              : styles.selected),
+                                        ],
+                                        pressed && authInteraction.pressed,
                                       ]}
                                       onPress={() => {
                                         if (guided && !partnerGame) {
@@ -861,21 +916,8 @@ export function RoundEntrySheet({
                                           )
                                             selectSolo(draft.solo, !won);
                                           else selectSolo(player.id, won);
-                                        } else if (
-                                          guided &&
-                                          sauspiel &&
-                                          draft.declarer &&
-                                          draft.partner
-                                        ) {
-                                          const inParty = [
-                                            draft.declarer,
-                                            draft.partner,
-                                          ].includes(player.id);
-                                          selectParty(
-                                            draft.declarer,
-                                            draft.partner,
-                                            inParty ? won : !won,
-                                          );
+                                        } else if (sauspiel) {
+                                          selectSauspiel(player.id, won);
                                         } else
                                           toggle(
                                             player.id,
@@ -919,9 +961,12 @@ export function RoundEntrySheet({
                                         : suit.id,
                                   })
                                 }
-                                style={[
-                                  styles.suitChoice,
-                                  draft.suit === suit.id && styles.selected,
+                                style={({ pressed }) => [
+                                  [
+                                    styles.suitChoice,
+                                    draft.suit === suit.id && styles.selected,
+                                  ],
+                                  pressed && authInteraction.pressed,
                                 ]}
                               >
                                 <CardSuitIcon
@@ -1009,12 +1054,14 @@ export function RoundEntrySheet({
                                   disabled={
                                     stockBefore <= 0 ||
                                     (!!draft.declarer && !draft.won) ||
-                                    (!editingRound &&
-                                      (!draft.declarer || !draft.partner))
+                                    draft.winners.length !== 2 ||
+                                    draft.losers.length !== 2
                                   }
                                   value={stockPayout}
                                   onValueChange={(payStock) =>
-                                    patch({ payStock })
+                                    patch({
+                                      payStock,
+                                    })
                                   }
                                 />
                               </View>
@@ -1034,9 +1081,13 @@ export function RoundEntrySheet({
                               <AmountInput
                                 accessibilityLabel="Betrag"
                                 keyboardType="decimal-pad"
+                                returnKeyType="done"
+                                onSubmitEditing={Keyboard.dismiss}
                                 value={draft.manualAmount}
                                 onChangeText={(manualAmount) =>
-                                  patch({ manualAmount })
+                                  patch({
+                                    manualAmount,
+                                  })
                                 }
                                 style={styles.input}
                               />
@@ -1095,9 +1146,7 @@ export function RoundEntrySheet({
                                     />
                                   </View>
                                 ))}
-                              {rules.bonuses.stoss &&
-                              (!editingRound ||
-                                settings.bonusRules.stoss.enabled) ? (
+                              {rules.bonuses.stoss ? (
                                 <>
                                   <View style={[styles.row, styles.optionRow]}>
                                     <AppText style={styles.text}>
@@ -1129,8 +1178,13 @@ export function RoundEntrySheet({
                               <Pressable
                                 accessibilityRole="button"
                                 accessibilityLabel="Preisaufschlüsselung"
-                                accessibilityState={{ expanded: details }}
-                                style={styles.row}
+                                accessibilityState={{
+                                  expanded: details,
+                                }}
+                                style={({ pressed }) => [
+                                  styles.row,
+                                  pressed && authInteraction.pressed,
+                                ]}
                                 onPress={() => setDetails(!details)}
                               >
                                 <AppText style={styles.gold}>
@@ -1182,45 +1236,53 @@ export function RoundEntrySheet({
                   </>
                 )}
               </View>
-            </EntryScrollView>
-            {!draft.choosing ? (
-              <View style={styles.footer}>
-                <View accessibilityLiveRegion="polite">
-                  <AppText style={styles.hint}>
-                    {saving
-                      ? 'Wird auf dem Gerät gespeichert …'
-                      : saveError ||
-                        (committedId
-                          ? 'Noch nicht auf dem Gerät gesichert.'
-                          : hint || '')}
-                  </AppText>
+              {!draft.choosing ? (
+                <View style={styles.footer}>
+                  <View accessibilityLiveRegion="polite">
+                    <AppText
+                      selectable
+                      accessibilityRole={saveError ? 'alert' : undefined}
+                      style={styles.hint}
+                    >
+                      {saving
+                        ? 'Wird auf dem Gerät gespeichert …'
+                        : saveError ||
+                          (committedId
+                            ? 'Noch nicht auf dem Gerät gesichert.'
+                            : hint || '')}
+                    </AppText>
+                  </View>
+                  <GoldButton
+                    title={
+                      committedId && saveError
+                        ? 'Erneut auf Gerät speichern'
+                        : title
+                    }
+                    accessibilityLabel={
+                      committedId && saveError
+                        ? 'Erneut auf Gerät speichern'
+                        : title
+                    }
+                    disabled={saving || (!committedId && !valid)}
+                    loading={saving}
+                    onPress={save}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Verwerfen"
+                    disabled={immutable}
+                    onPress={requestClose}
+                    style={({ pressed }) => [
+                      styles.discard,
+                      pressed && authInteraction.pressed,
+                      immutable && authInteraction.disabled,
+                    ]}
+                  >
+                    <AppText style={styles.hint}>Verwerfen</AppText>
+                  </Pressable>
                 </View>
-                <GoldButton
-                  title={
-                    committedId && saveError
-                      ? 'Erneut auf Gerät speichern'
-                      : title
-                  }
-                  accessibilityLabel={
-                    committedId && saveError
-                      ? 'Erneut auf Gerät speichern'
-                      : title
-                  }
-                  disabled={saving || (!committedId && !valid)}
-                  loading={saving}
-                  onPress={save}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Verwerfen"
-                  disabled={immutable}
-                  onPress={requestClose}
-                  style={styles.discard}
-                >
-                  <AppText style={styles.hint}>Verwerfen</AppText>
-                </Pressable>
-              </View>
-            ) : null}
+              ) : null}
+            </EntryScrollView>
           </View>
         </AuthBackground>
       </InteractionSheet>
@@ -1252,7 +1314,10 @@ export function RoundEntrySheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Entwurf behalten"
-              style={styles.control}
+              style={({ pressed }) => [
+                styles.control,
+                pressed && authInteraction.pressed,
+              ]}
               onPress={() => leave(true)}
             >
               <AppText style={styles.gold}>
@@ -1263,7 +1328,10 @@ export function RoundEntrySheet({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Entwurf verwerfen"
-                style={styles.control}
+                style={({ pressed }) => [
+                  styles.control,
+                  pressed && authInteraction.pressed,
+                ]}
                 onPress={() => leave(false)}
               >
                 <AppText style={styles.text}>Entwurf verwerfen</AppText>
@@ -1276,214 +1344,276 @@ export function RoundEntrySheet({
   );
 }
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
-  header: { gap: 12, paddingBottom: 6 },
+  container: {
+    flex: 1,
+    paddingHorizontal: authSpacing.lgPlus,
+    paddingTop: authSpacing.md,
+  },
+  header: {
+    gap: authSpacing.md,
+    paddingBottom: authSpacing.sm,
+  },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(22, 51, 40, 0.8)',
+    width: authControlSizes.touch,
+    height: authControlSizes.touch,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
+    backgroundColor: authColors.control,
     borderWidth: 1,
     borderColor: authColors.borderSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { color: '#F5F5F5', fontSize: 36, lineHeight: 40 },
-  tariffHeader: { gap: 4, paddingBottom: 8 },
+  tariffHeader: {
+    gap: authSpacing.xs,
+    paddingBottom: authSpacing.sm,
+  },
   countValue: {
-    color: '#F5F5F5',
-    fontSize: 18,
+    color: authColors.textPrimary,
+    ...authTextStyles.counter,
     textAlign: 'center',
-    minWidth: 28,
+    minWidth: authControlSizes.counter,
   },
   playerList: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: authSpacing.md,
+    paddingVertical: authSpacing.xs,
     borderWidth: 1,
     borderColor: authColors.borderGold,
-    borderRadius: 22,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     backgroundColor: authColors.surfaceElevated,
   },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    minHeight: 64,
+    gap: authSpacing.sm,
+    minHeight: authControlSizes.playerRow,
   },
+  expandedPlayerRow: { flexWrap: 'wrap', paddingVertical: authSpacing.sm },
+  expandedSegments: { width: '100%', maxWidth: '100%', flexBasis: '100%' },
   playerIdentity: {
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 0,
-    minHeight: 48,
+    minHeight: authControlSizes.field,
   },
   coinButton: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: authControlSizes.touch,
+    minHeight: authControlSizes.touch,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playerNameBlock: { flex: 1, minWidth: 0, gap: 2 },
-  playerName: { color: authColors.textPrimary, fontSize: 15 },
+  playerNameBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: authSpacing.xs,
+  },
+  playerName: {
+    color: authColors.textPrimary,
+    ...authTextStyles.label,
+  },
   segments: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(22, 51, 40, 0.72)',
+    backgroundColor: authColors.controlMuted,
     borderWidth: 1,
-    borderColor: 'rgba(107, 163, 110, 0.2)',
-    borderRadius: 20,
+    borderColor: authColors.controlBorder,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     width: '50%',
     maxWidth: 260,
   },
   segment: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 20,
+    minHeight: authControlSizes.touch,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: authColors.transparent,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: authSpacing.xs,
   },
-  segmentText: { color: '#F5F5F5', fontSize: 12 },
+  segmentText: {
+    color: authColors.textPrimary,
+    ...authTextStyles.control,
+  },
   segmentWon: {
     backgroundColor: authColors.goldHighlight,
     borderColor: authColors.gold,
   },
-  segmentWonText: { color: '#142319', fontWeight: '700' },
+  segmentWonText: {
+    color: authColors.onGold,
+    fontWeight: '700',
+  },
   suitRow: {
     flexDirection: 'row',
-    gap: 8,
-    padding: 8,
+    gap: authSpacing.sm,
+    padding: authSpacing.sm,
     borderWidth: 1,
     borderColor: authColors.borderGold,
-    borderRadius: 22,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     backgroundColor: authColors.surfaceElevated,
   },
   suitChoice: {
     flex: 1,
-    minHeight: 68,
+    minHeight: authControlSizes.suit,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(16, 43, 32, 0.65)',
+    gap: authSpacing.sm,
+    borderRadius: authRadius.sm,
+    borderCurve: 'continuous',
+    backgroundColor: authColors.suitSurface,
     borderWidth: 1,
-    borderColor: 'rgba(107, 163, 110, 0.15)',
+    borderColor: authColors.suitBorder,
   },
-  suitLabel: { color: '#A8B9AD', fontSize: 12 },
-  discard: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  scroll: { flex: 1, minHeight: 0 },
+  suitLabel: {
+    color: authColors.textMutedGreen,
+    ...authTextStyles.control,
+  },
+  discard: {
+    minHeight: authControlSizes.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+    minHeight: 0,
+  },
   optionsPanel: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    gap: 6,
+    paddingHorizontal: authSpacing.lg,
+    paddingVertical: authSpacing.sm,
+    gap: authSpacing.sm,
     borderWidth: 1,
     borderColor: authColors.borderGold,
-    borderRadius: 22,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     backgroundColor: authColors.surfaceElevated,
   },
   optionRow: {
-    paddingVertical: 6,
+    paddingVertical: authSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(107, 163, 110, 0.25)',
+    borderBottomColor: authColors.listSeparator,
   },
-  optionLabel: { flex: 1 },
-  tableContext: { width: 96, textAlign: 'right' },
+  optionLabel: {
+    flex: 1,
+  },
+  tableContext: {
+    width: authControlSizes.stepper,
+    textAlign: 'right',
+  },
   stepper: {
-    width: 96,
+    width: authControlSizes.stepper,
     flexDirection: 'row',
     overflow: 'hidden',
-    borderRadius: 22,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: 'rgba(107, 163, 110, 0.2)',
-    backgroundColor: 'rgba(22, 51, 40, 0.8)',
+    borderColor: authColors.controlBorder,
+    backgroundColor: authColors.control,
   },
   stepButton: {
     flex: 1,
     borderRadius: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: authColors.transparent,
     paddingHorizontal: 0,
   },
   stepDivider: {
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(245, 245, 245, 0.15)',
+    borderRightColor: authColors.controlSeparator,
   },
-  content: { gap: 12, paddingBottom: 12 },
+  content: {
+    gap: authSpacing.md,
+    paddingBottom: authSpacing.md,
+  },
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    minHeight: 44,
+    gap: authSpacing.md,
+    minHeight: authControlSizes.touch,
   },
-  title: { color: '#F5F5F5', fontSize: 34, fontWeight: '800', flexShrink: 1 },
-  label: { color: authColors.goldHighlight, fontWeight: '700' },
-  text: { color: '#F5F5F5', flexShrink: 1 },
-  hint: {
-    color: authColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+  title: {
+    color: authColors.textPrimary,
+    ...authTextStyles.hero,
+    fontWeight: '800',
     flexShrink: 1,
   },
-  gold: { color: authColors.goldHighlight, fontWeight: '700' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choice: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: 'rgba(22, 51, 40, 0.8)',
-    borderWidth: 1,
-    borderColor: 'transparent',
+  label: {
+    color: authColors.goldHighlight,
+    fontWeight: '700',
+  },
+  text: {
+    color: authColors.textPrimary,
+    flexShrink: 1,
+  },
+  hint: {
+    ...authTextStyles.caption,
+    flexShrink: 1,
+  },
+  gold: {
+    color: authColors.goldHighlight,
+    fontWeight: '700',
   },
   selected: {
-    backgroundColor: 'rgba(212, 175, 55, 0.22)',
+    backgroundColor: authColors.selectedSurface,
     borderColor: authColors.gold,
   },
   control: {
-    minWidth: 44,
-    minHeight: 44,
+    minWidth: authControlSizes.touch,
+    minHeight: authControlSizes.touch,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 14,
-    backgroundColor: 'rgba(22, 51, 40, 0.8)',
-    paddingHorizontal: 12,
+    borderRadius: authRadius.sm,
+    borderCurve: 'continuous',
+    backgroundColor: authColors.control,
+    paddingHorizontal: authSpacing.md,
   },
   card: {
-    padding: 14,
-    borderRadius: 18,
+    padding: authSpacing.lg,
+    borderRadius: authRadius.md,
+    borderCurve: 'continuous',
     backgroundColor: authColors.surfaceElevated,
     borderWidth: 1,
     borderColor: authColors.borderSoft,
-    gap: 10,
+    gap: authSpacing.md,
   },
   input: {
-    color: '#fff',
+    color: authColors.textPrimary,
     borderWidth: 1,
-    borderColor: '#536D57',
-    borderRadius: 14,
-    padding: 14,
-    minHeight: 48,
+    borderColor: authColors.inputBorder,
+    borderRadius: authRadius.sm,
+    borderCurve: 'continuous',
+    padding: authSpacing.lg,
+    minHeight: authControlSizes.field,
   },
   footer: {
-    gap: 6,
-    paddingTop: 10,
-    paddingBottom: 12,
+    gap: authSpacing.sm,
+    paddingTop: authSpacing.md,
+    paddingBottom: authSpacing.md,
   },
-  amount: { color: '#fff', fontSize: 36, fontWeight: '800' },
+  amount: {
+    color: authColors.textPrimary,
+    ...authTextStyles.amount,
+    fontWeight: '800',
+  },
   modalRoot: {
     flex: 1,
     justifyContent: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: authSpacing.lgPlus,
+    backgroundColor: authColors.overlay,
   },
   dialog: {
-    backgroundColor: '#10241C',
+    backgroundColor: authColors.surface,
     maxHeight: '100%',
-    borderRadius: 20,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
   },
-  dialogContent: { padding: 20, gap: 16 },
+  dialogContent: {
+    padding: authSpacing.lgPlus,
+    gap: authSpacing.lg,
+  },
 });

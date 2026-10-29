@@ -144,13 +144,20 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
             accessibilityLiveRegion="polite"
             style={[styles.errorBox, errorAnimatedStyle]}
           >
-            <AppText style={styles.errorText}>{loginError}</AppText>
+            <AppText
+              selectable
+              accessibilityRole="alert"
+              style={styles.errorText}
+            >
+              {loginError}
+            </AppText>
           </Animated.View>
         ) : null}
 
         <View style={styles.optionsRow}>
           <View style={styles.rememberRow}>
             <Switch
+              accessibilityLabel="Angemeldet bleiben"
               disabled={isSubmitting}
               ios_backgroundColor="rgba(245, 245, 245, 0.16)"
               onValueChange={setRememberMe}

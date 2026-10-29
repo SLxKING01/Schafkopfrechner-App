@@ -1,271 +1,335 @@
-import { BarChart3, Crown, ReceiptText, Trophy } from 'lucide-react-native';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { BarChart3 } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
-import { RecentGameCard } from '../../components/dashboard/RecentGameCard';
-import { SectionHeader } from '../../components/dashboard/SectionHeader';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
+import {
+  average,
+  BonusStatistics,
+  GameTypeStatistics,
+  Metric,
+  money,
+  rate,
+  StatAction,
+  StatHeading,
+  StatNote,
+  StatPanel,
+  TableStatisticsPanel,
+} from '../../components/statistics/StatisticsPanels';
 import { AppText } from '../../components/ui/AppText';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
-import { authColors } from '../../theme/colors';
-import { authRadius, authSpacing } from '../../theme/spacing';
-import { authTypography } from '../../theme/typography';
+import { useAuthStore } from '../../store/authStore';
+import { useDashboardIdentityStore } from '../../store/dashboardIdentityStore';
+import { authColors, authSpacing, authTextStyles } from '../../theme';
+import { dashboardPersonal } from '../../utils/dashboardPersonal';
 import { formatOverviewMoney } from '../../utils/gameOverview';
+import {
+  type StatisticsSubject,
+  statisticsSubjects,
+  subjectEntries,
+  summarizeStatistics,
+} from '../../utils/statistics';
+
+const noSelections: Record<string, string> = {};
 
 export function StatisticsScreen() {
-  const [roundLimit, setRoundLimit] = useState(20);
-  const [playerLimit, setPlayerLimit] = useState(20);
+  const userId = useAuthStore((s) => s.user?.id);
+  const selections = useDashboardIdentityStore((s) => s.selections);
+  const identityReady = useDashboardIdentityStore((s) => s.hydrated);
   const overview = useGameOverview();
-  const { openTarget, openTables } = useOverviewNavigation();
-  const stats = [
-    {
-      label: 'Gespielte Runden',
-      value: String(overview.rounds.length),
-      icon: Trophy,
-    },
-    {
-      label: 'Spielwerte gesamt',
-      value: formatOverviewMoney(overview.roundValueCents),
-      icon: BarChart3,
-    },
-    { label: 'Häufigster Spieltyp', value: overview.favoriteType, icon: Crown },
-    {
-      label: 'Zahlungen offen',
-      value: formatOverviewMoney(overview.openPaymentCents),
-      icon: ReceiptText,
-    },
-  ];
-  const recent = overview.rounds.slice(0, 7).reverse();
-  const maxAmount = Math.max(1, ...recent.map((round) => round.amountCents));
+  const { openTables, openStatisticsRound, openTableStatistics } =
+    useOverviewNavigation();
+  const [mode, setMode] = useState<'all' | 'player' | 'table'>('all');
+  const [subjectId, setSubjectId] = useState('');
+  const [tableId, setTableId] = useState('');
+  const [period, setPeriod] = useState<'all' | 'month'>('all');
+  const tables = overview.statisticsTables;
+  const selected =
+    selections[userId ? `account:${userId}` : 'guest'] ?? noSelections;
+  const assigned = useMemo(
+    () => dashboardPersonal(tables, selected, userId),
+    [tables, selected, userId],
+  );
+  const subjects = useMemo(() => {
+    const all = statisticsSubjects(tables);
+    if (!identityReady || !assigned.hasIdentity) return all;
+    const memberships = [...assigned.memberships].map(
+      ([tableId, playerId]) => ({ tableId, playerId }),
+    );
+    const mine: StatisticsSubject = {
+      id: 'dashboard-personal',
+      name: 'Meine Gesamtstatistik',
+      context: `${memberships.length} ${memberships.length === 1 ? 'zugeordneter Tisch' : 'zugeordnete Tische'}`,
+      memberships,
+    };
+    return [
+      mine,
+      ...all.filter(
+        (s) =>
+          s.memberships.length !== memberships.length ||
+          !s.memberships.every(
+            (m) => assigned.memberships.get(m.tableId) === m.playerId,
+          ),
+      ),
+    ];
+  }, [tables, assigned, identityReady]);
+  const subject = subjects.find((p) => p.id === subjectId) ?? subjects[0];
+  const table =
+    tables.find((t) => t.id === tableId) ??
+    tables.find((t) => t.target.kind === 'active') ??
+    tables[0];
+  const entries = useMemo(
+    () =>
+      subjectEntries(tables, mode === 'player' ? subject : undefined).filter(
+        (e) =>
+          period === 'all' ||
+          Date.parse(e.round.createdAt) >= overview.asOf - 30 * 86400000,
+      ),
+    [tables, subject, mode, period, overview.asOf],
+  );
+  const summary = useMemo(() => summarizeStatistics(entries), [entries]);
+  const personal = mode === 'player';
   return (
     <AuthBackground>
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <AppText style={styles.kicker}>Statistik</AppText>
-        <AppText style={styles.title}>Deine Spielstatistik</AppText>
-        <AppText style={styles.subtitle}>
-          Aktive und archivierte Runden, ohne doppelte Zählung. Ältere lokale
-          Spieltage sind ebenfalls enthalten.
+        <AppText accessibilityRole="header" style={styles.title}>
+          Statistik
         </AppText>
-        <View style={styles.grid}>
-          {stats.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <Animated.View
-                key={stat.label}
-                entering={FadeInDown.duration(420).delay(index * 70)}
-                style={styles.card}
-              >
-                <Icon color={authColors.goldHighlight} size={22} />
-                <AppText style={styles.cardValue}>{stat.value}</AppText>
-                <AppText style={styles.cardLabel}>{stat.label}</AppText>
-              </Animated.View>
-            );
-          })}
+        <StatNote>
+          Spielarten, Kartenfarben und der Verlauf deiner Tische.
+        </StatNote>
+        <View style={styles.inline}>
+          <StatAction selected={mode === 'all'} onPress={() => setMode('all')}>
+            Gesamt
+          </StatAction>
+          <StatAction selected={personal} onPress={() => setMode('player')}>
+            Spieler
+          </StatAction>
+          <StatAction
+            selected={mode === 'table'}
+            onPress={() => setMode('table')}
+          >
+            Tisch
+          </StatAction>
         </View>
-        <AppText style={styles.chartCopy}>
-          Spielwerte entsprechen den eingetragenen Gesamtgewinnen der Gewinner.
-          Offene Zahlungen stammen ausschließlich aus abgeschlossenen Tischen.
-        </AppText>
         {!overview.rounds.length ? (
-          <View style={{ marginTop: authSpacing.xl }}>
+          <>
             <EmptyGameState
               icon={BarChart3}
               title="Noch keine Statistik"
               message="Trage dein erstes Spiel ein. Danach siehst du hier echte Ergebnisse und Bilanzen."
             />
-            <Pressable
-              accessibilityRole="button"
-              onPress={openTables}
-              style={{ minHeight: 48, justifyContent: 'center' }}
-            >
-              <AppText style={styles.kicker}>Zu deinen Tischen</AppText>
-            </Pressable>
-          </View>
+            <StatAction onPress={openTables}>Zu deinen Tischen</StatAction>
+          </>
         ) : (
           <>
-            <SectionHeader title="Spielwerte der letzten Runden" />
-            <View style={styles.chartCard}>
-              <View
-                style={styles.chartBars}
-                accessible
-                accessibilityRole="image"
-                accessibilityLabel={recent
-                  .map(
-                    (round, index) =>
-                      `Runde ${index + 1}: ${formatOverviewMoney(round.amountCents)}`,
-                  )
-                  .join(', ')}
-              >
-                {recent.map((round) => (
-                  <View key={round.id} style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        {
-                          height: `${Math.max(2, (round.amountCents / maxAmount) * 100)}%`,
-                        },
-                      ]}
+            {mode === 'table' ? (
+              <>
+                <StatNote>
+                  Tisch auswählen · immer der vollständige Verlauf
+                </StatNote>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.inline}
+                >
+                  {tables.map((t) => (
+                    <StatAction
+                      key={t.id}
+                      selected={t.id === table?.id}
+                      onPress={() => setTableId(t.id)}
+                    >
+                      {t.name}
+                    </StatAction>
+                  ))}
+                </ScrollView>
+                {table ? (
+                  <>
+                    <StatAction onPress={() => openTableStatistics(table.id)}>
+                      Tischstatistik separat öffnen
+                    </StatAction>
+                    <TableStatisticsPanel
+                      key={table.id}
+                      table={table}
+                      onOpen={(r) => openStatisticsRound(table, r)}
                     />
-                  </View>
-                ))}
-              </View>
-              <AppText style={styles.chartCopy}>
-                Älteste Runde links, neueste rechts. Jeder Balken zeigt den
-                eingetragenen Spielwert.
-              </AppText>
-            </View>
-            <SectionHeader title="Spielerbilanz je Tisch" />
-            <AppText style={styles.chartCopy}>
-              Gewinnrate = gewonnene / beteiligte Runden. Gleichnamige lokale
-              Spieler verschiedener Tische werden nicht zusammengelegt.
-            </AppText>
-            {overview.playerStats.slice(0, playerLimit).map((player) => (
-              <Pressable
-                key={player.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${player.name}, ${player.tableName}, Bilanz ${formatOverviewMoney(player.balanceCents)}, öffnen`}
-                onPress={() => openTarget(player.target)}
-                style={styles.chartCard}
-              >
-                <AppText style={styles.cardValue}>
-                  {player.name} · {formatOverviewMoney(player.balanceCents)}
-                </AppText>
-                <AppText style={styles.cardLabel}>{player.tableName}</AppText>
-                <AppText style={styles.chartCopy}>
-                  {player.rounds} beteiligt · {player.wins} gewonnen ·{' '}
-                  {player.losses} verloren ·{' '}
-                  {Math.round((player.wins / player.rounds) * 100)} % Gewinnrate
-                </AppText>
-              </Pressable>
-            ))}
-            {overview.playerStats.length > playerLimit ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setPlayerLimit((limit) => limit + 20)}
-                style={{ minHeight: 48, justifyContent: 'center' }}
-              >
-                <AppText style={styles.kicker}>
-                  Weitere Spielerbilanzen anzeigen
-                </AppText>
-              </Pressable>
-            ) : null}
-            <SectionHeader title="Alle gespeicherten Runden" />
-            {overview.rounds.slice(0, roundLimit).map((round) => (
-              <View key={round.id} style={{ marginBottom: authSpacing.md }}>
-                <RecentGameCard
-                  gameType={round.gameType}
-                  date={new Date(round.createdAt).toLocaleString('de-DE')}
-                  amount={formatOverviewMoney(round.amountCents)}
-                  players={round.participants}
-                  winner={round.winnerName}
-                  tableName={round.tableName}
-                  onPress={() => openTarget(round.target)}
-                />
-              </View>
-            ))}
-            {overview.rounds.length > roundLimit ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setRoundLimit((limit) => limit + 20)}
-                style={{ minHeight: 48, justifyContent: 'center' }}
-              >
-                <AppText style={styles.kicker}>Weitere Runden anzeigen</AppText>
-              </Pressable>
-            ) : null}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <View style={styles.inline}>
+                  <StatAction
+                    selected={period === 'all'}
+                    onPress={() => setPeriod('all')}
+                  >
+                    Gesamter Zeitraum
+                  </StatAction>
+                  <StatAction
+                    selected={period === 'month'}
+                    onPress={() => setPeriod('month')}
+                  >
+                    Letzte 30 Tage
+                  </StatAction>
+                </View>
+                {personal ? (
+                  <>
+                    <StatHeading>Spieler auswählen</StatHeading>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.inline}
+                    >
+                      {subjects.map((p) => (
+                        <StatAction
+                          key={p.id}
+                          selected={subject?.id === p.id}
+                          onPress={() => setSubjectId(p.id)}
+                        >
+                          {p.name} · {p.context}
+                        </StatAction>
+                      ))}
+                    </ScrollView>
+                    <StatNote>
+                      Gleichnamige lokale Spieler bleiben getrennt. Nur
+                      verknüpfte Konten oder ausdrücklich zugeordnete
+                      Tischspieler werden zusammengefasst.
+                    </StatNote>
+                  </>
+                ) : null}
+                {!entries.length ? (
+                  <StatPanel>
+                    <StatHeading>
+                      Keine Runden im gewählten Zeitraum
+                    </StatHeading>
+                    <StatAction onPress={() => setPeriod('all')}>
+                      Gesamten Zeitraum anzeigen
+                    </StatAction>
+                  </StatPanel>
+                ) : (
+                  <>
+                    <View style={styles.grid}>
+                      {personal ? (
+                        <>
+                          <Metric
+                            label="Spielbilanz"
+                            value={money(summary.balance)}
+                            tone={
+                              summary.balance < 0
+                                ? 'negative'
+                                : summary.balance > 0
+                                  ? 'positive'
+                                  : undefined
+                            }
+                            detail="Ohne Stock und Zahlungen"
+                          />
+                          <Metric
+                            label="Gewinnquote"
+                            value={rate(summary.wins, summary.count)}
+                            detail={`${summary.wins}/${summary.count} beteiligte Runden`}
+                          />
+                          <Metric
+                            label="Selbst angesagt"
+                            value={rate(summary.ownWins, summary.own)}
+                            detail={`${summary.ownWins}/${summary.own} gewonnen`}
+                          />
+                          <Metric
+                            label="Ø je Runde"
+                            value={average(summary.balance, summary.count)}
+                            tone={
+                              summary.balance < 0
+                                ? 'negative'
+                                : summary.balance > 0
+                                  ? 'positive'
+                                  : undefined
+                            }
+                            detail={`${summary.count} Runden`}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Metric
+                            label="Gespielte Runden"
+                            value={String(summary.count)}
+                            detail={`${new Set(entries.map((e) => e.round.tableKey)).size} Tische / Spieltage`}
+                          />
+                          <Metric
+                            label="Spielwerte gesamt"
+                            value={formatOverviewMoney(summary.value)}
+                            detail="Gewinnerpartei, ohne Stock"
+                          />
+                          <Metric
+                            label="Ansagende Partei gewinnt"
+                            value={rate(summary.wins, summary.knownResults)}
+                            detail={`${summary.wins}/${summary.knownResults} auswertbare Runden`}
+                          />
+                          <Metric
+                            label="Ø Spielwert"
+                            value={formatOverviewMoney(
+                              Math.round(summary.value / summary.count),
+                            )}
+                            detail="Gesamtgewinn je Runde"
+                          />
+                        </>
+                      )}
+                    </View>
+                    <StatNote>
+                      {summary.knownDeclarers}/{summary.count} Runden mit
+                      bekanntem Ansager. Fehlende historische Angaben gelten als
+                      unbekannt. Kleine Stichproben sind keine Bewertung der
+                      Spielstärke.
+                    </StatNote>
+                    <GameTypeStatistics
+                      entries={entries}
+                      personal={personal}
+                      onOpen={(r) => {
+                        const t = tables.find((t) => t.id === r.tableKey);
+                        if (t) openStatisticsRound(t, r);
+                      }}
+                    />
+                    <BonusStatistics entries={entries} />
+                    {personal ? (
+                      <StatPanel>
+                        <StatHeading>Einzelne Ausschläge</StatHeading>
+                        <StatNote>
+                          Größter Gewinn:{' '}
+                          {money(Math.max(0, summary.best ?? 0))}
+                        </StatNote>
+                        <StatNote>
+                          Größter Verlust:{' '}
+                          {money(Math.min(0, summary.worst ?? 0))}
+                        </StatNote>
+                      </StatPanel>
+                    ) : null}
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
       </ScrollView>
     </AuthBackground>
   );
 }
-
 const styles = StyleSheet.create({
   content: {
+    paddingHorizontal: authSpacing.lgPlus,
+    paddingTop: authSpacing.lg,
     paddingBottom: 120,
-    paddingHorizontal: authSpacing.xl,
-    paddingTop: authSpacing.xl,
+    gap: authSpacing.md,
   },
-  kicker: {
-    color: authColors.goldHighlight,
-    fontSize: authTypography.caption,
-    fontWeight: '900',
-  },
-  title: {
-    color: authColors.textPrimary,
-    fontSize: authTypography.hero,
-    fontWeight: '900',
-    marginTop: authSpacing.sm,
-  },
-  subtitle: {
-    color: authColors.textSecondary,
-    fontSize: authTypography.body,
-    lineHeight: 23,
-    marginTop: authSpacing.sm,
-  },
-  grid: {
+  title: { ...authTextStyles.hero, color: authColors.textPrimary },
+  inline: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: authSpacing.md,
-    marginTop: authSpacing.xxl,
+    gap: authSpacing.sm,
+    alignItems: 'center',
   },
-  card: {
-    backgroundColor: 'rgba(13, 27, 19, 0.78)',
-    borderColor: authColors.borderSoft,
-    borderRadius: authRadius.xl,
-    borderWidth: 1,
-    minWidth: '46%',
-    flexBasis: '46%',
-    flexGrow: 1,
-    padding: authSpacing.lg,
-  },
-  cardValue: {
-    color: authColors.textPrimary,
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: authSpacing.lg,
-  },
-  cardLabel: {
-    color: authColors.textSecondary,
-    fontSize: authTypography.caption,
-    marginTop: authSpacing.xs,
-  },
-  chartCard: {
-    backgroundColor: 'rgba(13, 27, 19, 0.76)',
-    borderColor: 'rgba(212, 175, 55, 0.22)',
-    borderRadius: authRadius.xl,
-    borderWidth: 1,
-    padding: authSpacing.xl,
-    marginBottom: authSpacing.md,
-  },
-  chartBars: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: authSpacing.md,
-    height: 120,
-    justifyContent: 'space-around',
-  },
-  barTrack: {
-    backgroundColor: 'rgba(245, 245, 245, 0.08)',
-    borderRadius: authRadius.pill,
-    flex: 1,
-    maxWidth: 36,
-    height: '100%',
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  barFill: {
-    backgroundColor: authColors.accentGreen,
-    borderRadius: authRadius.pill,
-  },
-  chartCopy: {
-    color: authColors.textSecondary,
-    fontSize: authTypography.caption,
-    marginTop: authSpacing.lg,
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: authSpacing.md },
 });

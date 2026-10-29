@@ -1,19 +1,15 @@
 import { Eye, EyeOff, type LucideProps } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Pressable,
   StyleSheet,
   TextInput,
   type TextInputProps,
+  View,
 } from 'react-native';
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 
+import { authControlSizes, authInteraction } from '../../theme';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 
@@ -30,56 +26,54 @@ export function AuthInput({
   onBlur,
   onFocus,
   secureTextEntry,
+  style,
   ...props
 }: AuthInputProps) {
   const [isHidden, setIsHidden] = useState(isPassword);
-  const error = useSharedValue(hasError ? 1 : 0);
-  const focus = useSharedValue(0);
-
-  useEffect(() => {
-    error.value = withTiming(hasError ? 1 : 0, { duration: 180 });
-  }, [error, hasError]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    borderColor:
-      error.value > 0
-        ? authColors.errorBorder
-        : interpolateColor(
-            focus.value,
-            [0, 1],
-            [authColors.borderGold, authColors.inputFocused],
-          ),
-    shadowColor: interpolateColor(
-      error.value,
-      [0, 1],
-      [authColors.gold, authColors.error],
-    ),
-    shadowOpacity: 0.1 + focus.value * 0.16 + error.value * 0.08,
-  }));
+  const [focused, setFocused] = useState(false);
 
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <View
+      style={[
+        styles.container,
+        {
+          borderColor: hasError
+            ? authColors.errorBorder
+            : focused
+              ? authColors.inputFocused
+              : authColors.borderGold,
+        },
+      ]}
+    >
       <Icon color={authColors.gold} size={20} strokeWidth={1.9} />
       <TextInput
         {...props}
+        accessibilityLabel={props.accessibilityLabel ?? props.placeholder}
         placeholderTextColor="rgba(161, 161, 161, 0.76)"
         secureTextEntry={isPassword ? isHidden : secureTextEntry}
         selectionColor={authColors.goldHighlight}
-        style={styles.input}
+        style={[styles.input, style]}
         onBlur={(event) => {
-          focus.value = withTiming(0, { duration: 180 });
+          setFocused(false);
           onBlur?.(event);
         }}
         onFocus={(event) => {
-          focus.value = withTiming(1, { duration: 180 });
+          setFocused(true);
           onFocus?.(event);
         }}
       />
       {isPassword ? (
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={
+            isHidden ? 'Passwort anzeigen' : 'Passwort verbergen'
+          }
+          accessibilityState={{ selected: !isHidden }}
           onPress={() => setIsHidden((value) => !value)}
-          style={styles.visibilityButton}
+          style={({ pressed }) => [
+            styles.visibilityButton,
+            pressed && authInteraction.pressed,
+          ]}
         >
           {isHidden ? (
             <Eye color={authColors.textSecondary} size={19} strokeWidth={1.8} />
@@ -92,7 +86,7 @@ export function AuthInput({
           )}
         </Pressable>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -101,13 +95,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: authColors.inputFill,
     borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
     borderWidth: 1,
     flexDirection: 'row',
     minHeight: 58,
     paddingHorizontal: authSpacing.lg,
-    shadowColor: authColors.gold,
-    shadowOffset: { height: 7, width: 0 },
-    shadowRadius: 14,
   },
   input: {
     color: authColors.textPrimary,
@@ -117,6 +109,10 @@ const styles = StyleSheet.create({
     paddingVertical: authSpacing.md,
   },
   visibilityButton: {
+    minWidth: authControlSizes.touch,
+    minHeight: authControlSizes.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: authSpacing.sm,
     padding: authSpacing.xs,
   },

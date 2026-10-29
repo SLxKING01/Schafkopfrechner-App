@@ -1,0 +1,116 @@
+{
+  "files": 134,
+  "sloc": 21177,
+  "totals": {
+    "colors": {
+      "hits": 202,
+      "per100Lines": 0.95,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 41
+        },
+        {
+          "file": "src\\components\\game\\AnimalAvatar.tsx",
+          "hits": 36
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 28
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 17
+        }
+      ]
+    },
+    "typography": {
+      "hits": 125,
+      "per100Lines": 0.59,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 39
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 18
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 12
+        },
+        {
+          "file": "src\\screens\\OnboardingScreen.tsx",
+          "hits": 9
+        }
+      ]
+    },
+    "radius": {
+      "hits": 77,
+      "per100Lines": 0.36,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 21
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 13
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 9
+        },
+        {
+          "file": "src\\components\\game\\AnimalAvatar.tsx",
+          "hits": 6
+        }
+      ]
+    },
+    "legacyShadows": {
+      "hits": 174,
+      "per100Lines": 0.82,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 31
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 29
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 27
+        },
+        {
+          "file": "src\\screens\\OnboardingScreen.tsx",
+          "hits": 14
+        }
+      ]
+    },
+    "spacing": {
+      "hits": 49,
+      "per100Lines": 0.23,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 17
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 8
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 4
+        },
+        {
+          "file": "src\\components\\game\\FriendPickerSheet.tsx",
+          "hits": 2
+        }
+      ]
+    }
+  }
+}

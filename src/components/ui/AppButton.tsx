@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Pressable,
   type PressableProps,
   type StyleProp,
@@ -6,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { theme } from '../../constants/theme';
+import { authControlSizes, theme } from '../../theme';
 import { AppText } from './AppText';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'danger';
@@ -16,6 +17,7 @@ type AppButtonProps = {
   onPress: PressableProps['onPress'];
   variant?: AppButtonVariant;
   disabled?: boolean;
+  loading?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -24,25 +26,40 @@ export function AppButton({
   onPress,
   variant = 'primary',
   disabled = false,
+  loading = false,
   style,
 }: AppButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
+      disabled={disabled || loading}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         styles[variant],
         disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
+        pressed && !disabled && !loading && styles.pressed,
         style,
       ]}
     >
+      {loading ? (
+        <ActivityIndicator
+          color={
+            variant === 'secondary'
+              ? theme.colors.secondaryText
+              : variant === 'danger'
+                ? theme.colors.dangerText
+                : theme.colors.primaryText
+          }
+        />
+      ) : null}
       <AppText
         style={[
           styles.text,
           variant === 'secondary' ? styles.secondaryText : undefined,
+          variant === 'danger' ? styles.dangerText : undefined,
           disabled ? styles.disabledText : undefined,
         ]}
       >
@@ -57,7 +74,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: theme.radius.md,
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: authControlSizes.touch,
+    borderCurve: 'continuous',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
@@ -84,6 +104,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: theme.colors.secondaryText,
   },
+  dangerText: { color: theme.colors.dangerText },
   disabledText: {
     color: theme.colors.disabledText,
   },

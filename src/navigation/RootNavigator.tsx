@@ -12,13 +12,13 @@ import { CreateTableScreen } from '../screens/app/CreateTableScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
 import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
+import { TableStatisticsScreen } from '../screens/app/TableStatisticsScreen';
 import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { useAuthStore } from '../store/authStore';
-import { useGameStore } from '../store/gameStore';
 import { authColors } from '../theme/colors';
 import { AppTabs } from './AppTabs';
 import {
@@ -97,11 +97,9 @@ function AuthStackNavigator() {
 }
 
 function AppStackNavigator() {
-  const activeGame = useGameStore((state) => state.activeGame);
-
   return (
     <AppStack.Navigator
-      initialRouteName={activeGame ? 'ActiveGame' : 'AppTabs'}
+      initialRouteName="AppTabs"
       screenOptions={sharedStackScreenOptions}
     >
       <AppStack.Screen
@@ -132,6 +130,11 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="Settlement"
         component={SettlementScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="TableStatistics"
+        component={TableStatisticsScreen}
         options={{ headerShown: false }}
       />
       <AppStack.Screen

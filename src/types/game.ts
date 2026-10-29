@@ -135,6 +135,7 @@ export type CreateTablePayload = {
 };
 
 export type CreateRoundPayload = {
+  clearPartyMetadata?: boolean;
   legerPlayerIds?: string[];
   suit?: CardSuit;
   stockAction?: StockAction;
