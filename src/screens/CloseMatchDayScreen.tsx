@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../components/ui/AppButton';
 import { AppCard } from '../components/ui/AppCard';
@@ -16,6 +16,7 @@ import { usePlayerStore } from '../store/playerStore';
 import { calculateBalances } from '../utils/calculateBalances';
 import { calculateSettlements } from '../utils/calculateSettlements';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
 
 type CloseMatchDayScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -43,13 +44,19 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
     [players, activeGames],
   );
   const settlements = useMemo(() => calculateSettlements(balances), [balances]);
+  const playerNameById = useMemo(
+    () => historicalNames(players, games),
+    [players, games],
+  );
 
-  function getPlayerName(id: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
+  const getPlayerName = useCallback(
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
+    [playerNameById],
+  );
 
   function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
+    return `${amount.toFixed(2).replace('.', ',')} €`;
   }
 
   function handleStartNextMatchDay() {
@@ -80,7 +87,7 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <AppCard style={styles.headerCard}>
         <AppText variant="caption">Finaler Spieltag</AppText>
         <AppText variant="title">
@@ -89,37 +96,35 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
       </AppCard>
 
       <AppSection title="Finale Salden">
-        <FlatList
-          data={balances}
-          keyExtractor={(balance) => balance.playerId}
-          renderItem={renderBalance}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.list}>
+          {balances.map((item) => (
+            <View key={item.playerId}>{renderBalance({ item })}</View>
+          ))}
+        </View>
       </AppSection>
 
       <AppSection title="Finale Auszahlungen">
-        <FlatList
-          data={settlements}
-          keyExtractor={(settlement) =>
-            `${settlement.fromPlayerId}-${settlement.toPlayerId}-${settlement.amount}`
-          }
-          renderItem={renderSettlement}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.list}>
+          {settlements.map((item) => (
+            <View key={`${item.fromPlayerId}-${item.toPlayerId}`}>
+              {renderSettlement({ item })}
+            </View>
+          ))}
+        </View>
       </AppSection>
 
       <AppButton
         title="Neuen Spieltag starten"
         onPress={handleStartNextMatchDay}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    flex: 1,
+    flexGrow: 1,
     gap: theme.spacing.xl,
     padding: theme.spacing.xl,
   },

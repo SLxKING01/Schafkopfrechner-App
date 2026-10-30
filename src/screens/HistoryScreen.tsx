@@ -1,5 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -12,6 +13,7 @@ import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
+import { historicalNames } from '../utils/historicalNames';
 
 type HistoryNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,13 +25,21 @@ export function HistoryScreen() {
     (state) => state.getClosedMatchDays,
   );
   const closedMatchDays = getClosedMatchDays();
+  const playerNameById = useMemo(
+    () => historicalNames(players, games),
+    [players, games],
+  );
 
-  function getPlayerName(id?: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Keine Spiele';
-  }
+  const getPlayerName = useCallback(
+    (id?: string) =>
+      id
+        ? (playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`)
+        : 'Keine Spiele',
+    [playerNameById],
+  );
 
   function formatAmount(amount?: number) {
-    return `${(amount ?? 0).toFixed(2).replace('.', ',')} \u20ac`;
+    return `${(amount ?? 0).toFixed(2).replace('.', ',')} €`;
   }
 
   function formatDate(value?: string) {

@@ -1,99 +1,125 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { EmptyState } from '../components/EmptyState';
 import { AppButton } from '../components/ui/AppButton';
 import { AppCard } from '../components/ui/AppCard';
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
-import type { Player } from '../models/Player';
+import { useGameStore } from '../store/gameStore';
 import { usePlayerStore } from '../store/playerStore';
+import { winningIds } from '../utils/winningParty';
 
 export function PlayersScreen() {
-  const [playerName, setPlayerName] = useState('');
+  const games = useGameStore((state) => state.games);
   const players = usePlayerStore((state) => state.players);
-  const addPlayer = usePlayerStore((state) => state.addPlayer);
-  const removePlayer = usePlayerStore((state) => state.removePlayer);
-
-  function handleAddPlayer() {
-    addPlayer(playerName);
-    setPlayerName('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  function addPlayer() {
+    if (!name.trim()) {
+      setError('Bitte einen Spielernamen eingeben.');
+      return;
+    }
+    if (
+      players.some(
+        (player) =>
+          player.name.trim().toLowerCase() === name.trim().toLowerCase(),
+      )
+    ) {
+      setError(
+        'Dieser Name ist schon vorhanden. Bitte einen unterscheidbaren Namen verwenden.',
+      );
+      return;
+    }
+    usePlayerStore.getState().addPlayer(name);
+    setName('');
+    setError('');
   }
-
-  function renderPlayer({ item }: { item: Player }) {
-    return (
-      <AppCard style={styles.playerRow}>
-        <AppText style={styles.playerName}>{item.name}</AppText>
-        <AppButton
-          title="Loeschen"
-          variant="danger"
-          onPress={() => removePlayer(item.id)}
-        />
-      </AppCard>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <AppCard style={styles.form}>
-        <TextInput
-          style={styles.input}
-          value={playerName}
-          onChangeText={setPlayerName}
-          placeholder="Spielername"
-          placeholderTextColor={theme.colors.textMuted}
-          returnKeyType="done"
-          onSubmitEditing={handleAddPlayer}
-        />
-        <AppButton title="Spieler hinzufuegen" onPress={handleAddPlayer} />
-      </AppCard>
-
-      {players.length === 0 ? (
-        <EmptyState
-          title="Noch keine Spieler"
-          message="Fuege die Mitspieler hinzu, dann kannst du Spiele erfassen."
-        />
-      ) : (
-        <FlatList
-          data={players}
-          keyExtractor={(player) => player.id}
-          renderItem={renderPlayer}
-          contentContainerStyle={styles.list}
-        />
-      )}
-    </View>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={
+        Platform.OS === 'ios'
+          ? 'padding'
+          : Platform.OS === 'android'
+            ? 'height'
+            : undefined
+      }
+    >
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      >
+        <AppCard>
+          <AppText>Spielername</AppText>
+          <TextInput
+            accessibilityLabel="Spielername"
+            placeholder="Spielername"
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            returnKeyType="done"
+            onSubmitEditing={addPlayer}
+          />
+          {error ? <AppText>{error}</AppText> : null}
+          <AppButton title="Spieler hinzufügen" onPress={addPlayer} />
+        </AppCard>
+        {!players.length ? (
+          <AppText>
+            Füge die Mitspieler hinzu, dann kannst du Spiele erfassen.
+          </AppText>
+        ) : null}
+        {players.map((player) => {
+          const used = games.some(
+            (game) =>
+              winningIds(game).includes(player.id) ||
+              game.loserIds.includes(player.id),
+          );
+          return (
+            <AppCard key={player.id}>
+              <AppText variant="subtitle">{player.name}</AppText>
+              <View style={{ marginTop: 8 }}>
+                <AppButton
+                  title={`${player.name} löschen`}
+                  variant="danger"
+                  disabled={used}
+                  onPress={() =>
+                    usePlayerStore.getState().removePlayer(player.id)
+                  }
+                />
+              </View>
+              {used ? (
+                <AppText variant="caption">
+                  In Spielen verwendet. Löschen ist gesperrt, damit Namen,
+                  Salden und Zahlungen erhalten bleiben.
+                </AppText>
+              ) : null}
+            </AppCard>
+          );
+        })}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
+  content: {
+    padding: 24,
+    paddingBottom: 100,
+    gap: 16,
     backgroundColor: theme.colors.background,
-    flex: 1,
-    padding: theme.spacing.xl,
-  },
-  form: {
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
   },
   input: {
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.md,
+    minHeight: 48,
     borderWidth: 1,
-    color: theme.colors.text,
-    fontSize: theme.typography.body,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-  },
-  list: {
-    gap: theme.spacing.md,
-  },
-  playerRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    justifyContent: 'space-between',
-  },
-  playerName: {
-    flex: 1,
+    borderColor: theme.colors.border,
+    padding: 12,
+    fontSize: 16,
+    marginVertical: 12,
   },
 });

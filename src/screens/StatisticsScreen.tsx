@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
@@ -13,6 +13,7 @@ import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 import { calculatePlayerStats } from '../utils/calculatePlayerStats';
 import { getActiveMatchDayGames } from '../utils/getActiveMatchDayGames';
+import { historicalNames } from '../utils/historicalNames';
 
 export function StatisticsScreen() {
   const games = useGameStore((state) => state.games);
@@ -30,13 +31,19 @@ export function StatisticsScreen() {
     () => calculatePlayerStats(players, activeGames),
     [players, activeGames],
   );
+  const playerNameById = useMemo(
+    () => historicalNames(players, games),
+    [players, games],
+  );
 
-  function getPlayerName(id: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
+  const getPlayerName = useCallback(
+    (id: string) =>
+      playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`,
+    [playerNameById],
+  );
 
   function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
+    return `${amount.toFixed(2).replace('.', ',')} €`;
   }
 
   function formatWinRate(winRate: number) {
@@ -113,7 +120,7 @@ export function StatisticsScreen() {
         ) : activeGames.length === 0 ? (
           <EmptyState
             title="Noch keine Spiele"
-            message="Statistiken fuer diesen Spieltag erscheinen nach dem ersten Spiel."
+            message="Statistiken für diesen Spieltag erscheinen nach dem ersten Spiel."
           />
         ) : (
           <FlatList

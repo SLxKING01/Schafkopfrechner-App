@@ -18,6 +18,7 @@ export function GameTypeCard({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -35,7 +36,7 @@ export function GameTypeCard({
         variant="caption"
         style={isSelected ? styles.selectedText : undefined}
       >
-        {gameType.baseAmount} \u20ac
+        {gameType.baseAmount} €
       </AppText>
     </Pressable>
   );
