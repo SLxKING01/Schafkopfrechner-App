@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, TextInput, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
 import { AppButton } from '../components/ui/AppButton';
@@ -25,9 +25,15 @@ export function PlayersScreen() {
       <AppCard style={styles.playerRow}>
         <AppText style={styles.playerName}>{item.name}</AppText>
         <AppButton
-          title="Loeschen"
+          title="Löschen"
           variant="danger"
-          onPress={() => removePlayer(item.id)}
+          onPress={() => {
+            if (!removePlayer(item.id))
+              Alert.alert(
+                'Spieler wird verwendet',
+                'Dieser Spieler gehört zu gespeicherten Spielen und kann deshalb nicht gelöscht werden.',
+              );
+          }}
         />
       </AppCard>
     );
@@ -45,13 +51,13 @@ export function PlayersScreen() {
           returnKeyType="done"
           onSubmitEditing={handleAddPlayer}
         />
-        <AppButton title="Spieler hinzufuegen" onPress={handleAddPlayer} />
+        <AppButton title="Spieler hinzufügen" onPress={handleAddPlayer} />
       </AppCard>
 
       {players.length === 0 ? (
         <EmptyState
           title="Noch keine Spieler"
-          message="Fuege die Mitspieler hinzu, dann kannst du Spiele erfassen."
+          message="Füge die Mitspieler hinzu, dann kannst du Spiele erfassen."
         />
       ) : (
         <FlatList

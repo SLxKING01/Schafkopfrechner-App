@@ -1,0 +1,41 @@
+﻿Runde;Abend;Spielart;Ansager;Gewinner;Leger;Stoss;Gewinnerpartei_Cent;Simon_Cent;Flo_Cent;Alessandro_Cent;Berkay_Cent
+1;1;Rufspiel;Flo;Simon & Berkay;1;2;320;160;-160;-160;160
+2;1;Ramsch;;Simon & Alessandro & Berkay;0;0;60;20;-60;20;20
+3;1;Rufspiel;Flo;Flo & Alessandro;0;0;40;-20;20;20;-20
+4;1;Rufspiel;Simon;Simon & Flo;0;0;40;20;20;-20;-20
+5;1;Rufspiel;Flo;Flo & Simon;1;0;80;40;40;-40;-40
+6;1;Rufspiel;Alessandro;Alessandro & Flo;0;0;40;-20;20;20;-20
+7;1;Rufspiel;Alessandro;Simon & Berkay;0;0;40;20;-20;-20;20
+8;1;Wenz;Flo;Flo;0;1;300;-100;300;-100;-100
+9;1;Solo;Alessandro;Alessandro;1;0;300;-100;-100;300;-100
+10;1;Ramsch;;Simon & Alessandro & Berkay;0;0;60;20;-60;20;20
+11;2;Rufspiel;Flo;Flo & Berkay;0;0;40;-20;20;-20;20
+12;2;Rufspiel;Alessandro;Alessandro & Berkay;0;0;40;-20;-20;20;20
+13;2;Rufspiel;Flo;Flo & Simon;1;0;80;40;40;-40;-40
+14;2;Ramsch;;Simon & Alessandro & Berkay;0;0;60;20;-60;20;20
+15;2;Wenz;Simon;Flo & Alessandro & Berkay;0;2;600;-600;200;200;200
+16;2;Solo;Flo;Flo;0;0;150;-50;150;-50;-50
+17;2;Rufspiel;Flo;Flo & Berkay;1;0;80;-40;40;-40;40
+18;2;Rufspiel;Flo;Flo & Simon;0;0;40;20;20;-20;-20
+19;2;Rufspiel;Flo;Flo & Simon;0;0;40;20;20;-20;-20
+20;2;Rufspiel;Simon;Simon & Berkay;0;0;40;20;-20;-20;20
+21;3;Wenz;Alessandro;Alessandro;1;0;300;-100;-100;300;-100
+22;3;Rufspiel;Berkay;Simon & Alessandro;0;1;80;40;-40;40;-40
+23;3;Solo;Alessandro;Simon & Flo & Berkay;0;0;150;50;50;-150;50
+24;3;Wenz;Alessandro;Alessandro;0;0;150;-50;-50;150;-50
+25;3;Ramsch;;Flo & Alessandro & Berkay;1;0;120;-120;40;40;40
+26;3;Wenz;Alessandro;Simon & Flo & Berkay;0;0;150;50;50;-150;50
+27;3;Rufspiel;Flo;Flo & Alessandro;0;0;40;-20;20;20;-20
+28;3;Solo;Flo;Flo;0;0;150;-50;150;-50;-50
+29;3;Solo;Alessandro;Alessandro;1;2;1200;-400;-400;1200;-400
+30;3;Wenz;Simon;Simon;0;0;150;150;-50;-50;-50
+31;4;Solo;Berkay;Berkay;0;0;150;-50;-50;-50;150
+32;4;Solo;Flo;Flo;0;0;150;-50;150;-50;-50
+33;4;Rufspiel;Alessandro;Alessandro & Simon;1;0;80;40;-40;40;-40
+34;4;Solo;Simon;Simon;0;0;150;150;-50;-50;-50
+35;4;Rufspiel;Flo;Simon & Berkay;0;0;40;20;-20;-20;20
+36;4;Rufspiel;Berkay;Berkay & Alessandro;0;1;80;-40;-40;40;40
+37;4;Rufspiel;Simon;Simon & Flo;1;0;80;40;40;-40;-40
+38;4;Wenz;Flo;Flo;0;0;150;-50;150;-50;-50
+39;4;Wenz;Simon;Flo & Alessandro & Berkay;0;0;150;-150;50;50;50
+40;4;Rufspiel;Flo;Alessandro & Berkay;0;0;40;-20;-20;20;20

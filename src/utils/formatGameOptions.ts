@@ -31,5 +31,5 @@ export function formatGameOptions(options?: Partial<GameOptions>): string {
     activeOptions.push('Schwarz');
   }
 
-  return activeOptions.join(' \u2022 ');
+  return activeOptions.join(' • ');
 }

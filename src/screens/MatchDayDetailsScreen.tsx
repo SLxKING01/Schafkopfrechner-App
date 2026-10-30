@@ -1,5 +1,5 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
 import { AppCard } from '../components/ui/AppCard';
@@ -11,44 +11,61 @@ import type { Balance } from '../models/Balance';
 import type { Game } from '../models/Game';
 import type { PlayerStats } from '../models/PlayerStats';
 import type { Settlement } from '../models/Settlement';
-import type { RootStackParamList } from '../navigation/types';
 import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 import { calculateBaseAmount } from '../utils/calculateBaseAmount';
 import { formatGameAmountSummary } from '../utils/calculateGameAmount';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
+import { historicalNames } from '../utils/historicalNames';
+import { winningIds } from '../utils/winningParty';
 
-type MatchDayDetailsScreenProps = NativeStackScreenProps<
-  RootStackParamList,
-  'MatchDayDetails'
->;
+type MatchDayDetailsScreenProps = { route: { params: { matchDayId: string } } };
 
 export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
   const { matchDayId } = route.params;
   const games = useGameStore((state) => state.games);
   const players = usePlayerStore((state) => state.players);
   const matchDays = useMatchDayStore((state) => state.matchDays);
+  const activeMatchDayId = useMatchDayStore((state) => state.activeMatchDayId);
   const matchDay = matchDays.find((item) => item.id === matchDayId);
-  const summary = calculateMatchDaySummary(players, games, matchDayId);
+  const summary = useMemo(
+    () =>
+      calculateMatchDaySummary(
+        players,
+        games.map((game) => ({
+          ...game,
+          matchDayId: game.matchDayId ?? activeMatchDayId ?? undefined,
+        })),
+        matchDayId,
+      ),
+    [games, matchDayId, players, activeMatchDayId],
+  );
+  const playerNameById = useMemo(
+    () => historicalNames(players, games),
+    [players, games],
+  );
+  const getPlayerName = useCallback(
+    (id?: string) =>
+      id
+        ? (playerNameById.get(id) ?? `Name unbekannt (${id.slice(0, 8)})`)
+        : 'Unbekannt',
+    [playerNameById],
+  );
 
   if (!matchDay) {
     return (
-      <View style={styles.container}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
         <EmptyState
           title="Spieltag nicht gefunden"
           message="Dieser Spieltag ist nicht mehr vorhanden."
         />
-      </View>
+      </ScrollView>
     );
   }
 
-  function getPlayerName(id?: string) {
-    return players.find((player) => player.id === id)?.name ?? 'Unbekannt';
-  }
-
   function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} \u20ac`;
+    return `${amount.toFixed(2).replace('.', ',')} €`;
   }
 
   function formatWinRate(winRate: number) {
@@ -75,14 +92,16 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
 
     return (
       <AppCard style={styles.card}>
-        <AppText variant="subtitle">{getPlayerName(item.winnerId)}</AppText>
+        <AppText variant="subtitle">
+          {winningIds(item).map(getPlayerName).join(' & ')}
+        </AppText>
         <AppText variant="caption">
           {getGameTypeById(item.gameTypeId).name}
         </AppText>
         <AppText>
           Basisbetrag: {formatAmount(calculateBaseAmount(item.gameTypeId))}
         </AppText>
-        <AppText>Tatsaechlicher Betrag: {formatAmount(item.amount)}</AppText>
+        <AppText>Tatsächlicher Betrag: {formatAmount(item.amount)}</AppText>
         <AppText>
           {calculatedAmountSummary} = {formatAmount(item.amount)}
         </AppText>
@@ -138,32 +157,30 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
       <AppText variant="title">{matchDay?.name ?? 'Spieltag'}</AppText>
 
       <AppSection title="Spiele">
         {summary.games.length === 0 ? (
           <EmptyState
             title="Keine Spiele"
-            message="Dieser abgeschlossene Spieltag enthaelt keine Spiele."
+            message="Dieser abgeschlossene Spieltag enthält keine Spiele."
           />
         ) : (
-          <FlatList
-            data={summary.games}
-            keyExtractor={(game) => game.id}
-            renderItem={renderGame}
-            contentContainerStyle={styles.list}
-          />
+          <View style={styles.list}>
+            {summary.games.map((item, index) => (
+              <View key={index}>{renderGame({ item })}</View>
+            ))}
+          </View>
         )}
       </AppSection>
 
       <AppSection title="Finale Salden">
-        <FlatList
-          data={summary.balances}
-          keyExtractor={(balance) => balance.playerId}
-          renderItem={renderBalance}
-          contentContainerStyle={styles.compactList}
-        />
+        <View style={styles.compactList}>
+          {summary.balances.map((item, index) => (
+            <View key={index}>{renderBalance({ item })}</View>
+          ))}
+        </View>
       </AppSection>
 
       <AppSection title="Finale Auszahlungen">
@@ -173,33 +190,29 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
             message="Dieser Spieltag ist bereits ausgeglichen."
           />
         ) : (
-          <FlatList
-            data={summary.settlements}
-            keyExtractor={(settlement) =>
-              `${settlement.fromPlayerId}-${settlement.toPlayerId}-${settlement.amount}`
-            }
-            renderItem={renderSettlement}
-            contentContainerStyle={styles.compactList}
-          />
+          <View style={styles.compactList}>
+            {summary.settlements.map((item, index) => (
+              <View key={index}>{renderSettlement({ item })}</View>
+            ))}
+          </View>
         )}
       </AppSection>
 
       <AppSection title="Statistik">
-        <FlatList
-          data={summary.playerStats}
-          keyExtractor={(stats) => stats.playerId}
-          renderItem={renderPlayerStats}
-          contentContainerStyle={styles.list}
-        />
+        <View style={styles.list}>
+          {summary.playerStats.map((item, index) => (
+            <View key={index}>{renderPlayerStats({ item })}</View>
+          ))}
+        </View>
       </AppSection>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.background,
-    flex: 1,
+    paddingBottom: 100,
     gap: theme.spacing.lg,
     padding: theme.spacing.xl,
   },

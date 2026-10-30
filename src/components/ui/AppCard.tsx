@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { theme } from '../../constants/theme';
+import { authShadows, theme } from '../../theme';
 
 type AppCardProps = {
   children: ReactNode;
@@ -16,14 +16,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
-    elevation: 2,
+    ...authShadows.card,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
     padding: theme.spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: {
-      height: 2,
-      width: 0,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
   },
 });

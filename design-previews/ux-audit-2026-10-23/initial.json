@@ -1,0 +1,202 @@
+{
+  "errors": [],
+  "views": [
+    {
+      "size": [
+        360,
+        740
+      ],
+      "docWidth": 360,
+      "bodyText": "♥\n♣\n♥\n\n\nSchafkopfrechner\nGemeinsam spielen. Einfach abrechnen.\nAnmelden\nRegistrieren\nOhne Account spielen →\n\nMit Freunden spielen\n\nAutomatisch abrechnen\nDatenschutz · Impressum\nVersion 1.0.0",
+      "buttons": [
+        {
+          "text": "Anmelden",
+          "rect": {
+            "x": 24,
+            "y": 253.90625,
+            "width": 312,
+            "height": 58,
+            "top": 253.90625,
+            "right": 336,
+            "bottom": 311.90625,
+            "left": 24
+          }
+        },
+        {
+          "text": "Registrieren",
+          "rect": {
+            "x": 24,
+            "y": 323.90625,
+            "width": 312,
+            "height": 58,
+            "top": 323.90625,
+            "right": 336,
+            "bottom": 381.90625,
+            "left": 24
+          }
+        },
+        {
+          "text": "Ohne Account spielen →",
+          "rect": {
+            "x": 79.359375,
+            "y": 397.90625,
+            "width": 201.28125,
+            "height": 37,
+            "top": 397.90625,
+            "right": 280.640625,
+            "bottom": 434.90625,
+            "left": 79.359375
+          }
+        }
+      ]
+    },
+    {
+      "size": [
+        390,
+        844
+      ],
+      "docWidth": 390,
+      "bodyText": "♥\n♣\n♥\n\n\nSchafkopfrechner\nGemeinsam spielen. Einfach abrechnen.\nAnmelden\nRegistrieren\nOhne Account spielen →\n\nMit Freunden spielen\n\nAutomatisch abrechnen\nDatenschutz · Impressum\nVersion 1.0.0",
+      "buttons": [
+        {
+          "text": "Anmelden",
+          "rect": {
+            "x": 24,
+            "y": 313.6875,
+            "width": 342,
+            "height": 58,
+            "top": 313.6875,
+            "right": 366,
+            "bottom": 371.6875,
+            "left": 24
+          }
+        },
+        {
+          "text": "Registrieren",
+          "rect": {
+            "x": 24,
+            "y": 383.6875,
+            "width": 342,
+            "height": 58,
+            "top": 383.6875,
+            "right": 366,
+            "bottom": 441.6875,
+            "left": 24
+          }
+        },
+        {
+          "text": "Ohne Account spielen →",
+          "rect": {
+            "x": 94.359375,
+            "y": 457.6875,
+            "width": 201.28125,
+            "height": 37,
+            "top": 457.6875,
+            "right": 295.640625,
+            "bottom": 494.6875,
+            "left": 94.359375
+          }
+        }
+      ]
+    },
+    {
+      "size": [
+        430,
+        932
+      ],
+      "docWidth": 430,
+      "bodyText": "♥\n♣\n♥\n\n\nSchafkopfrechner\nGemeinsam spielen. Einfach abrechnen.\nAnmelden\nRegistrieren\nOhne Account spielen →\n\nMit Freunden spielen\n\nAutomatisch abrechnen\nDatenschutz · Impressum\nVersion 1.0.0",
+      "buttons": [
+        {
+          "text": "Anmelden",
+          "rect": {
+            "x": 24,
+            "y": 364.28125,
+            "width": 382,
+            "height": 58,
+            "top": 364.28125,
+            "right": 406,
+            "bottom": 422.28125,
+            "left": 24
+          }
+        },
+        {
+          "text": "Registrieren",
+          "rect": {
+            "x": 24,
+            "y": 434.28125,
+            "width": 382,
+            "height": 58,
+            "top": 434.28125,
+            "right": 406,
+            "bottom": 492.28125,
+            "left": 24
+          }
+        },
+        {
+          "text": "Ohne Account spielen →",
+          "rect": {
+            "x": 114.359375,
+            "y": 508.28125,
+            "width": 201.28125,
+            "height": 37,
+            "top": 508.28125,
+            "right": 315.640625,
+            "bottom": 545.28125,
+            "left": 114.359375
+          }
+        }
+      ]
+    },
+    {
+      "size": [
+        390,
+        568
+      ],
+      "docWidth": 390,
+      "bodyText": "♥\n♣\n♥\n\n\nSchafkopfrechner\nGemeinsam spielen. Einfach abrechnen.\nAnmelden\nRegistrieren\nOhne Account spielen →\n\nMit Freunden spielen\n\nAutomatisch abrechnen\nDatenschutz · Impressum\nVersion 1.0.0",
+      "buttons": [
+        {
+          "text": "Anmelden",
+          "rect": {
+            "x": 24,
+            "y": 155,
+            "width": 342,
+            "height": 58,
+            "top": 155,
+            "right": 366,
+            "bottom": 213,
+            "left": 24
+          }
+        },
+        {
+          "text": "Registrieren",
+          "rect": {
+            "x": 24,
+            "y": 225,
+            "width": 342,
+            "height": 58,
+            "top": 225,
+            "right": 366,
+            "bottom": 283,
+            "left": 24
+          }
+        },
+        {
+          "text": "Ohne Account spielen →",
+          "rect": {
+            "x": 94.359375,
+            "y": 299,
+            "width": 201.28125,
+            "height": 37,
+            "top": 299,
+            "right": 295.640625,
+            "bottom": 336,
+            "left": 94.359375
+          }
+        }
+      ]
+    }
+  ],
+  "offline": "Spiele\nSchafkopfrechner\nAktiver Spieltag\nHeute\nSpieltag abschließen\nSalden\nNoch keine Spieler\nLege zuerst Spieler an, damit Salden berechnet werden können.\nSpieler anlegen\nAuszahlungen\nKeine Auszahlungen offen\nSobald Salden entstehen, zeigen wir hier die passenden Zahlungen.\nSpiele\nLetztes Spiel rückgängig\nNoch keine Spiele\nErfasse das erste Spiel dieses Spieltags.\nNeues Spiel\n\n\nSpiele\n\n\nNeues Spiel\n\n\nStatistik\n\n\nHistorie\n\n\nSpieler"
+}

@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-23",
+  "browser": "Microsoft Edge headless / Playwright-core",
+  "external_requests": "blocked; only localhost allowed",
+  "authenticated_test": false,
+  "viewports": [
+    [
+      360,
+      740
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      390,
+      568
+    ]
+  ],
+  "observed_saved_games_after_first_save": 1,
+  "observed_saved_games_after_second_save_double_click": 2,
+  "observed_saved_games_after_reload": 2,
+  "edit": "one existing game changed from 10 EUR to 50 EUR without adding a record",
+  "undo": "removed game immediately",
+  "offline_save_in_loaded_app": "passed",
+  "referenced_player_deletion": "Unbekannt; remaining -10 EUR saldo; Keine Auszahlungen offen",
+  "duplicate_names": "Anna, Max, Anna accepted",
+  "production_data_changed": false,
+  "application_source_changed_during_audit": false
+}

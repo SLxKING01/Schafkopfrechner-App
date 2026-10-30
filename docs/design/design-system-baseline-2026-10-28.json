@@ -1,0 +1,116 @@
+{
+  "files": 134,
+  "sloc": 21004,
+  "totals": {
+    "colors": {
+      "hits": 215,
+      "per100Lines": 1.02,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 41
+        },
+        {
+          "file": "src\\components\\game\\AnimalAvatar.tsx",
+          "hits": 36
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 28
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 17
+        }
+      ]
+    },
+    "typography": {
+      "hits": 134,
+      "per100Lines": 0.64,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 39
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 18
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 12
+        },
+        {
+          "file": "src\\screens\\OnboardingScreen.tsx",
+          "hits": 9
+        }
+      ]
+    },
+    "radius": {
+      "hits": 90,
+      "per100Lines": 0.43,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 21
+        },
+        {
+          "file": "src\\components\\game\\RoundEntrySheet.tsx",
+          "hits": 14
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 13
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 9
+        }
+      ]
+    },
+    "legacyShadows": {
+      "hits": 184,
+      "per100Lines": 0.88,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 31
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 29
+        },
+        {
+          "file": "src\\screens\\app\\CreateTableScreen.tsx",
+          "hits": 27
+        },
+        {
+          "file": "src\\screens\\OnboardingScreen.tsx",
+          "hits": 14
+        }
+      ]
+    },
+    "spacing": {
+      "hits": 72,
+      "per100Lines": 0.34,
+      "worst": [
+        {
+          "file": "src\\screens\\app\\ActiveGameScreen.tsx",
+          "hits": 20
+        },
+        {
+          "file": "src\\components\\game\\RoundEntrySheet.tsx",
+          "hits": 18
+        },
+        {
+          "file": "src\\screens\\app\\GameLobbyScreen.tsx",
+          "hits": 8
+        },
+        {
+          "file": "src\\components\\game\\SyncStatus.tsx",
+          "hits": 4
+        }
+      ]
+    }
+  }
+}

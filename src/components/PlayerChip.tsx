@@ -5,6 +5,7 @@ import { AppText } from './ui/AppText';
 
 type PlayerChipProps = {
   name: string;
+  accessibilityLabel?: string;
   isSelected: boolean;
   onPress: () => void;
   disabled?: boolean;
@@ -13,6 +14,7 @@ type PlayerChipProps = {
 
 export function PlayerChip({
   name,
+  accessibilityLabel,
   isSelected,
   onPress,
   disabled = false,
@@ -24,6 +26,8 @@ export function PlayerChip({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? name}
+      accessibilityState={{ selected: isSelected, disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
