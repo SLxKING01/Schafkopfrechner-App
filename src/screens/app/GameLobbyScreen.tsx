@@ -1033,26 +1033,6 @@ const styles = StyleSheet.create({
     opacity: 0.76,
     transform: [{ scale: 0.97 }],
   },
-  headerSymbols: {
-    height: 0,
-    position: 'relative',
-  },
-  headerSuit: {
-    color: 'rgba(231, 198, 92, 0.055)',
-    fontSize: 96,
-    fontWeight: '800',
-    position: 'absolute',
-  },
-  headerSuitLeft: {
-    left: 92,
-    top: -72,
-    transform: [{ rotate: '-13deg' }],
-  },
-  headerSuitRight: {
-    right: 8,
-    top: -88,
-    transform: [{ rotate: '12deg' }],
-  },
   hero: { borderRadius: 22, marginTop: 16 },
   heroBlur: {
     backgroundColor: 'rgba(26,45,36,0.84)',

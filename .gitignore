@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Generated local verification output (cleanup-2026-10-31)
+/output/
+/.playwright-cli/
+/test-results/*.hbc
+/test-results/ios-*-smoke/
+/dist-*/
