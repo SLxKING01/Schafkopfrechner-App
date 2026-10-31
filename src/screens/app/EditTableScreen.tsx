@@ -9,9 +9,11 @@ import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { reliableStorage } from '../../storage/reliableStorage';
 import { useGameStore } from '../../store/gameStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { TableSettings } from '../../types/game';
+import { getStockBalanceCents } from '../../utils/accounting';
 
 type EditTableScreenProps = AppStackScreenProps<'EditTable'>;
 
@@ -35,17 +37,37 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
     () => normalizeTableSettings(currentTable?.settings),
     [currentTable?.settings],
   );
+  const [editingTableId] = useState(currentTable?.id);
+  const [saving, setSaving] = useState(false);
+  const rounds = useGameStore((state) => state.rounds);
   const [settings, setSettings] = useState<TableSettings>(initialSettings);
 
-  const saveSettings = () => {
-    const didUpdate = updateCurrentTableSettings(settings);
-
-    if (!didUpdate) {
-      Alert.alert('Kein Tisch aktiv', 'Erstelle zuerst einen Tisch.');
-      return;
+  const saveSettings = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (useGameStore.getState().currentTable?.id !== editingTableId)
+        throw new Error(
+          'Der aktive Tisch hat sich geändert. Bitte die Einstellungen erneut öffnen.',
+        );
+      if (!updateCurrentTableSettings(settings))
+        throw new Error(
+          'Stock und Ramsch müssen sich ausschließen. Bei gefülltem Stock ist ein Wechsel erst nach dessen Ausspielen oder Verteilen möglich.',
+        );
+      await reliableStorage.retryWrites();
+      if (!(await reliableStorage.confirmWrite('schafkopfrechner-games')))
+        throw new Error(
+          'Die Einstellungen sind noch nicht auf dem Gerät gesichert. Bitte erneut speichern.',
+        );
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        'Einstellungen nicht gespeichert',
+        error instanceof Error ? error.message : 'Bitte erneut versuchen.',
+      );
+    } finally {
+      setSaving(false);
     }
-
-    navigation.goBack();
   };
 
   return (
@@ -94,7 +116,11 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           entering={FadeInDown.duration(420).delay(80)}
           style={styles.settingsCard}
         >
-          <TableSettingsEditor settings={settings} onChange={setSettings} />
+          <TableSettingsEditor
+            settings={settings}
+            stockBalanceCents={getStockBalanceCents(rounds)}
+            onChange={setSettings}
+          />
         </Animated.View>
       </ScrollView>
 
@@ -114,7 +140,8 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         <Pressable
           accessibilityLabel="Regeln speichern"
           accessibilityRole="button"
-          onPress={saveSettings}
+          disabled={saving}
+          onPress={() => void saveSettings()}
           style={({ pressed }) => [
             styles.floatingButton,
             styles.saveFloating,

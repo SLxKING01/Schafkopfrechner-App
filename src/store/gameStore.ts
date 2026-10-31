@@ -26,6 +26,7 @@ import type {
   CreateRoundPayload,
   GameRound,
   GameTable,
+  InterimPayment,
   Player,
   PlayerBalance,
   Settlement,
@@ -35,21 +36,34 @@ import {
   calculateRoundBalances,
   getStockBalanceCents,
   hasUniquePlayerIds,
+  isCustomBooking,
   isValidRound,
   roundWinnerIds,
   toSafeCents,
 } from '../utils/accounting';
-import { getCurrentDealerId, getNextDealerId } from '../utils/dealerOrder';
+import {
+  activePlayers,
+  getCurrentDealerId,
+  getNextDealerId,
+  participationRevision,
+  roundPlayers,
+} from '../utils/dealerOrder';
 import { normalizeGameOptions } from '../utils/formatGameOptions';
 import {
   archiveFinishedGameDay,
   mergeGameDayArchives,
 } from '../utils/gameDayArchive';
+import { outstandingBalances, paymentRevision } from '../utils/interimPayments';
 import {
   calculatePartyAmount,
   calculateRoundTariff,
   isValidRoundMetadata,
 } from '../utils/roundTariff';
+import {
+  exclusiveStockMode,
+  replayStockRules,
+  stockMode,
+} from '../utils/stockRules';
 import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
@@ -86,13 +100,30 @@ type GameStore = {
     settings?: TableSettings,
   ) => boolean;
   setPlayerOrder: (playerIds: string[]) => boolean;
+  setPlayerPaused: (
+    tableId: string,
+    playerId: string,
+    paused: boolean,
+  ) => boolean;
+  setDealer: (tableId: string, playerId: string) => boolean;
   setTurboRamsch: (enabled: boolean) => void;
   togglePlayerLeger: (playerId: string) => void;
   addPlayer: (name: string) => boolean;
   removePlayer: (id: string) => void;
   addRound: (round: CreateRoundPayload) => boolean;
+  roundError?: string;
   updateRound: (id: string, round: CreateRoundPayload) => boolean;
   undoLastRound: () => boolean;
+  recordInterimPayment: (
+    tableId: string,
+    revision: string,
+    payment: Pick<
+      InterimPayment,
+      'id' | 'fromPlayerId' | 'toPlayerId' | 'amount'
+    >,
+  ) => boolean;
+  settleInterimPayments: (tableId: string, revision: string) => boolean;
+  voidInterimPayment: (tableId: string, id: string) => boolean;
   finishGameDay: (stockResolution?: 'refund' | 'carry') => boolean;
   markSettlementPaid: (id: string, isPaid?: boolean, tableId?: string) => void;
   resetGame: () => void;
@@ -127,10 +158,16 @@ function isSafeSavedDay(
   }
 }
 
-function recalculateGameState(players: Player[], rounds: GameRound[]) {
+function recalculateGameState(
+  players: Player[],
+  rounds: GameRound[],
+  payments: InterimPayment[] = [],
+) {
   const balances = calculateMvpBalances(players, rounds);
   const settlements =
-    getStockBalanceCents(rounds) > 0 ? [] : finishGameDayService(balances);
+    getStockBalanceCents(rounds) > 0
+      ? []
+      : finishGameDayService(outstandingBalances(balances, payments));
 
   return { balances, settlements };
 }
@@ -394,7 +431,9 @@ export const useGameStore = create<GameStore>()(
 
         if (
           !tableName ||
+          (settings !== undefined && !exclusiveStockMode(settings)) ||
           uniquePlayers.length < 2 ||
+          activePlayers(uniquePlayers).length > 5 ||
           !hasUniquePlayerIds(players) ||
           players.some((player) => !player.name.trim())
         ) {
@@ -436,7 +475,11 @@ export const useGameStore = create<GameStore>()(
             !state.activeGame ||
             !state.currentTable.isActive ||
             !state.currentTable.settings.bonusRules.leger.enabled ||
-            !state.players.some((player) => player.id === playerId)
+            !roundPlayers(
+              state.currentTable,
+              state.players,
+              state.rounds.length,
+            ).some((player) => player.id === playerId)
           )
             return state;
           const placed = state.currentTable.placedLegerPlayerIds ?? [];
@@ -462,6 +505,83 @@ export const useGameStore = create<GameStore>()(
               }
             : state,
         );
+      },
+      setPlayerPaused: (tableId, playerId, paused) => {
+        let changed = false;
+        set((state) => {
+          if (
+            !state.activeGame ||
+            !state.currentTable?.isActive ||
+            state.currentTable.id !== tableId ||
+            !state.players.some((p) => p.id === playerId)
+          )
+            return state;
+          const players = state.players.map((p) =>
+            p.id === playerId ? { ...p, isPaused: paused } : p,
+          );
+          if (activePlayers(players).length > 5) return state;
+          const dealerId =
+            getCurrentDealerId(
+              state.currentTable,
+              players,
+              state.rounds.length,
+            ) ?? undefined;
+          const participants = new Set(
+            roundPlayers(
+              { ...state.currentTable, dealerId },
+              players,
+              state.rounds.length,
+            ).map((p) => p.id),
+          );
+          changed = true;
+          return {
+            players,
+            currentTable: {
+              ...state.currentTable,
+              dealerId,
+              placedLegerPlayerIds: (
+                state.currentTable.placedLegerPlayerIds ?? []
+              ).filter((id) => participants.has(id)),
+            },
+          };
+        });
+        return changed;
+      },
+      setDealer: (tableId, playerId) => {
+        let didUpdate = false;
+        set((state) => {
+          if (
+            !state.currentTable ||
+            state.currentTable.id !== tableId ||
+            !state.currentTable.isActive ||
+            !state.activeGame ||
+            !state.players.some(
+              ({ id, isPaused }) => id === playerId && !isPaused,
+            )
+          )
+            return state;
+          didUpdate = true;
+          if (state.currentTable.dealerId === playerId) return state;
+          return {
+            currentTable: {
+              ...state.currentTable,
+              dealerId: playerId,
+              ...(state.currentTable.placedLegerPlayerIds
+                ? {
+                    placedLegerPlayerIds:
+                      state.currentTable.placedLegerPlayerIds.filter((id) =>
+                        roundPlayers(
+                          { ...state.currentTable!, dealerId: playerId },
+                          state.players,
+                          state.rounds.length,
+                        ).some((p) => p.id === id),
+                      ),
+                  }
+                : {}),
+            },
+          };
+        });
+        return didUpdate;
       },
       setPlayerOrder: (playerIds) => {
         let didUpdate = false;
@@ -518,10 +638,15 @@ export const useGameStore = create<GameStore>()(
             return state;
           }
 
+          if (activePlayers(state.players).length >= 5) return state;
           const nextPlayers = [...state.players, createLocalPlayer(playerName)];
           let nextGameState;
           try {
-            nextGameState = recalculateGameState(nextPlayers, state.rounds);
+            nextGameState = recalculateGameState(
+              nextPlayers,
+              state.rounds,
+              state.currentTable?.interimPayments,
+            );
           } catch {
             return state;
           }
@@ -529,6 +654,21 @@ export const useGameStore = create<GameStore>()(
 
           return {
             players: nextPlayers,
+            ...(state.currentTable?.placedLegerPlayerIds
+              ? {
+                  currentTable: {
+                    ...state.currentTable,
+                    placedLegerPlayerIds:
+                      state.currentTable.placedLegerPlayerIds.filter((id) =>
+                        roundPlayers(
+                          state.currentTable,
+                          nextPlayers,
+                          state.rounds.length,
+                        ).some((p) => p.id === id),
+                      ),
+                  },
+                }
+              : {}),
             ...nextGameState,
           };
         });
@@ -544,7 +684,11 @@ export const useGameStore = create<GameStore>()(
             return state;
           const playerHasRounds = state.rounds.some(
             (round) =>
-              roundWinnerIds(round).includes(id) || round.loserIds.includes(id),
+              roundWinnerIds(round).includes(id) ||
+              round.loserIds.includes(id) ||
+              !!round.customAmounts?.some((entry) => entry.playerId === id) ||
+              !!round.participantIds?.includes(id) ||
+              !!round.seatOrderIds?.includes(id),
           );
 
           if (playerHasRounds) {
@@ -556,7 +700,11 @@ export const useGameStore = create<GameStore>()(
           );
           let nextGameState;
           try {
-            nextGameState = recalculateGameState(nextPlayers, state.rounds);
+            nextGameState = recalculateGameState(
+              nextPlayers,
+              state.rounds,
+              state.currentTable?.interimPayments,
+            );
           } catch {
             return state;
           }
@@ -566,6 +714,14 @@ export const useGameStore = create<GameStore>()(
             currentTable: state.currentTable
               ? {
                   ...state.currentTable,
+                  dealerId:
+                    getCurrentDealerId(
+                      state.currentTable,
+                      state.players.map((p) =>
+                        p.id === id ? { ...p, isPaused: true } : p,
+                      ),
+                      state.rounds.length,
+                    ) ?? undefined,
                   placedLegerPlayerIds: (
                     state.currentTable.placedLegerPlayerIds ?? []
                   ).filter((playerId) => playerId !== id),
@@ -576,9 +732,12 @@ export const useGameStore = create<GameStore>()(
         });
       },
       addRound: (round) => {
+        set({ roundError: undefined });
+        if (round.gameType === 'custom' && round.customAmounts === undefined)
+          return false;
         if (
           round.stockAction &&
-          !['deposit', 'payout'].includes(round.stockAction)
+          !['deposit', 'payout', 'double'].includes(round.stockAction)
         )
           return false;
         let didAdd = false;
@@ -593,6 +752,49 @@ export const useGameStore = create<GameStore>()(
             return state;
           }
 
+          if (
+            !exclusiveStockMode(state.currentTable.settings) ||
+            (round.gameType === 'ramsch' &&
+              !state.currentTable.settings.games.ramsch.enabled)
+          )
+            return state;
+          const participants = roundPlayers(
+            state.currentTable,
+            state.players,
+            state.rounds.length,
+          );
+          if (
+            (round.stockAction === 'payout' ||
+              round.stockAction === 'double') &&
+            getStockBalanceCents(state.rounds) === 0
+          )
+            return state;
+          const monetary = isCustomBooking(round);
+          if (
+            round.participationRevision !== undefined &&
+            round.participationRevision !==
+              participationRevision(
+                state.currentTable,
+                state.players,
+                state.rounds.length,
+              )
+          )
+            return state;
+          if (!monetary) {
+            const expected = participants
+              .map((p) => p.id)
+              .sort()
+              .join('|');
+            const actual = (
+              round.stockAction === 'deposit'
+                ? round.loserIds
+                : [...roundWinnerIds(round), ...round.loserIds]
+            )
+              .slice()
+              .sort()
+              .join('|');
+            if (participants.length !== 4 || actual !== expected) return state;
+          }
           if (round.tariffOptions) {
             try {
               const options = round.tariffOptions;
@@ -634,28 +836,41 @@ export const useGameStore = create<GameStore>()(
           }
           const created = createGameRound(state.currentTable.id, {
             ...round,
+            ...(!monetary
+              ? { participantIds: participants.map((p) => p.id) }
+              : {}),
             amount: toSafeCents(round.amount)! / 100,
             settingsSnapshot: state.currentTable.settings,
           });
+          created.stockRulesVersion = 1;
           if (!isValidRoundMetadata(created)) return state;
+          created.seatOrderIds = state.players.map((p) => p.id);
           created.roundContext = {
             completesDeal:
-              round.stockAction !== 'deposit' ||
-              round.stockCompletesDeal !== false,
-            dealerIdBefore: getCurrentDealerId(
-              state.currentTable,
-              state.players,
-              state.rounds.length,
-            )!,
+              !isCustomBooking(created) && round.stockAction !== 'deposit',
+            dealerIdBefore:
+              getCurrentDealerId(
+                state.currentTable,
+                state.players,
+                state.rounds.length,
+              ) ?? state.players[0].id,
             legerPlayerIds: [
               ...(state.currentTable.placedLegerPlayerIds ?? []),
             ],
             turboRamsch: state.currentTable.turboRamschEnabled ?? false,
           };
-          const nextRounds = [...state.rounds, created];
+          let nextRounds: GameRound[];
           let nextGameState;
           try {
-            nextGameState = recalculateGameState(state.players, nextRounds);
+            nextRounds = replayStockRules(
+              [...state.rounds, created],
+              state.currentTable,
+            );
+            nextGameState = recalculateGameState(
+              state.players,
+              nextRounds,
+              state.currentTable?.interimPayments,
+            );
           } catch {
             return state;
           }
@@ -665,20 +880,16 @@ export const useGameStore = create<GameStore>()(
             rounds: nextRounds,
             currentTable: {
               ...state.currentTable,
-              placedLegerPlayerIds:
-                round.stockAction !== 'deposit' ||
-                round.stockCompletesDeal !== false
-                  ? []
-                  : state.currentTable.placedLegerPlayerIds,
-              dealerId:
-                round.stockAction !== 'deposit' ||
-                round.stockCompletesDeal !== false
-                  ? (getNextDealerId(
-                      state.currentTable,
-                      state.players,
-                      state.rounds.length,
-                    ) ?? undefined)
-                  : created.roundContext.dealerIdBefore,
+              placedLegerPlayerIds: created.roundContext.completesDeal
+                ? []
+                : state.currentTable.placedLegerPlayerIds,
+              dealerId: created.roundContext.completesDeal
+                ? (getNextDealerId(
+                    state.currentTable,
+                    state.players,
+                    state.rounds.length,
+                  ) ?? undefined)
+                : created.roundContext.dealerIdBefore,
             },
             ...nextGameState,
             isOffline: false,
@@ -688,6 +899,7 @@ export const useGameStore = create<GameStore>()(
         return didAdd;
       },
       updateRound: (id, payload) => {
+        set({ roundError: undefined });
         const state = useGameStore.getState();
         if (
           !state.activeGame ||
@@ -728,9 +940,9 @@ export const useGameStore = create<GameStore>()(
           return false;
         if (
           (original.stockAction &&
-            !['deposit', 'payout'].includes(original.stockAction)) ||
+            !['deposit', 'payout', 'double'].includes(original.stockAction)) ||
           (payload.stockAction &&
-            !['deposit', 'payout'].includes(payload.stockAction))
+            !['deposit', 'payout', 'double'].includes(payload.stockAction))
         )
           return false;
         if (
@@ -750,7 +962,9 @@ export const useGameStore = create<GameStore>()(
               new Set(payload.legerPlayerIds).size !==
                 payload.legerPlayerIds.length ||
               !payload.legerPlayerIds.every((playerId) =>
-                state.players.some(({ id }) => id === playerId),
+                (
+                  original.participantIds ?? state.players.map((p) => p.id)
+                ).includes(playerId),
               ))
           )
             return false;
@@ -805,6 +1019,9 @@ export const useGameStore = create<GameStore>()(
             loserIds: [...payload.loserIds],
             amount: toSafeCents(payload.amount)! / 100,
             gameType: payload.gameType,
+            customAmounts: payload.customAmounts?.map((entry) => ({
+              ...entry,
+            })),
             suit: payload.suit,
             stockAction: payload.stockAction,
             stockCompletesDeal: payload.stockCompletesDeal,
@@ -816,17 +1033,26 @@ export const useGameStore = create<GameStore>()(
             updatedAt: new Date().toISOString(),
           };
           if (!isValidRoundMetadata(changed)) return false;
-          const nextRounds = state.rounds.map((round) =>
-            round.id === id ? changed : round,
+          const nextRounds = replayStockRules(
+            state.rounds.map((round) => (round.id === id ? changed : round)),
+            state.currentTable,
           );
-          const calculated = recalculateGameState(state.players, nextRounds);
+          const calculated = recalculateGameState(
+            state.players,
+            nextRounds,
+            state.currentTable?.interimPayments,
+          );
           set({ rounds: nextRounds, ...calculated, isOffline: false });
           return true;
-        } catch {
+        } catch (error) {
+          set({
+            roundError: error instanceof Error ? error.message : undefined,
+          });
           return false;
         }
       },
       undoLastRound: () => {
+        set({ roundError: undefined });
         const state = useGameStore.getState();
         if (
           !state.activeGame ||
@@ -837,8 +1063,15 @@ export const useGameStore = create<GameStore>()(
         const last = state.rounds[state.rounds.length - 1];
         if (last.stockAction === 'carryIn') return false;
         try {
-          const nextRounds = state.rounds.slice(0, -1);
-          const calculated = recalculateGameState(state.players, nextRounds);
+          const nextRounds = replayStockRules(
+            state.rounds.slice(0, -1),
+            state.currentTable,
+          );
+          const calculated = recalculateGameState(
+            state.players,
+            nextRounds,
+            state.currentTable?.interimPayments,
+          );
           const context = last.roundContext;
           if (
             context?.completesDeal === false ||
@@ -860,7 +1093,9 @@ export const useGameStore = create<GameStore>()(
             state.players[
               (index - 1 + state.players.length) % state.players.length
             ]?.id;
-          const validIds = new Set(state.players.map((player) => player.id));
+          const validIds = new Set(
+            activePlayers(state.players).map((player) => player.id),
+          );
           set({
             rounds: nextRounds,
             ...calculated,
@@ -869,7 +1104,14 @@ export const useGameStore = create<GameStore>()(
               dealerId:
                 context && validIds.has(context.dealerIdBefore)
                   ? context.dealerIdBefore
-                  : previousDealer,
+                  : (getCurrentDealerId(
+                      {
+                        ...state.currentTable,
+                        dealerId: context?.dealerIdBefore ?? previousDealer,
+                      },
+                      state.players,
+                      nextRounds.length,
+                    ) ?? undefined),
               ...(context
                 ? {
                     placedLegerPlayerIds: context.legerPlayerIds.filter((id) =>
@@ -882,9 +1124,154 @@ export const useGameStore = create<GameStore>()(
             isOffline: false,
           });
           return true;
-        } catch {
+        } catch (error) {
+          set({
+            roundError: error instanceof Error ? error.message : undefined,
+          });
           return false;
         }
+      },
+      recordInterimPayment: (tableId, revision, payment) => {
+        let saved = false;
+        set((state) => {
+          const table = state.currentTable;
+          if (
+            !table ||
+            table.id !== tableId ||
+            !state.activeGame ||
+            !table.isActive
+          )
+            return state;
+          const existing = table.interimPayments?.find(
+            ({ id }) => id === payment.id,
+          );
+          if (existing) {
+            saved =
+              !existing.voidedAt &&
+              existing.fromPlayerId === payment.fromPlayerId &&
+              existing.toPlayerId === payment.toPlayerId &&
+              existing.amount === payment.amount;
+            return state;
+          }
+          if (paymentRevision(table, state.balances) !== revision) return state;
+          try {
+            const due = outstandingBalances(
+              state.balances,
+              table.interimPayments,
+            );
+            const cents = toSafeCents(payment.amount);
+            const from = toSafeCents(
+              due.find(({ playerId }) => playerId === payment.fromPlayerId)
+                ?.amount ?? 0,
+            )!;
+            const to = toSafeCents(
+              due.find(({ playerId }) => playerId === payment.toPlayerId)
+                ?.amount ?? 0,
+            )!;
+            if (
+              !payment.id ||
+              cents === null ||
+              cents <= 0 ||
+              from >= 0 ||
+              to <= 0 ||
+              cents > Math.min(-from, to)
+            )
+              return state;
+            const interimPayments = [
+              ...(table.interimPayments ?? []),
+              { ...payment, createdAt: new Date().toISOString() },
+            ];
+            const calculated = recalculateGameState(
+              state.players,
+              state.rounds,
+              interimPayments,
+            );
+            saved = true;
+            return {
+              currentTable: { ...table, interimPayments },
+              ...calculated,
+            };
+          } catch {
+            return state;
+          }
+        });
+        return saved;
+      },
+      settleInterimPayments: (tableId, revision) => {
+        let saved = false;
+        set((state) => {
+          const table = state.currentTable;
+          if (
+            !table ||
+            table.id !== tableId ||
+            !table.isActive ||
+            !state.activeGame ||
+            paymentRevision(table, state.balances) !== revision ||
+            getStockBalanceCents(state.rounds) > 0
+          )
+            return state;
+          try {
+            const plan = finishGameDayService(
+              outstandingBalances(state.balances, table.interimPayments),
+            );
+            if (!plan.length) return state;
+            const interimPayments = [
+              ...(table.interimPayments ?? []),
+              ...plan.map((p) => ({
+                id: crypto.randomUUID(),
+                fromPlayerId: p.fromPlayerId,
+                toPlayerId: p.toPlayerId,
+                amount: p.amount,
+                createdAt: new Date().toISOString(),
+              })),
+            ];
+            const calculated = recalculateGameState(
+              state.players,
+              state.rounds,
+              interimPayments,
+            );
+            saved = true;
+            return {
+              currentTable: { ...table, interimPayments },
+              ...calculated,
+            };
+          } catch {
+            return state;
+          }
+        });
+        return saved;
+      },
+      voidInterimPayment: (tableId, id) => {
+        let saved = false;
+        set((state) => {
+          const table = state.currentTable;
+          if (
+            !table ||
+            table.id !== tableId ||
+            !table.isActive ||
+            !state.activeGame ||
+            !table.interimPayments?.some((p) => p.id === id && !p.voidedAt)
+          )
+            return state;
+          try {
+            const interimPayments = table.interimPayments.map((p) =>
+              p.id === id ? { ...p, voidedAt: new Date().toISOString() } : p,
+            );
+            const calculated = recalculateGameState(
+              state.players,
+              state.rounds,
+              interimPayments,
+            );
+            saved = true;
+            return {
+              currentTable: { ...table, interimPayments },
+              ...calculated,
+            };
+          } catch {
+            return state;
+          }
+        });
+        return saved;
       },
       finishGameDay: (stockResolution) => {
         let didFinish = false;
@@ -907,7 +1294,7 @@ export const useGameStore = create<GameStore>()(
               const closing = createGameRound(state.currentTable.id, {
                 winnerId: '',
                 winnerIds: [],
-                loserIds: state.players.map(({ id }) => id),
+                loserIds: activePlayers(state.players).map(({ id }) => id),
                 gameType: 'stock',
                 amount: pot / 100,
                 stockAction:
@@ -927,7 +1314,7 @@ export const useGameStore = create<GameStore>()(
                   createGameRound(carryTable.id, {
                     winnerId: '',
                     winnerIds: [],
-                    loserIds: state.players.map(({ id }) => id),
+                    loserIds: activePlayers(state.players).map(({ id }) => id),
                     gameType: 'stock',
                     amount: pot / 100,
                     stockAction: 'carryIn',
@@ -936,7 +1323,11 @@ export const useGameStore = create<GameStore>()(
                 ];
               }
             }
-            calculated = recalculateGameState(state.players, closingRounds);
+            calculated = recalculateGameState(
+              state.players,
+              closingRounds,
+              state.currentTable?.interimPayments,
+            );
             if (carryTable) recalculateGameState(state.players, carryRounds);
           } catch {
             return state;
@@ -1033,6 +1424,12 @@ export const useGameStore = create<GameStore>()(
             return state;
           }
 
+          if (!exclusiveStockMode(settings)) return state;
+          if (
+            stockMode(settings) !== stockMode(state.currentTable.settings) &&
+            getStockBalanceCents(state.rounds) > 0
+          )
+            return state;
           didUpdate = true;
 
           return {

@@ -15,7 +15,7 @@ import {
 } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
-import { getStockBalanceCents, isStockBooking } from '../../utils/accounting';
+import { getStockBalanceCents, isPlayedRound } from '../../utils/accounting';
 import { formatOverviewMoney } from '../../utils/gameOverview';
 import { GoldButton } from '../auth/GoldButton';
 import { AppText } from '../ui/AppText';
@@ -88,9 +88,9 @@ export function SyncStatus() {
           {snapshot.currentTable?.name ?? 'Kein aktueller Tisch'}
         </AppText>
         <AppText>
-          {snapshot.rounds.filter((round) => !isStockBooking(round)).length}{' '}
-          Spiele am Tisch · {snapshot.archivedGameDays?.length ?? 0} archivierte
-          Tische · {snapshot.games.length} ältere Spiele
+          {snapshot.rounds.filter(isPlayedRound).length} Spiele am Tisch ·{' '}
+          {snapshot.archivedGameDays?.length ?? 0} archivierte Tische ·{' '}
+          {snapshot.games.length} ältere Spiele
         </AppText>
         <AppText>
           {snapshot.players.map(({ name }) => name).join(', ') ||

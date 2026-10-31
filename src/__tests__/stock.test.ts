@@ -40,6 +40,8 @@ const payout = (): CreateRoundPayload => ({
   amount: 0.4,
   gameType: 'rufspiel',
   stockAction: 'payout',
+  declarerId: 'a',
+  partnerId: 'b',
   tariffOptions: { ...emptyTariffOptions },
 });
 beforeEach(() => {
@@ -54,6 +56,7 @@ beforeEach(() => {
   });
   const settings = createDefaultTableSettings();
   settings.games.stock.enabled = true;
+  settings.games.stock.value = 0.5;
   useGameStore.getState().createTable('Stock', players, settings);
 });
 const amounts = () =>
@@ -85,13 +88,13 @@ it('preserves dealer and Leger for a pure Stock deposit, including its undo', ()
   });
 });
 
-it('explicitly completes an unplayed deal on Stock deposit when requested', () => {
+it('keeps the dealer and knocking on Alle weiter even if legacy completion is requested', () => {
   const store = useGameStore.getState();
   store.togglePlayerLeger('a');
   expect(store.addRound({ ...deposit(), stockCompletesDeal: true })).toBe(true);
   expect(useGameStore.getState().currentTable).toMatchObject({
-    dealerId: 'b',
-    placedLegerPlayerIds: [],
+    dealerId: 'a',
+    placedLegerPlayerIds: ['a'],
   });
   expect(store.undoLastRound()).toBe(true);
   expect(useGameStore.getState().currentTable).toMatchObject({
@@ -130,6 +133,14 @@ it('replays later payouts after corrections and rejects a correction that emptie
   store.addRound(deposit());
   const id = useGameStore.getState().rounds[0].id;
   store.addRound(payout());
+  // Previously saved manual stock entries retain their legacy correction rules.
+  useGameStore.setState({
+    rounds: useGameStore
+      .getState()
+      .rounds.map(
+        ({ stockRulesVersion, stockBeforeCents, stockAfterCents, ...r }) => r,
+      ),
+  });
   expect(store.updateRound(id, { ...payout(), stockAction: undefined })).toBe(
     false,
   );
@@ -137,6 +148,8 @@ it('replays later payouts after corrections and rejects a correction that emptie
     store.updateRound(useGameStore.getState().rounds[1].id, {
       ...payout(),
       winnerId: 'c',
+      declarerId: 'c',
+      partnerId: 'd',
       winnerIds: ['c', 'd'],
       loserIds: ['a', 'b'],
     }),

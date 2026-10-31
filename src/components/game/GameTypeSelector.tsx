@@ -17,6 +17,7 @@ const gameTypes: { id: GameType; label: string }[] = [
   { id: 'hochzeit', label: 'Hochzeit' },
   { id: 'kreuzbock', label: 'Kreuzbock' },
   { id: 'stock', label: 'Stock' },
+  { id: 'custom', label: 'Eigenes Spiel' },
 ];
 type GameTypeSelectorProps = {
   enabledTypes?: GameType[];
@@ -32,7 +33,10 @@ export function GameTypeSelector({
 }: GameTypeSelectorProps) {
   const enabledTypeSet = enabledTypes ? new Set(enabledTypes) : null;
   const visibleGameTypes = enabledTypeSet
-    ? gameTypes.filter((gameType) => enabledTypeSet.has(gameType.id))
+    ? gameTypes.filter(
+        (gameType) =>
+          gameType.id === 'custom' || enabledTypeSet.has(gameType.id),
+      )
     : gameTypes;
   return (
     <View style={[styles.grid, variant === 'list' && styles.list]}>

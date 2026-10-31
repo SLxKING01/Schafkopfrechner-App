@@ -1,7 +1,10 @@
-import type { StockAction } from '../types/game';
+import type { PlayerBalance, StockAction } from '../types/game';
 
 type Participant = { id: string };
 type RoundInput = {
+  participantIds?: string[];
+  seatOrderIds?: string[];
+  customAmounts?: PlayerBalance[];
   winnerId: string;
   winnerIds?: string[];
   loserIds: string[];
@@ -55,57 +58,168 @@ export function hasUniquePlayerIds(players: Participant[]) {
   );
 }
 
+export function isCustomBooking(round: {
+  gameType?: string;
+  customAmounts?: PlayerBalance[];
+}) {
+  return round.gameType === 'custom' && round.customAmounts !== undefined;
+}
+
+/** Amount is the transfer volume, not a guessed winner or uniform split. */
+export function customTransferCents(amounts: PlayerBalance[]): number | null {
+  if (!Array.isArray(amounts) || !amounts.length) return null;
+  const seen = new Set<string>();
+  let total = 0n;
+  let positive = 0n;
+  for (const entry of amounts) {
+    if (
+      !entry ||
+      typeof entry.playerId !== 'string' ||
+      !entry.playerId.trim() ||
+      seen.has(entry.playerId)
+    )
+      return null;
+    const cents = toSafeCents(entry.amount);
+    if (cents === null) return null;
+    seen.add(entry.playerId);
+    total += BigInt(cents);
+    if (cents > 0) positive += BigInt(cents);
+  }
+  return total === 0n &&
+    positive > 0n &&
+    positive <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(positive)
+    : null;
+}
+
+export function isPlayedRound(round: {
+  stockAction?: StockAction;
+  gameType?: string;
+  customAmounts?: PlayerBalance[];
+}) {
+  return !isStockBooking(round) && !isCustomBooking(round);
+}
+
 export function isValidRound(round: RoundInput, players: Participant[]) {
   const cents = toSafeCents(round.amount);
   const ids = new Set(players.map(({ id }) => id));
   const winners = roundWinnerIds(round);
   if (!Array.isArray(winners) || !Array.isArray(round.loserIds)) return false;
-  if (round.stockAction && round.stockAction !== 'payout') {
+  if (
+    round.seatOrderIds !== undefined &&
+    (!Array.isArray(round.seatOrderIds) ||
+      new Set(round.seatOrderIds).size !== round.seatOrderIds.length ||
+      round.seatOrderIds.some((id) => !ids.has(id)))
+  )
+    return false;
+  if (round.participantIds !== undefined) {
+    if (
+      !Array.isArray(round.participantIds) ||
+      round.participantIds.length !== 4 ||
+      new Set(round.participantIds).size !== 4 ||
+      round.participantIds.some((id) => !ids.has(id))
+    )
+      return false;
+    const parties =
+      round.stockAction === 'deposit'
+        ? round.loserIds
+        : [...winners, ...round.loserIds];
+    if (
+      !Array.isArray(parties) ||
+      parties.length !== 4 ||
+      parties.some((id) => !round.participantIds!.includes(id))
+    )
+      return false;
+  }
+  if (round.customAmounts !== undefined) {
+    return (
+      isCustomBooking(round) &&
+      hasUniquePlayerIds(players) &&
+      customTransferCents(round.customAmounts) === cents &&
+      cents !== null &&
+      cents > 0 &&
+      round.customAmounts.every((entry) => ids.has(entry.playerId)) &&
+      round.stockAction === undefined &&
+      round.declarerId === undefined &&
+      round.partnerId === undefined &&
+      round.winnerId === '' &&
+      Array.isArray(winners) &&
+      winners.length === 0 &&
+      Array.isArray(round.loserIds) &&
+      round.loserIds.length === 0
+    );
+  }
+  if (!Array.isArray(winners) || !Array.isArray(round.loserIds)) return false;
+  if (round.stockAction && !['payout', 'double'].includes(round.stockAction)) {
     if (
       !['deposit', 'carryIn', 'refund', 'carryOut'].includes(round.stockAction)
     )
       return false;
     return (
       hasUniquePlayerIds(players) &&
-      players.length === 4 &&
       round.gameType === 'stock' &&
       round.winnerId === '' &&
       Array.isArray(winners) &&
       winners.length === 0 &&
       Array.isArray(round.loserIds) &&
-      round.loserIds.length === 4 &&
-      new Set(round.loserIds).size === 4 &&
+      round.loserIds.length > 0 &&
+      (round.stockAction !== 'deposit' || round.loserIds.length === 4) &&
+      new Set(round.loserIds).size === round.loserIds.length &&
       round.loserIds.every((id) => ids.has(id)) &&
       cents !== null &&
       cents > 0 &&
-      cents % 4 === 0
+      ((round.stockAction !== 'deposit' && round.stockAction !== 'carryIn') ||
+        cents % round.loserIds.length === 0)
     );
   }
-  if (round.stockAction !== undefined && round.stockAction !== 'payout')
+  if (
+    round.stockAction !== undefined &&
+    !['payout', 'double'].includes(round.stockAction)
+  )
     return false;
   if (
-    round.stockAction === 'payout' &&
+    ['payout', 'double'].includes(round.stockAction ?? '') &&
     (!['rufspiel', 'sauspiel'].includes(round.gameType ?? '') ||
-      players.length !== 4 ||
       winners.length !== 2 ||
       round.loserIds.length !== 2)
   )
     return false;
+  if (round.stockAction === 'double' && (!round.declarerId || !round.partnerId))
+    return false;
   if (round.declarerId !== undefined || round.partnerId !== undefined) {
-    if (
-      !round.declarerId ||
-      !round.partnerId ||
-      round.declarerId === round.partnerId ||
-      !['rufspiel', 'sauspiel'].includes(round.gameType ?? '') ||
-      !ids.has(round.declarerId) ||
-      !ids.has(round.partnerId) ||
-      winners.length !== 2 ||
-      round.loserIds.length !== 2 ||
-      winners.includes(round.declarerId) !==
-        winners.includes(round.partnerId) ||
-      (round.stockAction === 'payout' && !winners.includes(round.declarerId))
-    )
-      return false;
+    if (!round.declarerId || !ids.has(round.declarerId)) return false;
+    if (['rufspiel', 'sauspiel'].includes(round.gameType ?? '')) {
+      if (
+        !round.partnerId ||
+        round.declarerId === round.partnerId ||
+        !ids.has(round.partnerId) ||
+        winners.length !== 2 ||
+        round.loserIds.length !== 2 ||
+        winners.includes(round.declarerId) !==
+          winners.includes(round.partnerId) ||
+        (round.stockAction === 'payout' &&
+          !winners.includes(round.declarerId)) ||
+        (round.stockAction === 'double' && winners.includes(round.declarerId))
+      )
+        return false;
+    } else {
+      if (
+        round.partnerId !== undefined ||
+        ![...winners, ...round.loserIds].includes(round.declarerId)
+      )
+        return false;
+      if (
+        ['solo', 'wenz', 'farbwenz', 'geier', 'farbgeier', 'bettel'].includes(
+          round.gameType ?? '',
+        ) &&
+        !(
+          (winners.length === 1 && winners[0] === round.declarerId) ||
+          (round.loserIds.length === 1 &&
+            round.loserIds[0] === round.declarerId)
+        )
+      )
+        return false;
+    }
   }
   return (
     hasUniquePlayerIds(players) &&
@@ -128,12 +242,13 @@ export function isValidRound(round: RoundInput, players: Participant[]) {
 /** Stock is a separate account. Payouts always empty it into two equal shares. */
 export function getStockBalanceCents(
   rounds: Pick<RoundInput, 'amount' | 'stockAction'>[],
+  initialPot = 0,
 ) {
-  let pot = 0;
+  let pot = initialPot;
   for (const round of rounds) {
     if (round.stockAction === 'deposit' || round.stockAction === 'carryIn') {
       const cents = toSafeCents(round.amount);
-      if (cents === null || cents <= 0 || cents % 4 !== 0)
+      if (cents === null || cents <= 0)
         throw new Error('Ungültige Stock-Einzahlung.');
       pot = addCents(pot, cents);
     } else if (
@@ -145,9 +260,11 @@ export function getStockBalanceCents(
           'Die Stock-Rückgabe muss dem gesamten Topf entsprechen.',
         );
       pot = 0;
+    } else if (round.stockAction === 'double') {
+      if (pot <= 0) throw new Error('Kein Stock zum Verdoppeln vorhanden.');
+      pot = addCents(pot, pot);
     } else if (round.stockAction === 'payout') {
-      if (pot <= 0 || pot % 2 !== 0)
-        throw new Error('Kein auszahlbarer Stock vorhanden.');
+      if (pot <= 0) throw new Error('Kein auszahlbarer Stock vorhanden.');
       pot = 0;
     }
   }
@@ -155,7 +272,9 @@ export function getStockBalanceCents(
 }
 
 export function isStockBooking(round: { stockAction?: StockAction }) {
-  return !!round.stockAction && round.stockAction !== 'payout';
+  return (
+    !!round.stockAction && !['payout', 'double'].includes(round.stockAction)
+  );
 }
 
 /** The amount remains the total win. Remainder cents are assigned deterministically. */
@@ -174,17 +293,37 @@ export function calculateRoundBalances(
         'Ungültige Teilnehmer oder ungültiger Betrag in einem Spiel.',
       );
     const cents = toSafeCents(round.amount)!;
+    if (isCustomBooking(round)) {
+      for (const entry of round.customAmounts!)
+        ledger.set(
+          entry.playerId,
+          addCents(ledger.get(entry.playerId)!, toSafeCents(entry.amount)!),
+        );
+      continue;
+    }
     if (round.stockAction === 'deposit' || round.stockAction === 'carryIn') {
       pot = addCents(pot, cents);
       for (const id of round.loserIds)
-        ledger.set(id, addCents(ledger.get(id)!, -cents / 4));
+        ledger.set(
+          id,
+          addCents(ledger.get(id)!, -cents / round.loserIds.length),
+        );
       continue;
     }
     if (round.stockAction === 'refund' || round.stockAction === 'carryOut') {
       if (cents !== pot || pot <= 0)
         throw new Error('Ungültige Stock-Rückgabe.');
-      for (const id of round.loserIds)
-        ledger.set(id, addCents(ledger.get(id)!, cents / 4));
+      const recipients = [...round.loserIds].sort();
+      recipients.forEach((id, i) =>
+        ledger.set(
+          id,
+          addCents(
+            ledger.get(id)!,
+            Math.floor(cents / recipients.length) +
+              (i < cents % recipients.length ? 1 : 0),
+          ),
+        ),
+      );
       pot = 0;
       continue;
     }
@@ -209,12 +348,26 @@ export function calculateRoundBalances(
         addCents(ledger.get(id)!, -share - (index < remainder ? 1 : 0)),
       ),
     );
-    if (round.stockAction === 'payout') {
-      if (pot <= 0 || pot % 2 !== 0)
-        throw new Error('Kein auszahlbarer Stock vorhanden.');
-      for (const id of winners)
-        ledger.set(id, addCents(ledger.get(id)!, pot / 2));
-      pot = 0;
+    if (round.stockAction === 'payout' || round.stockAction === 'double') {
+      if (pot <= 0) throw new Error('Kein ausspielbarer Stock vorhanden.');
+      const recipients = (
+        round.stockAction === 'double'
+          ? [round.declarerId!, round.partnerId!]
+          : winners
+      )
+        .slice()
+        .sort();
+      const sign = round.stockAction === 'double' ? -1 : 1;
+      recipients.forEach((id, i) =>
+        ledger.set(
+          id,
+          addCents(
+            ledger.get(id)!,
+            sign * (Math.floor(pot / 2) + (i < pot % 2 ? 1 : 0)),
+          ),
+        ),
+      );
+      pot = round.stockAction === 'double' ? addCents(pot, pot) : 0;
     }
   }
   const balances = players.map(({ id }) => ({
@@ -269,26 +422,43 @@ export function calculateMoneyTransfers(
   const creditors = entries
     .filter(({ cents }) => cents > 0)
     .map((entry) => ({ ...entry }));
-  const payments: {
-    fromPlayerId: string;
-    toPlayerId: string;
-    amount: number;
-  }[] = [];
-  let debtorIndex = 0;
-  let creditorIndex = 0;
-  while (debtorIndex < debtors.length && creditorIndex < creditors.length) {
-    const debtor = debtors[debtorIndex];
-    const creditor = creditors[creditorIndex];
-    const cents = Math.min(debtor.cents, creditor.cents);
-    payments.push({
-      fromPlayerId: debtor.playerId,
-      toPlayerId: creditor.playerId,
-      amount: fromSafeCents(cents),
-    });
-    debtor.cents -= cents;
-    creditor.cents -= cents;
-    if (debtor.cents === 0) debtorIndex++;
-    if (creditor.cents === 0) creditorIndex++;
+  type Payment = { fromPlayerId: string; toPlayerId: string; amount: number };
+  const memo = new Map<string, Payment[]>();
+  // An optimal flow can be chosen without cycles. Its forest has a leaf,
+  // so some debtor/creditor pair can always settle the smaller balance.
+  // Explore every such pair; memoization avoids revisiting residual ledgers.
+  function solve(): Payment[] {
+    const key = [...debtors, ...creditors].map(({ cents }) => cents).join(',');
+    const cached = memo.get(key);
+    if (cached) return cached;
+    const debtCount = debtors.filter(({ cents }) => cents > 0).length;
+    const creditCount = creditors.filter(({ cents }) => cents > 0).length;
+    if (!debtCount) return [];
+    const lowerBound = Math.max(debtCount, creditCount);
+    let best: Payment[] | undefined;
+    search: for (const debtor of debtors) {
+      if (!debtor.cents) continue;
+      for (const creditor of creditors) {
+        if (!creditor.cents) continue;
+        const cents = Math.min(debtor.cents, creditor.cents);
+        debtor.cents -= cents;
+        creditor.cents -= cents;
+        const candidate = [
+          {
+            fromPlayerId: debtor.playerId,
+            toPlayerId: creditor.playerId,
+            amount: fromSafeCents(cents),
+          },
+          ...solve(),
+        ];
+        debtor.cents += cents;
+        creditor.cents += cents;
+        if (!best || candidate.length < best.length) best = candidate;
+        if (best.length === lowerBound) break search;
+      }
+    }
+    memo.set(key, best!);
+    return best!;
   }
-  return payments;
+  return solve();
 }

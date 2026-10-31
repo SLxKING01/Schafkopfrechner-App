@@ -48,7 +48,7 @@ import type { AppStackParamList } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
-import { isStockBooking } from '../../utils/accounting';
+import { isPlayedRound } from '../../utils/accounting';
 import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
@@ -209,7 +209,7 @@ export function GameLobbyScreen() {
         id: day.table.id,
         name: day.table.name,
         players: day.players.map((player) => player.name).join(' · '),
-        lastPlayed: `${day.rounds.filter((round) => !isStockBooking(round)).length} Spiele · ${openPayments > 0 ? `${openPayments} Zahlungen offen` : 'Abgerechnet'}`,
+        lastPlayed: `${day.rounds.filter(isPlayedRound).length} Spiele · ${openPayments > 0 ? `${openPayments} Zahlungen offen` : 'Abgerechnet'}`,
         suit: 'schelle',
         isCurrent: false,
         hasOpenPayments: openPayments > 0,

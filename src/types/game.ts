@@ -1,4 +1,5 @@
 export type Player = {
+  isPaused?: boolean;
   id: string;
   name: string;
   isLocal: boolean;
@@ -34,6 +35,7 @@ export type TableSettingEntry = {
 };
 
 export type TableSettings = {
+  stockStakeConfigured?: boolean;
   gameRules?: Partial<Record<TableGameTypeId, GameRuleOptions>>;
   games: Record<TableGameTypeId, TableSettingEntry>;
   bonusRules: Record<BonusRuleId, TableSettingEntry>;
@@ -49,11 +51,22 @@ export type GameRuleOptions = {
 export type StockAction =
   | 'deposit'
   | 'payout'
+  | 'double'
   | 'refund'
   | 'carryOut'
   | 'carryIn';
 
+export type InterimPayment = {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  amount: number;
+  createdAt: string;
+  voidedAt?: string;
+};
+
 export type GameTable = {
+  interimPayments?: InterimPayment[];
   id: string;
   hashCode: string;
   name: string;
@@ -68,6 +81,12 @@ export type GameTable = {
 };
 
 export type GameRound = {
+  stockRulesVersion?: 1;
+  stockBeforeCents?: number;
+  stockAfterCents?: number;
+  participantIds?: string[];
+  seatOrderIds?: string[];
+  customAmounts?: PlayerBalance[];
   suit?: CardSuit;
   id: string;
   tableId: string;
@@ -135,6 +154,9 @@ export type CreateTablePayload = {
 };
 
 export type CreateRoundPayload = {
+  participantIds?: string[];
+  participationRevision?: string;
+  customAmounts?: PlayerBalance[];
   clearPartyMetadata?: boolean;
   legerPlayerIds?: string[];
   suit?: CardSuit;

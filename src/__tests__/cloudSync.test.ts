@@ -13,6 +13,7 @@ import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
+import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 import type { AuthUser } from '../types/auth';
 
 const mockRead = jest.fn();
@@ -430,7 +431,7 @@ function seedArchive() {
     { id: 'a', name: 'Anna', isLocal: true },
     { id: 'b', name: 'Max', isLocal: true },
   ]);
-  useGameStore.getState().addRound({
+  seedLegacyRound({
     winnerId: 'a',
     loserIds: ['b'],
     amount: 10,

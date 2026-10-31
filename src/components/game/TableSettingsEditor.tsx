@@ -1,6 +1,14 @@
 import { Info, Minus, Plus, X } from 'lucide-react-native';
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import {
   bonusRuleDefinitions,
@@ -18,10 +26,12 @@ import type {
   TableSettingEntry,
   TableSettings,
 } from '../../types/game';
+import { stockMode } from '../../utils/stockRules';
 import { AppText } from '../ui/AppText';
 
 type TableSettingsEditorProps = {
   settings: TableSettings;
+  stockBalanceCents?: number;
   onChange: (settings: TableSettings) => void;
 };
 
@@ -33,7 +43,8 @@ type InfoState = {
 const sections = [
   {
     definitions: gameRuleDefinitions.filter(
-      (definition) => definition.section === 'base',
+      (definition) =>
+        definition.section === 'base' && definition.id !== 'ramsch',
     ),
     key: 'base',
     title: 'Grundspiele',
@@ -47,7 +58,8 @@ const sections = [
   },
   {
     definitions: gameRuleDefinitions.filter(
-      (definition) => definition.section === 'variant',
+      (definition) =>
+        definition.section === 'variant' && definition.id !== 'stock',
     ),
     key: 'variant',
     title: 'Weitere Spielvarianten',
@@ -69,12 +81,45 @@ function cloneSettings(settings: TableSettings) {
 
 export const TableSettingsEditor = memo(function TableSettingsEditor({
   settings,
+  stockBalanceCents = 0,
   onChange,
 }: TableSettingsEditorProps) {
+  const { fontScale } = useWindowDimensions();
   const safeSettings = useMemo(
     () => normalizeTableSettings(settings),
     [settings],
   );
+  const [modeError, setModeError] = useState('');
+  const mode = stockMode(safeSettings);
+  const chooseMode = (nextMode: 'stock' | 'ramsch' | 'off') => {
+    if (nextMode !== mode && stockBalanceCents > 0) {
+      setModeError(
+        'Der Stock ist noch gefüllt. Ein Wechsel ist erst bei 0,00 € möglich.',
+      );
+      return;
+    }
+    setModeError('');
+    onChange({
+      ...safeSettings,
+      stockStakeConfigured:
+        nextMode === 'stock' ? true : safeSettings.stockStakeConfigured,
+      games: {
+        ...safeSettings.games,
+        stock: {
+          ...safeSettings.games.stock,
+          enabled: nextMode === 'stock',
+          value:
+            nextMode === 'stock' && safeSettings.stockStakeConfigured === false
+              ? safeSettings.games.rufspiel.value
+              : safeSettings.games.stock.value,
+        },
+        ramsch: {
+          ...safeSettings.games.ramsch,
+          enabled: nextMode === 'ramsch',
+        },
+      },
+    });
+  };
   const [info, setInfo] = useState<InfoState>(null);
   const [expandedRules, setExpandedRules] = useState<TableGameTypeId | null>(
     null,
@@ -117,6 +162,8 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
         };
       }
 
+      if (group === 'games' && id === 'stock' && nextEntry.value !== undefined)
+        nextSettings.stockStakeConfigured = true;
       onChange(nextSettings);
     },
     [onChange, safeSettings],
@@ -125,6 +172,99 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
   return (
     <>
       <View style={styles.root}>
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>Wenn alle weiter sagen</AppText>
+          <View
+            style={{
+              flexDirection: fontScale >= 1.3 ? 'column' : 'row',
+              gap: 8,
+            }}
+          >
+            {(
+              [
+                ['stock', 'Stock'],
+                ['ramsch', 'Ramsch'],
+                ['off', 'Beides aus'],
+              ] as const
+            ).map(([id, label]) => (
+              <Pressable
+                key={id}
+                accessibilityRole="radio"
+                accessibilityLabel={`Weiter-Regel ${label}`}
+                accessibilityState={{ checked: mode === id }}
+                aria-checked={mode === id}
+                onPress={() => chooseMode(id)}
+                style={[
+                  {
+                    flex: fontScale >= 1.3 ? undefined : 1,
+                    minWidth: 0,
+                    minHeight: 44,
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderRadius: authRadius.md,
+                    paddingHorizontal: 4,
+                    paddingVertical: 10,
+                    alignItems: 'center',
+                    backgroundColor:
+                      mode === id ? 'rgba(231,198,92,0.18)' : 'transparent',
+                    borderColor:
+                      mode === id
+                        ? authColors.goldHighlight
+                        : authColors.borderSoft,
+                  },
+                ]}
+              >
+                <AppText
+                  style={{
+                    fontSize: 14,
+                    textAlign: 'center',
+                    color:
+                      mode === id
+                        ? authColors.goldHighlight
+                        : authColors.textSecondary,
+                  }}
+                >
+                  {label}
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+          {stockBalanceCents > 0 ? (
+            <AppText style={styles.infoDescription}>
+              Stock: {(stockBalanceCents / 100).toFixed(2).replace('.', ',')} €
+              · Wechsel erst bei leerem Stock.
+            </AppText>
+          ) : null}
+          {modeError ? (
+            <AppText accessibilityRole="alert" style={styles.infoDescription}>
+              {modeError}
+            </AppText>
+          ) : null}
+          {mode !== 'off' ? (
+            <SettingRow
+              hideToggle
+              definition={gameRuleDefinitions.find((d) => d.id === mode)!}
+              entry={safeSettings.games[mode]}
+              onInfo={() =>
+                setInfo({
+                  label: mode === 'stock' ? 'Stock' : 'Ramsch',
+                  description:
+                    mode === 'stock'
+                      ? 'Alle weiter: Die vier Teilnehmer zahlen ein. Sauspiel gewonnen: Ansager und Partner erhalten den Stock. Sauspiel verloren: Die beiden verdoppeln den Stock durch ihre Einzahlung.'
+                      : 'Wenn niemand spielt, wird Ramsch gespielt.',
+                })
+              }
+              onToggle={() => {}}
+              onValueChange={(value) => updateEntry('games', mode, { value })}
+            />
+          ) : null}
+          {mode === 'stock' ? (
+            <AppText style={styles.infoDescription}>
+              Einsatz pro Spieler. Änderungen gelten nur für künftige
+              Einzahlungen.
+            </AppText>
+          ) : null}
+        </View>
         {sections.map((section) => (
           <View key={section.key} style={styles.section}>
             <AppText style={styles.sectionTitle}>{section.title}</AppText>
@@ -356,6 +496,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
 });
 
 type SettingRowProps = {
+  hideToggle?: boolean;
   definition: TableSettingDefinition<TableGameTypeId | BonusRuleId>;
   entry: TableSettingEntry;
   onInfo: () => void;
@@ -364,6 +505,7 @@ type SettingRowProps = {
 };
 
 const SettingRow = memo(function SettingRow({
+  hideToggle = false,
   definition,
   entry,
   onInfo,
@@ -387,19 +529,21 @@ const SettingRow = memo(function SettingRow({
         >
           <Info color="rgba(245, 245, 245, 0.5)" size={19} strokeWidth={2} />
         </Pressable>
-        <View style={styles.switchColumn}>
-          <Switch
-            accessibilityLabel={`${definition.label} aktivieren`}
-            ios_backgroundColor="rgba(245, 245, 245, 0.2)"
-            thumbColor="#F5F5F5"
-            trackColor={{
-              false: 'rgba(245, 245, 245, 0.18)',
-              true: 'rgba(111, 169, 114, 0.85)',
-            }}
-            value={entry.enabled}
-            onValueChange={onToggle}
-          />
-        </View>
+        {!hideToggle ? (
+          <View style={styles.switchColumn}>
+            <Switch
+              accessibilityLabel={`${definition.label} aktivieren`}
+              ios_backgroundColor="rgba(245, 245, 245, 0.2)"
+              thumbColor="#F5F5F5"
+              trackColor={{
+                false: 'rgba(245, 245, 245, 0.18)',
+                true: 'rgba(111, 169, 114, 0.85)',
+              }}
+              value={entry.enabled}
+              onValueChange={onToggle}
+            />
+          </View>
+        ) : null}
       </View>
       <View style={styles.ruleContent}>
         <AppText style={styles.tariffLabel}>

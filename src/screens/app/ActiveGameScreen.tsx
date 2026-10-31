@@ -42,6 +42,7 @@ import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
+import { PlayerActionsMenu } from '../../components/game/PlayerActionsMenu';
 import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
@@ -54,16 +55,24 @@ import type { GameRound, Player, PlayerBalance } from '../../types/game';
 import type { AnimalAvatarId } from '../../types/profile';
 import {
   getStockBalanceCents,
+  isCustomBooking,
+  isPlayedRound,
   isStockBooking,
   roundWinnerIds,
 } from '../../utils/accounting';
 import { formatRoundGameType } from '../../utils/cardSuits';
-import { getCurrentDealerId, getNextDealerId } from '../../utils/dealerOrder';
+import {
+  getCurrentDealerId,
+  getNextDealerId,
+  roundPlayers,
+} from '../../utils/dealerOrder';
+import { outstandingBalances } from '../../utils/interimPayments';
 
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 type ActiveTab = 'players' | 'history';
 
 type RankedPlayer = {
+  isPaused?: boolean;
   accentColor: string;
   amount: number;
   animalId: AnimalAvatarId;
@@ -153,9 +162,16 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   });
   const [menuVisible, setMenuVisible] = useState(false);
   const [seatOrderVisible, setSeatOrderVisible] = useState(false);
+  const [playerActions, setPlayerActions] = useState<{
+    tableId: string;
+    playerId: string | null;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
   const [composerSession, setComposerSession] = useState(0);
+  const [initialDeclarerId, setInitialDeclarerId] = useState<
+    string | undefined
+  >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
   const editingRound =
@@ -169,13 +185,21 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   );
 
   const rankedPlayers = useMemo(
-    () => createRankedPlayers(players, balances, placedCoinsByPlayerId),
-    [balances, placedCoinsByPlayerId, players],
+    () =>
+      createRankedPlayers(
+        players,
+        outstandingBalances(balances, currentTable?.interimPayments),
+        placedCoinsByPlayerId,
+      ),
+    [balances, placedCoinsByPlayerId, players, currentTable?.interimPayments],
   );
   const currentDealerId = getCurrentDealerId(
     currentTable,
     players,
     rounds.length,
+  );
+  const participantIds = new Set(
+    roundPlayers(currentTable, players, rounds.length).map((p) => p.id),
   );
   const nextDealerId = getNextDealerId(currentTable, players, rounds.length);
   const dealerName =
@@ -183,7 +207,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   const nextDealerName =
     players.find(({ id }) => id === nextDealerId)?.name ?? '–';
   const recentRounds = useMemo(() => [...rounds].reverse(), [rounds]);
-  const playedRounds = rounds.filter((round) => !isStockBooking(round)).length;
+  const playedRounds = rounds.filter(isPlayedRound).length;
   const placedCoinCount = useMemo(
     () =>
       Math.min(
@@ -211,6 +235,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
 
   const editRound = useCallback((round: GameRound) => {
     setComposerSession((value) => value + 1);
+    setInitialDeclarerId(undefined);
     setEditingRoundId(round.id);
     setRoundComposerVisible(true);
   }, []);
@@ -223,7 +248,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       if (
         round &&
         (!round.stockAction ||
-          ['deposit', 'payout'].includes(round.stockAction))
+          ['deposit', 'payout', 'double'].includes(round.stockAction))
       )
         editRound(round);
       navigation.setParams({ roundId: undefined });
@@ -276,10 +301,21 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     setActiveTab('history');
   }, [activeTab]);
 
-  const openRoundComposer = useCallback(() => {
+  const openRoundComposer = useCallback((declarerId?: string) => {
+    const state = useGameStore.getState();
+    if (
+      declarerId &&
+      !roundPlayers(
+        state.currentTable,
+        state.players,
+        state.rounds.length,
+      ).some((p) => p.id === declarerId)
+    )
+      return;
     setComposerSession((value) => value + 1);
     triggerSelectionHaptic();
     setRoundSaved(false);
+    setInitialDeclarerId(declarerId);
     setEditingRoundId(null);
     setRoundComposerVisible(true);
   }, []);
@@ -287,14 +323,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   const closeRoundComposer = useCallback(() => {
     triggerSelectionHaptic();
     setRoundComposerVisible(false);
-  }, []);
-
-  const showPlayerDetails = useCallback((player: RankedPlayer) => {
-    triggerSelectionHaptic();
-    Alert.alert(
-      player.name,
-      `Aktueller Kontostand: ${formatAmount(player.amount)}`,
-    );
   }, []);
 
   const finishDay = useCallback(() => {
@@ -316,10 +344,22 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     if (pot > 0) {
       Alert.alert(
         'Rest-Stock abschließen',
-        `${formatAmount(pot / 100)} liegen im Stock. Zurückgeben erstattet jedem Einzahler seinen Anteil. Übernehmen eröffnet einen Folgetisch mit denselben vier Spielern und demselben Stock.`,
+        `${formatAmount(pot / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`,
         [
           { text: 'Abbrechen', style: 'cancel' },
-          { text: 'Stock zurückgeben', onPress: () => complete('refund') },
+          {
+            text: 'Stock verteilen',
+            onPress: () => {
+              if (!useGameStore.getState().players.some((p) => !p.isPaused)) {
+                Alert.alert(
+                  'Kein aktiver Spieler',
+                  'Bitte zuerst einen Spieler wieder aktivieren, damit der Stock verteilt werden kann.',
+                );
+                return;
+              }
+              complete('refund');
+            },
+          },
           { text: 'Stock übernehmen', onPress: () => complete('carry') },
         ],
       );
@@ -547,22 +587,22 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                     <AppText style={styles.roundCountText}>
                       {playedRounds} Spiele
                       {rounds.length > playedRounds
-                        ? ` · ${rounds.length - playedRounds} Buchungen`
+                        ? `\n${rounds.length - playedRounds} ${rounds.length - playedRounds === 1 ? 'Buchung' : 'Buchungen'}`
                         : ''}
                     </AppText>
                   </View>
                 </View>
                 <View style={styles.historyColumns}>
-                  <AppText style={[styles.columnLabel, { flex: 1.1 }]}>
+                  <AppText style={[styles.columnLabel, { width: 72 }]}>
                     Spiel
                   </AppText>
                   <AppText style={[styles.columnLabel, { flex: 1 }]}>
-                    Gewinner
+                    Ergebnis
                   </AppText>
                   <AppText
                     style={[
                       styles.columnLabel,
-                      { width: 78, textAlign: 'right' },
+                      { width: 72, textAlign: 'right' },
                     ]}
                   >
                     Betrag
@@ -590,6 +630,14 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           ListHeaderComponent={
             <>
               {tableOverviewHeader}
+              <AppText style={styles.dragHint}>
+                {participantIds.size === 4
+                  ? `Spielen: ${players
+                      .filter((p) => participantIds.has(p.id))
+                      .map((p) => p.name)
+                      .join(', ')}`
+                  : 'Mindestens vier aktive Spieler erforderlich'}
+              </AppText>
               <View style={[styles.stack, styles.dragTableHeader]}>
                 <View style={styles.playerTableHeader}>
                   <View style={[styles.nameColumn, styles.orderHeader]}>
@@ -604,7 +652,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                     </Pressable>
                   </View>
                   <AppText style={[styles.columnLabel, styles.balanceColumn]}>
-                    Saldo
+                    Offen
                   </AppText>
                   <AppText style={[styles.columnLabel, styles.coinColumn]}>
                     Leger
@@ -616,11 +664,18 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           renderItem={({ item: player }) => (
             <View style={styles.dragTableRow}>
               <PlayerRankingRow
+                participating={participantIds.has(player.id)}
                 isDealer={player.id === currentDealerId}
                 player={player}
-                onPressPlayer={showPlayerDetails}
+                onPressPlayer={(player) => openRoundComposer(player.id)}
                 onPressCoin={togglePlacedCoin}
-                onReorder={() => setSeatOrderVisible(true)}
+                onOpenActions={() =>
+                  currentTable &&
+                  setPlayerActions({
+                    tableId: currentTable.id,
+                    playerId: player.id,
+                  })
+                }
               />
             </View>
           )}
@@ -628,11 +683,15 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <View>
               <View style={styles.dragTableEnd} />
               <AppText style={styles.dragHint}>
-                Sitzreihenfolge über das Listensymbol oder langes Drücken ändern
+                Sitzreihenfolge über das Listensymbol ändern · Spielernamen für
+                Aktionen gedrückt halten
               </AppText>
-              {balances.every((balance) => balance.amount === 0) ? (
+              {outstandingBalances(
+                balances,
+                currentTable?.interimPayments,
+              ).every((balance) => balance.amount === 0) ? (
                 <AppText style={styles.balancedHint}>
-                  Alle Spielstände ausgeglichen
+                  Alle offenen Beträge ausgeglichen
                 </AppText>
               ) : null}
               <View
@@ -657,6 +716,23 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   trackColor={{ false: '#3B4C42', true: '#6FA972' }}
                 />
               </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Zwischenabrechnung öffnen"
+                onPress={() =>
+                  currentTable &&
+                  navigation.navigate('Settlement', {
+                    tableId: currentTable.id,
+                  })
+                }
+                style={{ minHeight: 44, justifyContent: 'center' }}
+              >
+                <AppText
+                  style={{ color: screenColors.gold, fontWeight: '700' }}
+                >
+                  Bezahlen & weiterspielen
+                </AppText>
+              </Pressable>
             </View>
           }
         />
@@ -696,7 +772,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         <Pressable
           accessibilityLabel="Spiel eintragen"
           accessibilityRole="button"
-          onPress={openRoundComposer}
+          onPress={() => openRoundComposer()}
           style={({ pressed }) => [
             styles.addGameButton,
             pressed && styles.pressed,
@@ -736,6 +812,22 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             >
               <History color={screenColors.gold} size={20} />
               <AppText style={styles.menuText}>Tischstatistik</AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Spieleraktionen öffnen"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                if (currentTable)
+                  setPlayerActions({
+                    tableId: currentTable.id,
+                    playerId: null,
+                  });
+              }}
+            >
+              <UsersRound color={screenColors.gold} size={20} />
+              <AppText style={styles.menuText}>Spieleraktionen</AppText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
@@ -788,6 +880,16 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </Modal>
 
+      {playerActions && playerActions.tableId === currentTable?.id ? (
+        <PlayerActionsMenu
+          key={`${playerActions.tableId}:${playerActions.playerId ?? 'all'}`}
+          tableId={playerActions.tableId}
+          players={players}
+          dealerId={currentDealerId}
+          initialPlayerId={playerActions.playerId}
+          onClose={() => setPlayerActions(null)}
+        />
+      ) : null}
       {seatOrderVisible ? (
         <SeatOrderModal
           players={players}
@@ -804,6 +906,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         />
       ) : null}
       <RoundEntrySheet
+        initialDeclarerId={initialDeclarerId}
         key={`${currentTable?.id ?? 'none'}:${editingRoundId ?? 'new-round'}:${composerSession}`}
         table={currentTable}
         players={players}
@@ -843,7 +946,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 if (!useGameStore.getState().undoLastRound())
                   Alert.alert(
                     'Nicht möglich',
-                    'Die Runde konnte nicht zurückgenommen werden.',
+                    useGameStore.getState().roundError ??
+                      'Die Runde konnte nicht zurückgenommen werden.',
                   );
                 setUndoConfirmVisible(false);
                 setRoundSaved(false);
@@ -905,7 +1009,17 @@ function SeatOrderModal({
                 <View key={id} style={styles.orderRow}>
                   <AppText style={styles.orderNumber}>{index + 1}</AppText>
                   <View style={styles.playerCopy}>
-                    <Text style={styles.playerName}>{player.name}</Text>
+                    <Text
+                      style={[
+                        styles.playerName,
+                        player.isPaused && { opacity: 0.5 },
+                      ]}
+                    >
+                      {player.name}
+                    </Text>
+                    {player.isPaused ? (
+                      <AppText style={styles.dealerLabel}>Pausiert</AppText>
+                    ) : null}
                     {id === dealerId ? (
                       <AppText style={styles.dealerLabel}>Geber</AppText>
                     ) : null}
@@ -978,6 +1092,7 @@ function createRankedPlayers(
         ...visual,
         amount: amountByPlayer.get(player.id) ?? 0,
         id: player.id,
+        isPaused: player.isPaused,
         isLeader: false,
         name: player.name,
         placedCoins: normalizeCoinCount(placedCoinsByPlayerId[player.id]),
@@ -1085,7 +1200,8 @@ const SegmentButton = memo(function SegmentButton({
 });
 
 type PlayerRankingRowProps = {
-  onReorder: () => void;
+  participating: boolean;
+  onOpenActions: () => void;
   isDealer: boolean;
   player: RankedPlayer;
   onPressCoin: (playerId: string) => void;
@@ -1093,7 +1209,8 @@ type PlayerRankingRowProps = {
 };
 
 const PlayerRankingRow = memo(function PlayerRankingRow({
-  onReorder,
+  participating,
+  onOpenActions,
   isDealer,
   onPressCoin,
   player,
@@ -1102,9 +1219,14 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
   const isPositive = player.amount > 0;
   const isNegative = player.amount < 0;
   const [hovered, setHovered] = useState(false);
+  const longPressed = useRef(false);
   const handlePress = useCallback(() => {
-    onPressPlayer(player);
-  }, [onPressPlayer, player]);
+    if (longPressed.current) {
+      longPressed.current = false;
+      return;
+    }
+    if (participating) onPressPlayer(player);
+  }, [onPressPlayer, player, participating]);
   const handlePressCoin = useCallback(() => {
     onPressCoin(player.id);
   }, [onPressCoin, player.id]);
@@ -1112,13 +1234,19 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
   return (
     <View style={[styles.playerRow, hovered && styles.rowHovered]}>
       <Pressable
-        accessibilityLabel={`${player.name}, ${formatAmount(player.amount)}${isDealer ? ', Geber' : ''}`}
+        accessibilityLabel={`${player.name}, ${formatAmount(player.amount)}${isDealer ? ', Geber' : ''}${player.isPaused ? ', Pausiert' : !participating ? ', setzt aus' : ''}`}
         accessibilityRole="button"
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
         onPress={handlePress}
-        onLongPress={onReorder}
-        accessibilityHint="Gedrückt halten, um die Sitzreihenfolge zu ändern"
+        onPressIn={() => {
+          longPressed.current = false;
+        }}
+        onLongPress={() => {
+          longPressed.current = true;
+          onOpenActions();
+        }}
+        accessibilityHint="Antippen, um ein Spiel mit diesem Ansager zu erfassen. Gedrückt halten, um Spieleraktionen zu öffnen."
         style={({ pressed }) => [
           styles.playerIdentity,
           pressed && styles.rowPressed,
@@ -1126,7 +1254,16 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
       >
         <CardStackIcon isDealer={isDealer} />
         <View style={styles.playerCopy}>
-          <Text style={styles.playerName}>{player.name}</Text>
+          <Text
+            style={[styles.playerName, player.isPaused && { opacity: 0.5 }]}
+          >
+            {player.name}
+          </Text>
+          {player.isPaused ? (
+            <AppText style={styles.dealerLabel}>Pausiert</AppText>
+          ) : !participating ? (
+            <AppText style={styles.dealerLabel}>Setzt aus</AppText>
+          ) : null}
           {isDealer ? (
             <AppText style={styles.dealerLabel}>Geber</AppText>
           ) : null}
@@ -1143,11 +1280,15 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         {isPositive ? '+' : ''}
         {formatAmount(player.amount)}
       </Text>
-      <CoinMultiplierBadge
-        coinCount={player.placedCoins}
-        playerName={player.name}
-        onPress={handlePressCoin}
-      />
+      {participating ? (
+        <CoinMultiplierBadge
+          coinCount={player.placedCoins}
+          playerName={player.name}
+          onPress={handlePressCoin}
+        />
+      ) : (
+        <View style={styles.coinColumn} />
+      )}
     </View>
   );
 });
@@ -1321,16 +1462,34 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
   return (
     <MatchHistoryCard
       compact
+      displayGameType={formatRoundGameType(round.gameType, round.suit)}
+      customAmounts={
+        isCustomBooking(round)
+          ? round.customAmounts!.map((entry) => ({
+              name: getPlayerName(entry.playerId),
+              amount: entry.amount,
+            }))
+          : undefined
+      }
       accessibilityLabel={`Runde ${round.id} bearbeiten`}
       onPress={
-        !round.stockAction || ['deposit', 'payout'].includes(round.stockAction)
+        !round.stockAction ||
+        ['deposit', 'payout', 'double'].includes(round.stockAction)
           ? () => onEdit(round)
           : undefined
       }
-      details={
-        round.declarerId && round.partnerId
-          ? `Spieler: ${getPlayerName(round.declarerId)} · Partner: ${getPlayerName(round.partnerId)} · ${roundWinnerIds(round).includes(round.declarerId) ? 'gewonnen' : 'verloren'}`
+      stockMovement={
+        round.stockRulesVersion === 1 &&
+        (round.stockAction === 'double' || round.stockAction === 'payout')
+          ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
           : undefined
+      }
+      details={
+        isStockBooking(round) || isCustomBooking(round)
+          ? undefined
+          : round.declarerId
+            ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
+            : 'Ansager: unbekannt'
       }
       stockBooking={
         round.stockAction === 'carryIn'
@@ -1946,6 +2105,7 @@ const styles = StyleSheet.create({
     paddingVertical: authSpacing.sm,
   },
   roundCountText: {
+    textAlign: 'center',
     color: screenColors.soft,
     fontSize: 12,
     fontWeight: '900',

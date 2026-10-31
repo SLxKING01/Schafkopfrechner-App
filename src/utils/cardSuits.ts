@@ -26,7 +26,7 @@ export function formatRoundGameType(gameType: string, suit?: CardSuit) {
     (gameType === 'sauspiel'
       ? 'Sauspiel'
       : gameType === 'custom'
-        ? 'Freies Spiel'
+        ? 'Eigenes Spiel'
         : gameType);
   if (!suit || !supportsCardSuit(gameType)) return label;
   const prefix = cardSuits.find(({ id }) => id === suit)?.label;

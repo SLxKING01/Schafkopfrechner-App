@@ -66,7 +66,9 @@ jest.mock('lucide-react-native', () => {
 it('uses the agreed tariffs and includes Ramsch among the base games', () => {
   const settings = createDefaultTableSettings();
   for (const [id, entry] of Object.entries(settings.games)) {
-    expect(entry.value).toBe(['rufspiel', 'ramsch'].includes(id) ? 0.2 : 0.5);
+    expect(entry.value).toBe(
+      ['rufspiel', 'ramsch', 'stock'].includes(id) ? 0.2 : 0.5,
+    );
   }
   expect(gameRuleDefinitions.find(({ id }) => id === 'ramsch')?.section).toBe(
     'base',
@@ -139,5 +141,98 @@ it('steps tariffs by ten cents, stops at zero, and preserves tariffs when toggle
           node.props.accessibilityLabel === 'Leger aktivieren',
       ),
   ).toBe(true);
+  await act(async () => view.unmount());
+});
+
+it('offers exclusive Stock/Ramsch/off choices and an independent first stake proposal', async () => {
+  let observed = createDefaultTableSettings();
+  observed.games.rufspiel.value = 0.35;
+  function Editor() {
+    const [settings, setSettings] = useState(observed);
+    return (
+      <TableSettingsEditor
+        settings={settings}
+        onChange={(next) => {
+          observed = next;
+          setSettings(next);
+        }}
+      />
+    );
+  }
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<Editor />);
+  });
+  const press = async (label: string) =>
+    act(async () =>
+      view.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(
+          (n: { props: { onPress?: unknown } }) =>
+            typeof n.props.onPress === 'function',
+        )!
+        .props.onPress(),
+    );
+  await press('Weiter-Regel Stock');
+  expect(observed.games.stock).toMatchObject({ enabled: true, value: 0.35 });
+  expect(observed.games.ramsch.enabled).toBe(false);
+  await press('Stock: Tarif um 0,10 € erhöhen');
+  expect(observed.games.stock.value).toBe(0.45);
+  expect(observed.games.rufspiel.value).toBe(0.35);
+  await press('Weiter-Regel Ramsch');
+  expect(observed.games.ramsch.enabled).toBe(true);
+  expect(observed.games.stock.enabled).toBe(false);
+  await press('Weiter-Regel Beides aus');
+  expect(observed.games.stock.enabled).toBe(false);
+  expect(observed.games.ramsch.enabled).toBe(false);
+  await press('Weiter-Regel Stock');
+  expect(observed.games.stock.value).toBe(0.45);
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Stock aktivieren' }),
+  ).toHaveLength(0);
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Ramsch aktivieren' }),
+  ).toHaveLength(0);
+  await act(async () => view.unmount());
+});
+it('explains a funded Stock mode-switch refusal while allowing changes to future stakes', async () => {
+  let observed = createDefaultTableSettings();
+  observed.games.stock.enabled = true;
+  observed.stockStakeConfigured = true;
+  function Editor() {
+    const [settings, setSettings] = useState(observed);
+    return (
+      <TableSettingsEditor
+        stockBalanceCents={80}
+        settings={settings}
+        onChange={(next) => {
+          observed = next;
+          setSettings(next);
+        }}
+      />
+    );
+  }
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<Editor />);
+  });
+  const press = async (label: string) =>
+    act(async () =>
+      view.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(
+          (n: { props: { onPress?: unknown } }) =>
+            typeof n.props.onPress === 'function',
+        )!
+        .props.onPress(),
+    );
+  await press('Weiter-Regel Ramsch');
+  expect(observed.games.stock.enabled).toBe(true);
+  expect(observed.games.ramsch.enabled).toBe(false);
+  expect(
+    view.root.findAllByProps({ accessibilityRole: 'alert' }).length,
+  ).toBeGreaterThan(0);
+  await press('Stock: Tarif um 0,10 € erhöhen');
+  expect(observed.games.stock.value).toBe(0.3);
   await act(async () => view.unmount());
 });

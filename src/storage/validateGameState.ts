@@ -13,7 +13,9 @@ import {
   isValidRound,
   toSafeCents,
 } from '../utils/accounting';
+import { outstandingBalances } from '../utils/interimPayments';
 import { isValidRoundMetadata } from '../utils/roundTariff';
+import { replayStockRules } from '../utils/stockRules';
 
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -23,7 +25,13 @@ const text = (value: unknown): value is string =>
 function players(value: unknown): value is Player[] {
   return (
     Array.isArray(value) &&
-    value.every((p) => record(p) && text(p.id) && text(p.name)) &&
+    value.every(
+      (p) =>
+        record(p) &&
+        text(p.id) &&
+        text(p.name) &&
+        (p.isPaused === undefined || typeof p.isPaused === 'boolean'),
+    ) &&
     hasUniquePlayerIds(value)
   );
 }
@@ -47,6 +55,8 @@ function table(value: unknown): value is GameTable {
 function settings(value: unknown): boolean {
   return (
     record(value) &&
+    (value.stockStakeConfigured === undefined ||
+      typeof value.stockStakeConfigured === 'boolean') &&
     (value.gameRules === undefined ||
       (record(value.gameRules) &&
         Object.values(value.gameRules).every(
@@ -137,6 +147,21 @@ function day(value: unknown): boolean {
   )
     return false;
   try {
+    const storedRounds = value.rounds as unknown as GameRound[];
+    const replayed = replayStockRules(
+      storedRounds,
+      value.currentTable as GameTable | null,
+    );
+    if (
+      replayed.some(
+        (r, i) =>
+          r.stockRulesVersion === 1 &&
+          (r.stockAction !== storedRounds[i].stockAction ||
+            r.stockBeforeCents !== storedRounds[i].stockBeforeCents ||
+            r.stockAfterCents !== storedRounds[i].stockAfterCents),
+      )
+    )
+      return false;
     const expected = calculateRoundBalances(
       roster,
       value.rounds as unknown as GameRound[],
@@ -182,11 +207,19 @@ function day(value: unknown): boolean {
     )
   )
     return false;
+  let outstanding;
+  try {
+    const payments = (value.currentTable as GameTable | null)?.interimPayments;
+    if (payments !== undefined && !Array.isArray(payments)) return false;
+    outstanding = outstandingBalances(
+      value.balances as { playerId: string; amount: number }[],
+      payments,
+    );
+  } catch {
+    return false;
+  }
   const remaining = new Map(
-    (value.balances as { playerId: string; amount: number }[]).map((b) => [
-      b.playerId,
-      toSafeCents(b.amount)!,
-    ]),
+    outstanding.map((b) => [b.playerId, toSafeCents(b.amount)!]),
   );
   const stock = getStockBalanceCents(value.rounds as unknown as GameRound[]);
   if (stock > 0)

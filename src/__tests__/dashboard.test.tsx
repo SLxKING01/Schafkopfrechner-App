@@ -9,6 +9,7 @@ import { useDashboardIdentityStore } from '../store/dashboardIdentityStore';
 import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
+import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 
 const renderer = jest.requireActual('react-test-renderer');
 const mockNavigate = jest.fn();
@@ -61,7 +62,7 @@ it('switches between overall, player and table statistics and opens a selected t
       isLocal: true,
     })),
   );
-  useGameStore.getState().addRound({
+  seedLegacyRound({
     gameType: 'rufspiel',
     winnerId: 'a',
     winnerIds: ['a', 'b'],
@@ -71,7 +72,7 @@ it('switches between overall, player and table statistics and opens a selected t
     amount: 0.4,
     suit: 'eichel',
   });
-  useGameStore.getState().addRound({
+  seedLegacyRound({
     gameType: 'rufspiel',
     winnerId: 'c',
     winnerIds: ['c', 'd'],
@@ -144,7 +145,7 @@ function table() {
     { id: 'a', name: 'Anna', isLocal: true },
     { id: 'b', name: 'Ben', isLocal: true },
   ]);
-  useGameStore.getState().addRound({
+  seedLegacyRound({
     winnerId: 'a',
     loserIds: ['b'],
     amount: 1.2,
@@ -222,7 +223,7 @@ it('counts unpaid tables rather than transfer rows and offers each table when se
       name,
       ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
     );
-    useGameStore.getState().addRound({
+    seedLegacyRound({
       gameType: 'solo',
       winnerId: 'a',
       loserIds: ['b', 'c', 'd'],

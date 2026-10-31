@@ -1,11 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
 import { FlatList, Platform } from 'react-native';
 
+import { GoldButton } from '../components/auth/GoldButton';
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
 import { SettlementCard } from '../components/game/SettlementCard';
 import { GameLobbyScreen } from '../screens/app/GameLobbyScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
+import { reliableStorage } from '../storage/reliableStorage';
 import { useGameStore } from '../store/gameStore';
+import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 
 const renderer = jest.requireActual('react-test-renderer');
 const mockNavigate = jest.fn();
@@ -208,7 +212,7 @@ it('opens an archived evening alongside a new table and updates only its payment
     { id: 'b', name: 'Max', isLocal: true },
   ];
   useGameStore.getState().createTable('Archivabend', oldPlayers);
-  useGameStore.getState().addRound({
+  seedLegacyRound({
     winnerId: 'a',
     loserIds: ['b'],
     amount: 12.3,
@@ -268,9 +272,12 @@ it('starts creating a new table without clearing the completed evening on cancel
     { id: 'a', name: 'Anna', isLocal: true },
     { id: 'b', name: 'Max', isLocal: true },
   ]);
-  useGameStore
-    .getState()
-    .addRound({ winnerId: 'a', loserIds: ['b'], amount: 10, gameType: 'solo' });
+  seedLegacyRound({
+    winnerId: 'a',
+    loserIds: ['b'],
+    amount: 10,
+    gameType: 'solo',
+  });
   useGameStore.getState().finishGameDay();
   const current = useGameStore.getState().currentTable;
   let view: ReturnType<typeof renderer.create>;
@@ -293,4 +300,131 @@ it('starts creating a new table without clearing the completed evening on cancel
   expect(useGameStore.getState().currentTable).toEqual(current);
   expect(useGameStore.getState().archivedGameDays[0].rounds).toHaveLength(1);
   await act(async () => view.unmount());
+});
+
+it('puts the saved payment plan first and expands end balances without rebuilding payments', async () => {
+  useGameStore.getState().createTable('Abrechnungsprüfung', [
+    { id: 'a', name: 'Anna', isLocal: true },
+    { id: 'b', name: 'Simon', isLocal: true },
+  ]);
+  seedLegacyRound({
+    winnerId: 'a',
+    loserIds: ['b'],
+    amount: 5,
+    gameType: 'rufspiel',
+  });
+  useGameStore.getState().finishGameDay();
+  const saved = structuredClone(useGameStore.getState().archivedGameDays[0]);
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <SettlementScreen
+        navigation={{ navigate: mockNavigate } as never}
+        route={{ params: { tableId: saved.table.id } } as never}
+      />,
+    );
+  });
+  expect(JSON.stringify(view.toJSON())).toContain('1 Zahlung zum Ausgleichen');
+  const disclosure = () =>
+    view.root.findByProps({ accessibilityLabel: 'Endstände anzeigen' });
+  expect(disclosure().props.accessibilityState.expanded).toBe(false);
+  await act(async () => disclosure().props.onPress());
+  expect(disclosure().props.accessibilityState.expanded).toBe(true);
+  expect(JSON.stringify(view.toJSON())).toContain('+');
+  await act(async () =>
+    view.root.findByType(SettlementCard).props.onMarkPaid(),
+  );
+  expect(JSON.stringify(view.toJSON())).toContain('Keine Zahlungen offen');
+  expect(useGameStore.getState().archivedGameDays[0].settlements).toEqual(
+    saved.settlements.map((p) => ({ ...p, isPaid: true })),
+  );
+  await act(async () => view.unmount());
+});
+
+async function mountInterim() {
+  useGameStore.getState().createTable('Laufender Abend', [
+    { id: 'a', name: 'Anna', isLocal: true },
+    { id: 'b', name: 'Simon', isLocal: true },
+  ]);
+  seedLegacyRound({
+    gameType: 'rufspiel',
+    winnerId: 'a',
+    loserIds: ['b'],
+    amount: 10,
+  });
+  await reliableStorage.flush();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <SettlementScreen
+        navigation={{ navigate: mockNavigate } as never}
+        route={
+          {
+            params: { tableId: useGameStore.getState().currentTable!.id },
+          } as never
+        }
+      />,
+    );
+  });
+  const press = async (title: string) => {
+    const node = view.root
+      .findAllByType(GoldButton)
+      .find((n: { props: { title: string } }) => n.props.title === title)!;
+    await act(async () => node.props.onPress());
+  };
+  return { view: view!, press };
+}
+it('records partial and full payments through the live table without closing or deleting games', async () => {
+  const ui = await mountInterim();
+  const label = 'Simon an Anna: Zwischenzahlung erfassen';
+  await act(async () =>
+    ui.view.root.findByProps({ accessibilityLabel: label }).props.onPress(),
+  );
+  await act(async () =>
+    ui.view.root
+      .findByProps({ accessibilityLabel: 'Bereits bezahlter Betrag' })
+      .props.onChangeText('6,00'),
+  );
+  await ui.press('Zwischenzahlung speichern');
+  expect(useGameStore.getState().settlements[0].amount).toBe(4);
+  await ui.press('Alles ausgleichen');
+  expect(useGameStore.getState().currentTable!.interimPayments).toHaveLength(1);
+  await ui.press('Alle Zahlungen als bezahlt erfassen');
+  expect(useGameStore.getState().settlements).toEqual([]);
+  expect(useGameStore.getState().activeGame).toBe(true);
+  expect(useGameStore.getState().rounds).toHaveLength(1);
+  expect(useGameStore.getState().currentTable!.interimPayments).toHaveLength(2);
+  await act(async () => ui.view.unmount());
+});
+it('retries a failed payment write without registering another payment', async () => {
+  const ui = await mountInterim();
+  await act(async () =>
+    ui.view.root
+      .findByProps({
+        accessibilityLabel: 'Simon an Anna: Zwischenzahlung erfassen',
+      })
+      .props.onPress(),
+  );
+  const originalWrite = jest
+    .mocked(AsyncStorage.setItem)
+    .getMockImplementation()!;
+  const failure = jest
+    .spyOn(AsyncStorage, 'setItem')
+    .mockImplementation(async (key, value) => {
+      if (key === 'schafkopfrechner-games') throw new Error('disk full');
+      return originalWrite(key, value);
+    });
+  await ui.press('Zwischenzahlung speichern');
+  expect(JSON.stringify(ui.view.toJSON())).toContain(
+    'noch nicht auf dem Gerät gesichert',
+  );
+  expect(useGameStore.getState().currentTable!.interimPayments).toHaveLength(1);
+  failure.mockImplementation(originalWrite);
+  await ui.press('Erneut auf Gerät sichern');
+  expect(useGameStore.getState().currentTable!.interimPayments).toHaveLength(1);
+  expect(
+    JSON.parse((await AsyncStorage.getItem('schafkopfrechner-games'))!).state
+      .currentTable.interimPayments,
+  ).toHaveLength(1);
+  await act(async () => ui.view.unmount());
 });

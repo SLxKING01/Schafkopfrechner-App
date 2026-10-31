@@ -10,7 +10,7 @@
 
 ## Entwürfe
 
-Schließen fragt bei einer geänderten Eingabe nach „Weiter bearbeiten“, „Entwurf behalten“ oder „Entwurf verwerfen“. Dies gilt für neue Runden und Korrekturen gleichermaßen. Behaltene Entwürfe werden innerhalb der laufenden App-Sitzung auch nach dem Wechsel zwischen verschiedenen Korrekturen wieder geöffnet. Sie werden nicht über einen vollständigen App-Neustart hinweg gespeichert. Eine zwischenzeitlich geänderte Originalrunde oder Spielerbesetzung macht einen alten Korrekturentwurf ungültig.
+Schließen fragt bei einer geänderten Eingabe nach „Weiter bearbeiten“, „Entwurf behalten“ oder „Entwurf verwerfen“. Dies gilt für neue Runden und Korrekturen gleichermaßen. „Entwurf behalten“ sichert neue Eingaben und Korrekturen lokal auf dem Gerät, getrennt nach Konto beziehungsweise Gast, Tisch und Runde. Sie werden auch nach einem vollständigen App-Neustart beim erneuten Öffnen der Eingabe wiederhergestellt. Bei einem Speicherfehler bleibt der Dialog mit einer Fehlermeldung offen. Eine geänderte Originalrunde oder Spielerbesetzung macht einen Korrekturentwurf ungültig; bei neuen Runden gilt dies auch für geänderte Runden, Tarife, Geber oder Multiplikatoren. Verwerfen oder erfolgreiches Eintragen entfernt den gespeicherten Entwurf. Ohne „Entwurf behalten“ wird eine angefangene Eingabe nicht automatisch gesichert. Entwürfe werden nicht in die Cloud übertragen.
 
 ## Was „gespeichert“ bedeutet
 

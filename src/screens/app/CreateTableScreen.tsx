@@ -66,7 +66,7 @@ const screenColors = {
   shadow: '#000000',
 };
 
-const maxPlayers = 8;
+const maxPlayers = 5;
 
 export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   const playerInputRef = useRef<ComponentRef<typeof TextInput>>(null);

@@ -9,6 +9,9 @@ export function createGameRound(
 ): GameRound {
   // TODO: sync round creation to Supabase Realtime tables later.
   return {
+    ...(payload.participantIds
+      ? { participantIds: [...payload.participantIds] }
+      : {}),
     id: crypto.randomUUID(),
     tableId,
     winnerId: payload.winnerId,
@@ -16,6 +19,9 @@ export function createGameRound(
     loserIds: [...payload.loserIds],
     amount: payload.amount,
     gameType: payload.gameType,
+    ...(payload.customAmounts
+      ? { customAmounts: payload.customAmounts.map((entry) => ({ ...entry })) }
+      : {}),
     ...(payload.suit ? { suit: payload.suit } : {}),
     ...(payload.stockAction ? { stockAction: payload.stockAction } : {}),
     ...(payload.stockCompletesDeal !== undefined

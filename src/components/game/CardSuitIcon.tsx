@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import type { CardSuit } from '../../types/game';
@@ -21,7 +22,14 @@ export function CardSuitIcon({
       'M10 3a2 2 0 0 1 4 0v2h-4z M12 6a7 7 0 0 1 7 7v4H5v-4a7 7 0 0 1 7-7z M5 18h14v2H5z M10 21h4v2h-4z',
   };
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessible={false}>
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      {...(Platform.OS === 'web'
+        ? { 'aria-hidden': true }
+        : { accessible: false })}
+    >
       <Path d={paths[suit]} fill={color} />
     </Svg>
   );
