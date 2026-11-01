@@ -94,6 +94,12 @@ it('opens a real table on the web', async () => {
       .props.onPress();
   });
   expect(mockNavigate).toHaveBeenCalledWith('ActiveGame');
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Am Tisch weiterspielen' }),
+  ).toHaveLength(0);
+  expect(
+    view.root.findAllByProps({ title: 'Am Tisch weiterspielen' }),
+  ).toHaveLength(0);
   await act(async () => view.unmount());
 });
 

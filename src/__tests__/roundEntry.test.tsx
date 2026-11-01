@@ -96,13 +96,18 @@ afterEach(async () => {
   await reliableStorage.retryWrites();
   await reliableStorage.flush();
 });
-async function mount(editingRound: GameRound | null = null, roster = players) {
+async function mount(
+  editingRound: GameRound | null = null,
+  roster = players,
+  initialPlayerId?: string,
+) {
   const onSaved = jest.fn();
   const onClose = jest.fn();
   const props = {
     table: useGameStore.getState().currentTable,
     players: roster,
     editingRound,
+    initialPlayerId,
     visible: true,
     onClose,
     onDismiss: jest.fn(),
@@ -399,7 +404,7 @@ it('automatically completes two result teams without separate declarer or partne
   expect(ui.onSaved).toHaveBeenCalledTimes(1);
   await act(async () => ui.view.unmount());
 });
-it('changes teams on an older round without keeping incorrect caller metadata', async () => {
+it('keeps the known caller and updates their partner when correcting teams', async () => {
   const original = addPartnerRound();
   const ui = await mount(original);
   await ui.press('C gewonnen');
@@ -409,8 +414,9 @@ it('changes teams on an older round without keeping incorrect caller metadata', 
   expect(round.id).toBe(original.id);
   expect(round.winnerIds).toEqual(['c', 'b']);
   expect(round.loserIds).toEqual(['a', 'd']);
-  expect(round.declarerId).toBeUndefined();
-  expect(round.partnerId).toBeUndefined();
+  expect(round.declarerId).toBe('a');
+  expect(round.declarerWon).toBe(false);
+  expect(round.partnerId).toBe('d');
   await act(async () => ui.view.unmount());
 });
 it('corrects an older game type using its original tariffs and immutable Leger context', async () => {
@@ -511,3 +517,57 @@ it('does not confirm a failed disk write and retries the same round without a du
   expect(stored.state.rounds[0].id).toBe(useGameStore.getState().rounds[0].id);
   await act(async () => ui.view.unmount());
 });
+
+it.each(['rufspiel', 'hochzeit'] as const)(
+  'stores the clicked %s declarer, searched partner and a lost result',
+  async (gameType) => {
+    const settings = structuredClone(
+      useGameStore.getState().currentTable!.settings,
+    );
+    settings.games[gameType].enabled = true;
+    useGameStore.getState().updateCurrentTableSettings(settings);
+    const ui = await mount(null, players, 'a');
+    await ui.press(
+      `Spieltyp ${gameType === 'rufspiel' ? 'Rufspiel' : 'Hochzeit'}`,
+    );
+    await ui.press('A verloren');
+    await ui.press('B verloren');
+    expect(JSON.stringify(ui.view.toJSON())).toContain('Gesuchter');
+    await ui.press('Runde speichern');
+    expect(useGameStore.getState().rounds[0]).toMatchObject({
+      gameType,
+      declarerId: 'a',
+      partnerId: 'b',
+      declarerWon: false,
+      winnerIds: ['c', 'd'],
+      loserIds: ['a', 'b'],
+    });
+    await act(async () => ui.view.unmount());
+  },
+);
+it.each(['solo', 'wenz', 'geier'] as const)(
+  'stores the clicked %s solo player and their loss without a partner',
+  async (gameType) => {
+    const settings = structuredClone(
+      useGameStore.getState().currentTable!.settings,
+    );
+    settings.games[gameType].enabled = true;
+    useGameStore.getState().updateCurrentTableSettings(settings);
+    const ui = await mount(null, players, 'a');
+    await ui.press(
+      `Spieltyp ${gameType === 'solo' ? 'Solo' : gameType === 'wenz' ? 'Wenz' : 'Geier'}`,
+    );
+    await ui.press('Alleinspieler verloren');
+    await ui.press('Runde speichern');
+    const round = useGameStore.getState().rounds[0];
+    expect(round).toMatchObject({
+      gameType,
+      declarerId: 'a',
+      declarerWon: false,
+      loserIds: ['a'],
+      winnerIds: ['b', 'c', 'd'],
+    });
+    expect(round.partnerId).toBeUndefined();
+    await act(async () => ui.view.unmount());
+  },
+);

@@ -1,14 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ArrowDown,
   ArrowLeft,
-  ArrowUp,
-  ChevronRight,
   Ellipsis,
   History,
-  ListOrdered,
-  Plus,
+  Menu,
   ReceiptText,
   SlidersHorizontal,
   Trash2,
@@ -23,18 +19,17 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import DraggableFlatList from 'react-native-draggable-flatlist';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Ellipse, G, Path, Rect } from 'react-native-svg';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
@@ -43,7 +38,7 @@ import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
 import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
-import { SyncStatus } from '../../components/game/SyncStatus';
+import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import type { AppStackScreenProps } from '../../navigation/types';
@@ -132,7 +127,6 @@ function getPlayerVisual(index: number) {
 }
 
 export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
-  const insets = useSafeAreaInsets();
   const currentTable = useGameStore((state) => state.currentTable);
   const players = useGameStore((state) => state.players);
   const setPlayerOrder = useGameStore((state) => state.setPlayerOrder);
@@ -152,10 +146,10 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     history: 0,
   });
   const [menuVisible, setMenuVisible] = useState(false);
-  const [seatOrderVisible, setSeatOrderVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
   const [composerSession, setComposerSession] = useState(0);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
   const editingRound =
@@ -276,7 +270,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     setActiveTab('history');
   }, [activeTab]);
 
-  const openRoundComposer = useCallback(() => {
+  const openRoundComposer = useCallback((player: RankedPlayer) => {
+    setSelectedPlayerId(player.id);
     setComposerSession((value) => value + 1);
     triggerSelectionHaptic();
     setRoundSaved(false);
@@ -287,14 +282,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   const closeRoundComposer = useCallback(() => {
     triggerSelectionHaptic();
     setRoundComposerVisible(false);
-  }, []);
-
-  const showPlayerDetails = useCallback((player: RankedPlayer) => {
-    triggerSelectionHaptic();
-    Alert.alert(
-      player.name,
-      `Aktueller Kontostand: ${formatAmount(player.amount)}`,
-    );
   }, []);
 
   const finishDay = useCallback(() => {
@@ -456,29 +443,13 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </View>
 
+      <SharedTablePanel />
       <SegmentedTabs
         activeTab={activeTab}
         onShowHistory={showHistoryTab}
         onShowPlayers={showPlayersTab}
       />
     </>
-  );
-
-  const finishDayButton = (
-    <Pressable
-      accessibilityHint="Schliesst den Spieltag ab und zeigt die Abrechnung"
-      accessibilityLabel="Spieltag abschliessen"
-      accessibilityRole="button"
-      hitSlop={touchHitSlop}
-      onPress={finishDay}
-      style={({ pressed }) => [
-        styles.finishButton,
-        pressed && styles.finishPressed,
-      ]}
-    >
-      <AppText style={styles.finishText}>Spieltag abschließen</AppText>
-      <ChevronRight color={screenColors.gold} size={18} strokeWidth={2.4} />
-    </Pressable>
   );
 
   return (
@@ -529,7 +500,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <EmptyGameState
               icon={ReceiptText}
               title="Noch keine Runden"
-              message="Tippe auf Spiel eintragen, um das erste Spiel zu erfassen."
+              message="Tippe unter Spieler auf den Spieler, der gespielt hat, um ein Spiel zu erfassen."
             />
           }
           ListHeaderComponent={
@@ -573,15 +544,26 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           }
         />
       ) : (
-        <FlatList
+        <DraggableFlatList
           testID="player-standings-list"
+          containerStyle={styles.scroller}
+          activationDistance={8}
+          onDragBegin={triggerSelectionHaptic}
+          onDragEnd={({ data }) => {
+            if (!setPlayerOrder(data.map((player) => player.id))) {
+              Alert.alert(
+                'Reihenfolge nicht gespeichert',
+                'Die Spieler haben sich geändert. Bitte erneut versuchen.',
+              );
+            }
+          }}
           data={rankedPlayers}
           keyExtractor={(player) => player.id}
           style={styles.scroller}
           contentContainerStyle={[styles.content, { paddingBottom: 16 }]}
           contentOffset={{ x: 0, y: scrollOffsets.players }}
-          onScroll={(event) => {
-            scrollPositions.current.players = event.nativeEvent.contentOffset.y;
+          onScrollOffsetChange={(offset) => {
+            scrollPositions.current.players = offset;
           }}
           scrollEnabled
           scrollEventThrottle={16}
@@ -592,16 +574,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               {tableOverviewHeader}
               <View style={[styles.stack, styles.dragTableHeader]}>
                 <View style={styles.playerTableHeader}>
-                  <View style={[styles.nameColumn, styles.orderHeader]}>
+                  <View style={styles.nameColumn}>
                     <AppText style={styles.columnLabel}>Spieler</AppText>
-                    <Pressable
-                      accessibilityLabel="Sitzreihenfolge ändern"
-                      accessibilityRole="button"
-                      onPress={() => setSeatOrderVisible(true)}
-                      style={styles.orderIcon}
-                    >
-                      <ListOrdered size={18} color={screenColors.gold} />
-                    </Pressable>
                   </View>
                   <AppText style={[styles.columnLabel, styles.balanceColumn]}>
                     Saldo
@@ -609,26 +583,56 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   <AppText style={[styles.columnLabel, styles.coinColumn]}>
                     Leger
                   </AppText>
+                  <View style={styles.dragHandle} />
                 </View>
               </View>
             </>
           }
-          renderItem={({ item: player }) => (
-            <View style={styles.dragTableRow}>
+          renderItem={({ item: player, drag, isActive }) => (
+            <View
+              style={[styles.dragTableRow, isActive && styles.draggedPlayerRow]}
+            >
               <PlayerRankingRow
                 isDealer={player.id === currentDealerId}
                 player={player}
-                onPressPlayer={showPlayerDetails}
+                onPressPlayer={openRoundComposer}
                 onPressCoin={togglePlacedCoin}
-                onReorder={() => setSeatOrderVisible(true)}
+                onDrag={drag}
+                dragging={isActive}
               />
             </View>
           )}
           ListFooterComponent={
             <View>
               <View style={styles.dragTableEnd} />
+              <View
+                style={styles.multiplierKpi}
+                accessibilityLabel={`Gesamtmultiplikator: ${roundMultiplier}x`}
+                accessibilityLiveRegion="polite"
+              >
+                <AppText style={styles.multiplierKpiLabel}>
+                  Gesamtfaktor · {placedCoinCount} Leger
+                  {turboRamschEnabled ? ' + Turbo' : ''}
+                </AppText>
+                <AppText style={styles.multiplierKpiValue}>
+                  {roundMultiplier}×
+                </AppText>
+              </View>
+              {currentTable?.settings.games.stock.enabled ||
+              getStockBalanceCents(rounds) > 0 ? (
+                <View
+                  accessible
+                  accessibilityLabel={`Stock: ${formatAmount(getStockBalanceCents(rounds) / 100)}`}
+                >
+                  <AppText style={styles.multiplierKpiLabel}>
+                    Stock: {formatAmount(getStockBalanceCents(rounds) / 100)}
+                  </AppText>
+                </View>
+              ) : null}
+
               <AppText style={styles.dragHint}>
-                Sitzreihenfolge über das Listensymbol oder langes Drücken ändern
+                Spieler antippen, um ein Spiel einzutragen. Zum Umsortieren die
+                drei Striche rechts ziehen.
               </AppText>
               {balances.every((balance) => balance.amount === 0) ? (
                 <AppText style={styles.balancedHint}>
@@ -662,51 +666,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         />
       )}
 
-      <View
-        style={[
-          styles.actionDock,
-          { paddingBottom: Math.max(8, insets.bottom > 0 ? 4 : 12) },
-        ]}
-      >
-        <SyncStatus />
-        <View
-          style={styles.multiplierKpi}
-          accessibilityLabel={`Gesamtmultiplikator: ${roundMultiplier}x`}
-          accessibilityLiveRegion="polite"
-        >
-          <AppText style={styles.multiplierKpiLabel}>
-            Gesamtfaktor · {placedCoinCount} Leger
-            {turboRamschEnabled ? ' + Turbo' : ''}
-          </AppText>
-          <AppText style={styles.multiplierKpiValue}>
-            {roundMultiplier}×
-          </AppText>
-        </View>
-        {currentTable?.settings.games.stock.enabled ||
-        getStockBalanceCents(rounds) > 0 ? (
-          <View
-            accessible
-            accessibilityLabel={`Stock: ${formatAmount(getStockBalanceCents(rounds) / 100)}`}
-          >
-            <AppText style={styles.multiplierKpiLabel}>
-              Stock: {formatAmount(getStockBalanceCents(rounds) / 100)}
-            </AppText>
-          </View>
-        ) : null}
-        <Pressable
-          accessibilityLabel="Spiel eintragen"
-          accessibilityRole="button"
-          onPress={openRoundComposer}
-          style={({ pressed }) => [
-            styles.addGameButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Plus color="#15241B" size={24} />
-          <AppText style={styles.addGameText}>Spiel eintragen</AppText>
-        </Pressable>
-        {finishDayButton}
-      </View>
       <Modal
         transparent
         visible={menuVisible}
@@ -751,6 +710,18 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Spieltag abschließen"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                finishDay();
+              }}
+            >
+              <ReceiptText color={screenColors.gold} size={20} />
+              <AppText style={styles.menuText}>Spieltag abschließen</AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Tisch archivieren"
               style={styles.menuItem}
               onPress={() => {
@@ -788,26 +759,12 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </Modal>
 
-      {seatOrderVisible ? (
-        <SeatOrderModal
-          players={players}
-          dealerId={currentDealerId}
-          onClose={() => setSeatOrderVisible(false)}
-          onSave={(ids) => {
-            if (setPlayerOrder(ids)) setSeatOrderVisible(false);
-            else
-              Alert.alert(
-                'Reihenfolge nicht gespeichert',
-                'Die Spieler haben sich geändert. Bitte öffne die Reihenfolge erneut.',
-              );
-          }}
-        />
-      ) : null}
       <RoundEntrySheet
         key={`${currentTable?.id ?? 'none'}:${editingRoundId ?? 'new-round'}:${composerSession}`}
         table={currentTable}
         players={players}
         editingRound={editingRound}
+        initialPlayerId={editingRound ? undefined : selectedPlayerId}
         visible={roundComposerVisible}
         onClose={closeRoundComposer}
         onDismiss={() => {
@@ -858,106 +815,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </Modal>
     </AuthBackground>
-  );
-}
-
-function SeatOrderModal({
-  players,
-  dealerId,
-  onClose,
-  onSave,
-}: {
-  players: Player[];
-  dealerId: string | null;
-  onClose: () => void;
-  onSave: (ids: string[]) => void;
-}) {
-  const [order, setOrder] = useState(() => players.map((player) => player.id));
-  const move = (index: number, offset: number) => {
-    setOrder((current) => {
-      const target = index + offset;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-  return (
-    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
-      <View style={styles.menuRoot}>
-        <Pressable
-          accessibilityLabel="Reihenfolge abbrechen"
-          accessibilityRole="button"
-          style={styles.menuBackdrop}
-          onPress={onClose}
-        />
-        <View style={[styles.menuCard, styles.orderCard]}>
-          <AppText style={styles.menuTitle}>Sitzreihenfolge</AppText>
-          <AppText style={styles.orderHelp}>
-            Ordne die Spieler wie am Tisch im Uhrzeigersinn. Der aktuelle Geber
-            bleibt erhalten; danach wird in dieser Reihenfolge weitergegeben.
-          </AppText>
-          <ScrollView style={styles.orderScroller}>
-            {order.map((id, index) => {
-              const player = players.find((candidate) => candidate.id === id);
-              if (!player) return null;
-              return (
-                <View key={id} style={styles.orderRow}>
-                  <AppText style={styles.orderNumber}>{index + 1}</AppText>
-                  <View style={styles.playerCopy}>
-                    <Text style={styles.playerName}>{player.name}</Text>
-                    {id === dealerId ? (
-                      <AppText style={styles.dealerLabel}>Geber</AppText>
-                    ) : null}
-                  </View>
-                  <Pressable
-                    accessibilityLabel={`${player.name} nach oben`}
-                    accessibilityRole="button"
-                    disabled={index === 0}
-                    accessibilityState={{ disabled: index === 0 }}
-                    style={[
-                      styles.orderIcon,
-                      index === 0 && styles.orderDisabled,
-                    ]}
-                    onPress={() => move(index, -1)}
-                  >
-                    <ArrowUp size={20} color={screenColors.gold} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityLabel={`${player.name} nach unten`}
-                    accessibilityRole="button"
-                    disabled={index === order.length - 1}
-                    accessibilityState={{
-                      disabled: index === order.length - 1,
-                    }}
-                    style={[
-                      styles.orderIcon,
-                      index === order.length - 1 && styles.orderDisabled,
-                    ]}
-                    onPress={() => move(index, 1)}
-                  >
-                    <ArrowDown size={20} color={screenColors.gold} />
-                  </Pressable>
-                </View>
-              );
-            })}
-          </ScrollView>
-          <GoldButton
-            title="Reihenfolge speichern"
-            accessibilityLabel="Reihenfolge speichern"
-            onPress={() => onSave(order)}
-          />
-          <Pressable
-            style={styles.menuItem}
-            accessibilityRole="button"
-            accessibilityLabel="Reihenfolge abbrechen"
-            onPress={onClose}
-          >
-            <AppText style={styles.menuText}>Abbrechen</AppText>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -1085,7 +942,8 @@ const SegmentButton = memo(function SegmentButton({
 });
 
 type PlayerRankingRowProps = {
-  onReorder: () => void;
+  onDrag: () => void;
+  dragging: boolean;
   isDealer: boolean;
   player: RankedPlayer;
   onPressCoin: (playerId: string) => void;
@@ -1093,7 +951,8 @@ type PlayerRankingRowProps = {
 };
 
 const PlayerRankingRow = memo(function PlayerRankingRow({
-  onReorder,
+  onDrag,
+  dragging,
   isDealer,
   onPressCoin,
   player,
@@ -1117,8 +976,8 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
         onPress={handlePress}
-        onLongPress={onReorder}
-        accessibilityHint="Gedrückt halten, um die Sitzreihenfolge zu ändern"
+        disabled={dragging}
+        accessibilityHint="Spiel für diesen Spieler eintragen"
         style={({ pressed }) => [
           styles.playerIdentity,
           pressed && styles.rowPressed,
@@ -1148,6 +1007,19 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         playerName={player.name}
         onPress={handlePressCoin}
       />
+      <Pressable
+        accessibilityLabel={`${player.name} verschieben`}
+        accessibilityHint="An den drei Strichen ziehen, um die Sitzreihenfolge zu ändern."
+        accessibilityRole="button"
+        accessibilityState={{ selected: dragging }}
+        onPressIn={onDrag}
+        style={styles.dragHandle}
+      >
+        <Menu
+          size={20}
+          color={dragging ? screenColors.gold : screenColors.soft}
+        />
+      </Pressable>
     </View>
   );
 });
@@ -1411,31 +1283,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
 
-  orderHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  orderIcon: {
-    minWidth: 44,
-    minHeight: 44,
+  dragHandle: {
+    width: 44,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  orderCard: { maxHeight: '85%' },
-  orderHelp: {
-    color: screenColors.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
-  },
-  orderScroller: { flexShrink: 1, marginBottom: 16 },
-  orderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 64,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: screenColors.border,
-  },
-  orderNumber: { color: screenColors.soft, fontSize: 12, width: 16 },
-  orderDisabled: { opacity: 0.25 },
 
   multiplierKpi: {
     flexDirection: 'row',

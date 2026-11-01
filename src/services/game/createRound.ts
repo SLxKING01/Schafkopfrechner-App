@@ -2,6 +2,7 @@ import * as crypto from 'expo-crypto';
 
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { CreateRoundPayload, GameRound } from '../../types/game';
+import { roundWinnerIds } from '../../utils/accounting';
 
 export function createGameRound(
   tableId: string,
@@ -21,7 +22,12 @@ export function createGameRound(
     ...(payload.stockCompletesDeal !== undefined
       ? { stockCompletesDeal: payload.stockCompletesDeal }
       : {}),
-    ...(payload.declarerId ? { declarerId: payload.declarerId } : {}),
+    ...(payload.declarerId
+      ? {
+          declarerId: payload.declarerId,
+          declarerWon: roundWinnerIds(payload).includes(payload.declarerId),
+        }
+      : {}),
     ...(payload.partnerId ? { partnerId: payload.partnerId } : {}),
     settingsSnapshot: normalizeTableSettings(payload.settingsSnapshot),
     createdAt: new Date().toISOString(),

@@ -1,4 +1,3 @@
-import { Ellipsis } from 'lucide-react-native';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import {
@@ -17,7 +16,6 @@ export function DashboardTotals({
   wins,
   known,
   onPress,
-  onManage,
   caption,
 }: {
   balance: number;
@@ -25,7 +23,6 @@ export function DashboardTotals({
   wins: number;
   known: boolean;
   onPress: () => void;
-  onManage?: () => void;
   caption: string;
 }) {
   const { width, fontScale } = useWindowDimensions();
@@ -53,19 +50,6 @@ export function DashboardTotals({
   return (
     <View>
       <View style={s.heroWrap}>
-        {onManage ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Spielerzuordnung ändern"
-            onPress={onManage}
-            style={({ pressed }) => [
-              s.manage,
-              pressed && authInteraction.pressed,
-            ]}
-          >
-            <Ellipsis size={22} color={c.textSecondary} />
-          </Pressable>
-        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Gesamtbilanz: ${balanceItem.value}`}
@@ -86,11 +70,7 @@ export function DashboardTotals({
             key={item.label}
             accessibilityRole="button"
             accessibilityLabel={`${item.label}: ${item.value}`}
-            accessibilityHint={
-              known
-                ? 'Öffnet die Statistik. Spielergebnisse ohne Stock und Zahlungen.'
-                : 'Spieler für deine persönlichen Werte zuordnen.'
-            }
+            accessibilityHint="Öffnet die Statistik. Spielergebnisse ohne Stock und Zahlungen."
             onPress={onPress}
             style={({ pressed }) => [
               s.item,
@@ -110,16 +90,6 @@ export function DashboardTotals({
 
 const s = StyleSheet.create({
   heroWrap: { position: 'relative' },
-  manage: {
-    position: 'absolute',
-    right: 0,
-    top: -space.xl,
-    zIndex: 1,
-    minWidth: authControlSizes.touch,
-    minHeight: authControlSizes.touch,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   hero: { alignItems: 'center', gap: space.sm, paddingVertical: space.lg },
   heroLabel: { ...authTextStyles.subhead, color: c.textSecondary },
   heroValue: {

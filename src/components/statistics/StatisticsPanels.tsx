@@ -369,9 +369,9 @@ export function GameTypeStatistics({
                     return !r.declarerId
                       ? 'Unbekannt'
                       : r.declarerId === id
-                        ? 'Selbst angesagt'
+                        ? 'Als Spielmacher'
                         : r.partnerId === id
-                          ? 'Als Partner'
+                          ? 'Als Gesuchter'
                           : 'Als Gegenpartei';
                   }).map((role) => (
                     <SummaryRow

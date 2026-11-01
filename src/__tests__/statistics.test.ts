@@ -230,3 +230,45 @@ it('preserves recorded round order instead of reordering corrections by timestam
   expect(trend.lows.a).toBe(0);
   expect(trend.leadChanges).toBe(1);
 });
+
+it('counts explicit declarer wins and losses for solos and Hochzeit separately from searched partners', () => {
+  const t = table([
+    round('1', {
+      gameType: 'solo',
+      declarerId: 'a',
+      partnerId: undefined,
+      declarerWon: true,
+      winnerIds: ['a'],
+      loserIds: ['b', 'c', 'd'],
+      amount: 3,
+    }),
+    round('2', {
+      gameType: 'wenz',
+      declarerId: 'a',
+      partnerId: undefined,
+      declarerWon: false,
+      winnerId: 'b',
+      winnerIds: ['b', 'c', 'd'],
+      loserIds: ['a'],
+      amount: 3,
+    }),
+    round('3', {
+      gameType: 'hochzeit',
+      declarerId: 'a',
+      partnerId: 'b',
+      declarerWon: false,
+      winnerId: 'c',
+      winnerIds: ['c', 'd'],
+      loserIds: ['a', 'b'],
+    }),
+  ]);
+  expect(t.rounds.map((r) => r.declarerWon)).toEqual([true, false, false]);
+  const entries = t.rounds.map((round) => ({ round, playerId: 'a' }));
+  expect(summarizeStatistics(entries)).toMatchObject({
+    own: 3,
+    ownWins: 1,
+    knownResults: 3,
+    wins: 1,
+  });
+  expect(t.rounds[2].partnerId).toBe('b');
+});

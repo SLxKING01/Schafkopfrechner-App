@@ -1,14 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { PlayerAccountsEditor } from '../../components/game/PlayerAccountsEditor';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { fingerprint } from '../../services/sync/syncGameState';
 import { useGameStore } from '../../store/gameStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { TableSettings } from '../../types/game';
@@ -36,16 +38,62 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
     [currentTable?.settings],
   );
   const [settings, setSettings] = useState<TableSettings>(initialSettings);
+  const baseline = useRef({
+    tableId: currentTable?.id,
+    settings: fingerprint(initialSettings),
+  });
 
-  const saveSettings = () => {
-    const didUpdate = updateCurrentTableSettings(settings);
+  const applySettings = (scope: 'future' | 'all') => {
+    const latest = useGameStore.getState().currentTable;
+    if (
+      latest?.id !== baseline.current.tableId ||
+      fingerprint(latest?.settings) !== baseline.current.settings
+    ) {
+      Alert.alert(
+        'Tarife inzwischen geändert',
+        'Bitte die Einstellungen schließen und erneut öffnen, um den aktuellen Stand zu bearbeiten.',
+      );
+      return;
+    }
+    const didUpdate = updateCurrentTableSettings(settings, scope);
 
     if (!didUpdate) {
-      Alert.alert('Kein Tisch aktiv', 'Erstelle zuerst einen Tisch.');
+      Alert.alert(
+        'Änderung nicht gespeichert',
+        'Der Tisch ist nicht mehr aktiv oder die bisherigen Spiele konnten mit diesen Tarifen nicht neu berechnet werden.',
+      );
       return;
     }
 
     navigation.goBack();
+  };
+
+  const saveSettings = () => {
+    const state = useGameStore.getState();
+    const previous = state.currentTable?.settings;
+    const tariffSignature = (value: TableSettings) =>
+      JSON.stringify(
+        [value.games, value.bonusRules].map((entries) =>
+          Object.entries(entries)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([id, entry]) => [id, entry.value, entry.mode]),
+        ),
+      );
+    const changed =
+      previous && tariffSignature(settings) !== tariffSignature(previous);
+    if (!changed || !state.rounds.length) {
+      applySettings('future');
+      return;
+    }
+    Alert.alert(
+      'Ab wann gelten die neuen Tarife?',
+      'Nur für neue Spiele oder auch rückwirkend für alle bisherigen Spiele dieses Tisches? Manuell eingetragene Beträge bleiben unverändert.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Ab jetzt', onPress: () => applySettings('future') },
+        { text: 'Auch bisherige Spiele', onPress: () => applySettings('all') },
+      ],
+    );
   };
 
   return (
@@ -95,6 +143,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           style={styles.settingsCard}
         >
           <TableSettingsEditor settings={settings} onChange={setSettings} />
+          <PlayerAccountsEditor />
         </Animated.View>
       </ScrollView>
 

@@ -1,6 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -38,13 +37,18 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, { FadeInDown, FadeOutLeft } from 'react-native-reanimated';
+import Animated, { FadeOutLeft } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
-import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
+import { SharedTableConflictNotice } from '../../components/game/SharedTablePanel';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackParamList } from '../../navigation/types';
+import {
+  openSharedTable,
+  useSharedTableStatus,
+} from '../../services/shared/sharedTables';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
@@ -161,6 +165,12 @@ function createUniqueTables(tables: TablePreview[]) {
 
 export function GameLobbyScreen() {
   const navigation = useNavigation<GameLobbyNavigationProp>();
+  const userId = useAuthStore((state) => state.user?.id);
+  const shared = useSharedTableStatus();
+  const remoteTables = useMemo(
+    () => (shared.tablesUserId === userId ? shared.tables : []),
+    [shared.tablesUserId, shared.tables, userId],
+  );
   const currentTable = useGameStore((state) => state.currentTable);
   const players = useGameStore((state) => state.players);
   const archivedGameDays = useGameStore((state) => state.archivedGameDays);
@@ -217,13 +227,23 @@ export function GameLobbyScreen() {
         sortOrder: day.table.sortOrder,
       };
     });
+    const automaticTables: TablePreview[] = remoteTables.map((remote) => ({
+      id: remote.id,
+      name: remote.payload.currentTable.name,
+      players: remote.payload.players.map((player) => player.name).join(' · '),
+      lastPlayed: remote.payload.activeGame
+        ? 'Gemeinsamer Tisch · läuft'
+        : 'Gemeinsamer Tisch · abgeschlossen',
+      suit: 'schelle',
+      isCurrent: remote.id === currentTable?.id,
+    }));
     // Prefer the archived snapshot for a completed table, without duplicating it.
     return createUniqueTables(
       activeGame
-        ? [...tables, ...archivedTables]
-        : [...archivedTables, ...tables],
+        ? [...tables, ...automaticTables, ...archivedTables]
+        : [...automaticTables, ...archivedTables, ...tables],
     );
-  }, [activeGame, archivedGameDays, currentTable, players]);
+  }, [activeGame, archivedGameDays, currentTable, players, remoteTables]);
 
   const availableTableIds = useMemo(
     () => baseTables.map((table) => table.id),
@@ -279,13 +299,26 @@ export function GameLobbyScreen() {
   );
 
   const openCreateTable = useCallback(() => {
-    navigation.navigate(
-      activeGame && currentTable ? 'ActiveGame' : 'CreateTable',
-    );
-  }, [activeGame, currentTable, navigation]);
+    navigation.navigate('CreateTable');
+  }, [navigation]);
 
   const openTable = useCallback(
     (table: TablePreview) => {
+      const remote = remoteTables.find(
+        (candidate) => candidate.id === table.id,
+      );
+      if (remote) {
+        void openSharedTable(table.id)
+          .then(() => {
+            if (useGameStore.getState().activeGame)
+              navigation.navigate('ActiveGame');
+            else navigation.navigate('Settlement', { tableId: table.id });
+          })
+          .catch((reason: Error) =>
+            Alert.alert('Tisch nicht geöffnet', reason.message),
+          );
+        return;
+      }
       if (table.id === currentTable?.id && activeGame) {
         navigation.navigate('ActiveGame');
       } else if (
@@ -295,7 +328,7 @@ export function GameLobbyScreen() {
         navigation.navigate('Settlement', { tableId: table.id });
       }
     },
-    [activeGame, archivedGameDays, currentTable?.id, navigation],
+    [activeGame, archivedGameDays, currentTable?.id, navigation, remoteTables],
   );
 
   const openSettings = useCallback(() => {
@@ -442,6 +475,7 @@ export function GameLobbyScreen() {
 
   const listHeader = (
     <>
+      <SharedTableConflictNotice />
       <View style={styles.header}>
         <View>
           <AppText style={styles.kicker}>Spiel</AppText>
@@ -463,36 +497,6 @@ export function GameLobbyScreen() {
           <Settings color={screenColors.gold} size={20} strokeWidth={2.2} />
         </Pressable>
       </View>
-
-      <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
-        <BlurView intensity={18} tint="dark" style={styles.heroBlur}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroIcon}>
-              <Spade color={screenColors.gold} size={26} strokeWidth={2.3} />
-            </View>
-            <View style={styles.heroCopyWrap}>
-              <AppText style={styles.heroTitle}>
-                {activeGame && currentTable
-                  ? 'Dein Spielabend läuft'
-                  : 'Neue Runde starten'}
-              </AppText>
-              <AppText style={styles.heroCopy}>
-                {activeGame && currentTable
-                  ? 'Dein Tisch ist gespeichert. Spielt einfach weiter.'
-                  : 'Richte deinen Tisch für den nächsten Spielabend ein.'}
-              </AppText>
-            </View>
-          </View>
-          <GoldButton
-            title={
-              activeGame && currentTable
-                ? 'Am Tisch weiterspielen'
-                : 'Tisch erstellen'
-            }
-            onPress={openCreateTable}
-          />
-        </BlurView>
-      </Animated.View>
 
       <View style={styles.sectionHeader}>
         <AppText style={styles.sectionTitle}>Deine Tische</AppText>
@@ -530,7 +534,7 @@ export function GameLobbyScreen() {
             <EmptyGameState
               icon={Spade}
               title="Noch kein Tisch"
-              message="Erstelle deinen ersten Tisch mit dem Button oben."
+              message="Tische, denen du zugeordnet bist, erscheinen hier automatisch. Über das Plus kannst du einen Tisch erstellen."
             />
           }
         />
@@ -560,28 +564,22 @@ export function GameLobbyScreen() {
             <EmptyGameState
               icon={Spade}
               title="Noch kein Tisch"
-              message="Erstelle deinen ersten Tisch mit dem Button oben."
+              message="Tische, denen du zugeordnet bist, erscheinen hier automatisch. Über das Plus kannst du einen Tisch erstellen."
             />
           }
         />
       )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          activeGame && currentTable
-            ? 'Am Tisch weiterspielen'
-            : 'Neuen Tisch erstellen'
-        }
-        onPress={openCreateTable}
-        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-      >
-        {activeGame && currentTable ? (
-          <ChevronRight color="#17150B" size={28} strokeWidth={2.8} />
-        ) : (
+      {!(activeGame && currentTable) ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Neuen Tisch erstellen"
+          onPress={openCreateTable}
+          style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        >
           <Plus color="#17150B" size={28} strokeWidth={2.8} />
-        )}
-      </Pressable>
+        </Pressable>
+      ) : null}
 
       <RenameTableSheet
         isFocused={isRenameFocused}
@@ -1052,39 +1050,6 @@ const styles = StyleSheet.create({
     right: 8,
     top: -88,
     transform: [{ rotate: '12deg' }],
-  },
-  hero: { borderRadius: 22, marginTop: 16 },
-  heroBlur: {
-    backgroundColor: 'rgba(26,45,36,0.84)',
-    borderColor: 'rgba(231,198,92,0.17)',
-    borderRadius: 22,
-    borderWidth: 1,
-    overflow: 'hidden',
-    padding: 18,
-  },
-  heroTop: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  heroIcon: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(231,198,92,0.08)',
-    borderRadius: 15,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  heroCopyWrap: {
-    flex: 1,
-  },
-  heroTitle: { color: screenColors.text, fontSize: 18, fontWeight: '700' },
-  heroCopy: {
-    color: screenColors.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
   },
   sectionHeader: {
     alignItems: 'center',

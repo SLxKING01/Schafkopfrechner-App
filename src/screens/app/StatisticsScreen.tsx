@@ -21,7 +21,6 @@ import { AppText } from '../../components/ui/AppText';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import { useAuthStore } from '../../store/authStore';
-import { useDashboardIdentityStore } from '../../store/dashboardIdentityStore';
 import { authColors, authSpacing, authTextStyles } from '../../theme';
 import { dashboardPersonal } from '../../utils/dashboardPersonal';
 import { formatOverviewMoney } from '../../utils/gameOverview';
@@ -32,12 +31,8 @@ import {
   summarizeStatistics,
 } from '../../utils/statistics';
 
-const noSelections: Record<string, string> = {};
-
 export function StatisticsScreen() {
   const userId = useAuthStore((s) => s.user?.id);
-  const selections = useDashboardIdentityStore((s) => s.selections);
-  const identityReady = useDashboardIdentityStore((s) => s.hydrated);
   const overview = useGameOverview();
   const { openTables, openStatisticsRound, openTableStatistics } =
     useOverviewNavigation();
@@ -46,15 +41,13 @@ export function StatisticsScreen() {
   const [tableId, setTableId] = useState('');
   const [period, setPeriod] = useState<'all' | 'month'>('all');
   const tables = overview.statisticsTables;
-  const selected =
-    selections[userId ? `account:${userId}` : 'guest'] ?? noSelections;
   const assigned = useMemo(
-    () => dashboardPersonal(tables, selected, userId),
-    [tables, selected, userId],
+    () => dashboardPersonal(tables, userId),
+    [tables, userId],
   );
   const subjects = useMemo(() => {
     const all = statisticsSubjects(tables);
-    if (!identityReady || !assigned.hasIdentity) return all;
+    if (!assigned.hasIdentity) return all;
     const memberships = [...assigned.memberships].map(
       ([tableId, playerId]) => ({ tableId, playerId }),
     );
@@ -74,7 +67,7 @@ export function StatisticsScreen() {
           ),
       ),
     ];
-  }, [tables, assigned, identityReady]);
+  }, [tables, assigned]);
   const subject = subjects.find((p) => p.id === subjectId) ?? subjects[0];
   const table =
     tables.find((t) => t.id === tableId) ??

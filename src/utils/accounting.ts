@@ -10,6 +10,7 @@ type RoundInput = {
   stockAction?: StockAction;
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
 };
 export function roundWinnerIds(
   round: Pick<RoundInput, 'winnerId' | 'winnerIds'>,
@@ -91,19 +92,47 @@ export function isValidRound(round: RoundInput, players: Participant[]) {
       round.loserIds.length !== 2)
   )
     return false;
-  if (round.declarerId !== undefined || round.partnerId !== undefined) {
+  if (
+    round.declarerId !== undefined ||
+    round.partnerId !== undefined ||
+    round.declarerWon !== undefined
+  ) {
+    const partnerGame = [
+      'rufspiel',
+      'sauspiel',
+      'hochzeit',
+      'kreuzbock',
+    ].includes(round.gameType ?? '');
+    const soloGame = [
+      'solo',
+      'wenz',
+      'farbwenz',
+      'geier',
+      'farbgeier',
+      'bettel',
+    ].includes(round.gameType ?? '');
+    if (!round.declarerId || !ids.has(round.declarerId)) return false;
+    const won = winners.includes(round.declarerId);
     if (
-      !round.declarerId ||
-      !round.partnerId ||
-      round.declarerId === round.partnerId ||
-      !['rufspiel', 'sauspiel'].includes(round.gameType ?? '') ||
-      !ids.has(round.declarerId) ||
-      !ids.has(round.partnerId) ||
-      winners.length !== 2 ||
-      round.loserIds.length !== 2 ||
-      winners.includes(round.declarerId) !==
-        winners.includes(round.partnerId) ||
-      (round.stockAction === 'payout' && !winners.includes(round.declarerId))
+      round.declarerWon !== undefined &&
+      (typeof round.declarerWon !== 'boolean' || round.declarerWon !== won)
+    )
+      return false;
+    if (partnerGame) {
+      if (
+        !round.partnerId ||
+        round.partnerId === round.declarerId ||
+        !ids.has(round.partnerId) ||
+        winners.length !== 2 ||
+        round.loserIds.length !== 2 ||
+        won !== winners.includes(round.partnerId) ||
+        (round.stockAction === 'payout' && !won)
+      )
+        return false;
+    } else if (
+      !soloGame ||
+      round.partnerId !== undefined ||
+      (won ? winners.length !== 1 : round.loserIds.length !== 1)
     )
       return false;
   }

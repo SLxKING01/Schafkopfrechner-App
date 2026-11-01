@@ -19,6 +19,7 @@ export type StatisticsSourceRound = {
   suit?: CardSuit;
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
   tariffOptions?: GameRound['tariffOptions'];
   stockAction?: GameRound['stockAction'];
 };
@@ -72,6 +73,9 @@ export function createStatisticsTable(
       .map((r) => ({
         ...r,
         declarerId: statisticsDeclarer(r),
+        declarerWon: statisticsDeclarer(r)
+          ? roundWinnerIds(r).includes(statisticsDeclarer(r)!)
+          : undefined,
         key: `${id}:${r.id}`,
         tableKey: id,
         type:
