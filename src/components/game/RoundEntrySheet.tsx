@@ -91,13 +91,22 @@ type Props = {
   table: GameTable | null;
   players: Player[];
   editingRound: GameRound | null;
+  initialPlayerId?: string;
   visible: boolean;
   onClose: () => void;
   onDismiss: () => void;
   onSaved: () => void;
 };
-function initialDraft(table: GameTable | null, round: GameRound | null): Draft {
-  const winners = round ? [...roundWinnerIds(round)] : [];
+function initialDraft(
+  table: GameTable | null,
+  round: GameRound | null,
+  initialPlayerId?: string,
+): Draft {
+  const winners = round
+    ? [...roundWinnerIds(round)]
+    : initialPlayerId
+      ? [initialPlayerId]
+      : [];
   const losers = round ? [...round.loserIds] : [];
   return {
     suit: round?.suit,
@@ -108,7 +117,7 @@ function initialDraft(table: GameTable | null, round: GameRound | null): Draft {
     choosing: !round,
     winners,
     losers,
-    declarer: round?.declarerId ?? '',
+    declarer: round?.declarerId ?? initialPlayerId ?? '',
     partner: round?.partnerId ?? '',
     solo:
       winners.length === 1 ? winners[0] : losers.length === 1 ? losers[0] : '',
@@ -134,6 +143,7 @@ export function RoundEntrySheet({
   table,
   players,
   editingRound,
+  initialPlayerId,
   visible,
   onClose,
   onDismiss,
@@ -143,7 +153,7 @@ export function RoundEntrySheet({
   const expandedPlayerLayout = fontScale >= 1.3 || width < 360;
   const rounds = useGameStore((state) => state.rounds);
   const currentTable = useGameStore((state) => state.currentTable);
-  const key = `${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}`;
+  const key = `${table?.id ?? 'none'}:${editingRound?.id ?? `new:${initialPlayerId ?? ''}`}`;
   const revision = `${editingRound?.updatedAt ?? editingRound?.createdAt ?? ''}:${players
     .map(({ id }) => id)
     .sort()
@@ -152,16 +162,21 @@ export function RoundEntrySheet({
   const [draft, setDraft] = useState<Draft>(() =>
     cached?.revision === revision
       ? cached.draft
-      : initialDraft(table, editingRound),
+      : initialDraft(table, editingRound, initialPlayerId),
   );
   const committed = useRef<string | null>(
     cached?.revision === revision ? cached.committedId : null,
+  );
+  const editingRevision = useRef(
+    editingRound?.updatedAt ?? editingRound?.createdAt,
   );
   const savingLock = useRef(false);
   const [committedId, setCommittedId] = useState<string | null>(
     cached?.revision === revision ? cached.committedId : null,
   );
-  const baseline = useRef(JSON.stringify(initialDraft(table, editingRound)));
+  const baseline = useRef(
+    JSON.stringify(initialDraft(table, editingRound, initialPlayerId)),
+  );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [closeChoice, setCloseChoice] = useState(false);
@@ -306,7 +321,7 @@ export function RoundEntrySheet({
       ? (manualCents ?? 0)
       : (party?.totalCents ?? 0);
   const payload: CreateRoundPayload = {
-    ...(sauspiel && editingRound?.declarerId && !draft.declarer
+    ...(partnerGame && editingRound?.declarerId && !draft.declarer
       ? { clearPartyMetadata: true }
       : {}),
     ...(editingRound && draft.correctedLegerPlayerIds
@@ -330,11 +345,19 @@ export function RoundEntrySheet({
           stockCompletesDeal: draft.stockCompletesDeal,
         }
       : {}),
-    ...(sauspiel && (draft.declarer || draft.partner)
+    ...(partnerGame && (draft.declarer || draft.partner)
       ? {
           declarerId: draft.declarer,
           partnerId: draft.partner,
         }
+      : {}),
+    ...(!partnerGame &&
+    !stockDeposit &&
+    ['solo', 'wenz', 'farbwenz', 'geier', 'farbgeier', 'bettel'].includes(
+      draft.gameType,
+    ) &&
+    draft.solo
+      ? { declarerId: draft.solo }
       : {}),
     ...(!draft.manual && !stockDeposit
       ? {
@@ -346,7 +369,7 @@ export function RoundEntrySheet({
   if (
     !stockDeposit &&
     guided &&
-    sauspiel &&
+    partnerGame &&
     (draft.winners.length !== 2 || draft.losers.length !== 2)
   )
     hint =
@@ -400,7 +423,7 @@ export function RoundEntrySheet({
       });
     else {
       drafts.delete(key);
-      setDraft(initialDraft(table, editingRound));
+      setDraft(initialDraft(table, editingRound, initialPlayerId));
       setSaveError('');
     }
     setCloseChoice(false);
@@ -414,16 +437,28 @@ export function RoundEntrySheet({
       return;
     }
     const targetRules = getGameRules(settings, type);
+    const selected = !editingRound ? initialPlayerId : undefined;
+    const partnerType = [
+      'rufspiel',
+      'sauspiel',
+      'hochzeit',
+      'kreuzbock',
+    ].includes(type);
+    const others = players
+      .filter((player) => player.id !== selected)
+      .map((player) => player.id);
+    const selectedWon = type !== 'ramsch';
     patch({
       gameType: type,
       suit: undefined,
       choosing: false,
-      winners: [],
-      losers: [],
-      declarer: '',
+      winners: selected ? (selectedWon ? [selected] : others) : [],
+      losers:
+        selected && !partnerType ? (selectedWon ? others : [selected]) : [],
+      declarer: selected ?? '',
       partner: '',
-      solo: '',
-      won: true,
+      solo: selected && !partnerType ? selected : '',
+      won: selectedWon,
       payStock: false,
       manual: false,
       manualAmount: '',
@@ -458,13 +493,26 @@ export function RoundEntrySheet({
       [result.winners, result.losers].some(
         (ids) => ids.includes(draft.declarer) && ids.includes(draft.partner),
       );
+    const declarer =
+      (!editingRound ? initialPlayerId : undefined) ||
+      draft.declarer ||
+      editingRound?.declarerId;
+    const selectedParty = declarer
+      ? [result.winners, result.losers].find((ids) => ids.includes(declarer))
+      : undefined;
     patch({
       ...result,
       payStock: false,
       ...(complete
-        ? sameParty
-          ? { won: result.winners.includes(draft.declarer) }
-          : { declarer: '', partner: '' }
+        ? selectedParty?.length === 2
+          ? {
+              declarer: declarer!,
+              partner: selectedParty.find((id) => id !== declarer)!,
+              won: result.winners.includes(declarer!),
+            }
+          : sameParty
+            ? { won: result.winners.includes(draft.declarer) }
+            : { declarer: '', partner: '' }
         : {}),
     });
   }
@@ -513,6 +561,18 @@ export function RoundEntrySheet({
           throw new Error(
             'Der aktive Tisch hat sich geändert. Bitte die Eingabe erneut öffnen.',
           );
+        if (editingRound) {
+          const latest = state.rounds.find(
+            (round) => round.id === editingRound.id,
+          );
+          if (
+            !latest ||
+            (latest.updatedAt ?? latest.createdAt) !== editingRevision.current
+          )
+            throw new Error(
+              'Dieses Spiel wurde auf einem anderen Handy geändert. Bitte die Eingabe schließen und den aktuellen Stand erneut öffnen.',
+            );
+        }
         const result = editingRound
           ? state.updateRound(editingRound.id, payload)
           : state.addRound(payload);
@@ -849,6 +909,11 @@ export function RoundEntrySheet({
                                   accessibilityState={{
                                     selected: draft.solo === player.id,
                                   }}
+                                  disabled={
+                                    !!initialPlayerId &&
+                                    !editingRound &&
+                                    player.id !== initialPlayerId
+                                  }
                                   onPress={() => {
                                     if (guided && !partnerGame)
                                       selectSolo(player.id);
@@ -867,6 +932,30 @@ export function RoundEntrySheet({
                                     >
                                       {player.name}
                                     </AppText>
+                                    {(
+                                      partnerGame
+                                        ? draft.declarer === player.id
+                                        : [
+                                            'solo',
+                                            'wenz',
+                                            'farbwenz',
+                                            'geier',
+                                            'farbgeier',
+                                            'bettel',
+                                          ].includes(draft.gameType) &&
+                                          draft.solo === player.id
+                                    ) ? (
+                                      <AppText style={styles.gold}>
+                                        {partnerGame
+                                          ? 'Spielmacher'
+                                          : 'Alleinspieler'}
+                                      </AppText>
+                                    ) : partnerGame &&
+                                      draft.partner === player.id ? (
+                                      <AppText style={styles.gold}>
+                                        Gesuchter
+                                      </AppText>
+                                    ) : null}
                                     <AppText
                                       style={winner ? styles.gold : styles.hint}
                                     >
@@ -916,7 +1005,7 @@ export function RoundEntrySheet({
                                           )
                                             selectSolo(draft.solo, !won);
                                           else selectSolo(player.id, won);
-                                        } else if (sauspiel) {
+                                        } else if (partnerGame) {
                                           selectSauspiel(player.id, won);
                                         } else
                                           toggle(

@@ -172,3 +172,137 @@ it('keeps old manual total-gain rounds editable without reinterpreting their amo
     12, -12, 0, 0,
   ]);
 });
+
+it('applies new tariffs only to future games unless retroactive pricing is chosen', () => {
+  expect(useGameStore.getState().addRound(payload())).toBe(true);
+  const original = useGameStore.getState().rounds[0];
+  const settings = createDefaultTableSettings();
+  settings.games.rufspiel.value = 0.5;
+  expect(useGameStore.getState().updateCurrentTableSettings(settings)).toBe(
+    true,
+  );
+  expect(useGameStore.getState().rounds[0]).toEqual(original);
+  expect(
+    useGameStore.getState().updateCurrentTableSettings(settings, 'all'),
+  ).toBe(true);
+  const state = useGameStore.getState();
+  expect(state.rounds[0].amount).toBe(1);
+  expect(state.rounds[0].id).toBe(original.id);
+  expect(state.rounds[0].settingsSnapshot.games.rufspiel.value).toBe(0.5);
+  expect(original.settingsSnapshot.games.rufspiel.value).toBe(0.2);
+  expect(state.balances.map((balance) => balance.amount)).toEqual([
+    0.5, 0.5, -0.5, -0.5,
+  ]);
+});
+
+it('keeps manual amounts and historical game rules when repricing', () => {
+  expect(useGameStore.getState().addRound(payload())).toBe(true);
+  expect(
+    useGameStore
+      .getState()
+      .addRound({ ...payload(), amount: 3, tariffOptions: undefined }),
+  ).toBe(true);
+  const settings = createDefaultTableSettings();
+  settings.games.rufspiel = {
+    ...settings.games.rufspiel,
+    enabled: false,
+    value: 0.5,
+  };
+  expect(
+    useGameStore.getState().updateCurrentTableSettings(settings, 'all'),
+  ).toBe(true);
+  expect(useGameStore.getState().rounds.map((round) => round.amount)).toEqual([
+    1, 3,
+  ]);
+  expect(
+    useGameStore.getState().rounds[0].settingsSnapshot.games.rufspiel.enabled,
+  ).toBe(true);
+});
+
+it('reprices Stock deposits and their payout together with the games', () => {
+  const settings = createDefaultTableSettings();
+  settings.games.stock = { ...settings.games.stock, enabled: true, value: 0.5 };
+  useGameStore.getState().updateCurrentTableSettings(settings);
+  expect(
+    useGameStore.getState().addRound({
+      winnerId: '',
+      winnerIds: [],
+      loserIds: ['a', 'b', 'c', 'd'],
+      gameType: 'stock',
+      stockAction: 'deposit',
+      amount: 2,
+    }),
+  ).toBe(true);
+  expect(
+    useGameStore.getState().addRound({
+      ...payload(),
+      declarerId: 'a',
+      partnerId: 'b',
+      stockAction: 'payout',
+    }),
+  ).toBe(true);
+  settings.games.stock.value = 1;
+  settings.games.rufspiel.value = 0.5;
+  expect(
+    useGameStore.getState().updateCurrentTableSettings(settings, 'all'),
+  ).toBe(true);
+  expect(useGameStore.getState().rounds.map((round) => round.amount)).toEqual([
+    4, 1,
+  ]);
+  expect(
+    useGameStore.getState().balances.map((balance) => balance.amount),
+  ).toEqual([1.5, 1.5, -1.5, -1.5]);
+});
+
+it('links a guest to an account without changing past games or balances', () => {
+  expect(useGameStore.getState().addRound(payload())).toBe(true);
+  const rounds = useGameStore.getState().rounds;
+  const balances = useGameStore.getState().balances;
+  expect(useGameStore.getState().setPlayerAccount('b', 'account-b')).toBe(true);
+  expect(
+    useGameStore.getState().players.find((player) => player.id === 'b')?.userId,
+  ).toBe('account-b');
+  expect(useGameStore.getState().setPlayerAccount('c', 'account-b')).toBe(
+    false,
+  );
+  expect(useGameStore.getState().rounds).toBe(rounds);
+  expect(useGameStore.getState().balances).toBe(balances);
+  expect(useGameStore.getState().setPlayerAccount('b')).toBe(true);
+  expect(useGameStore.getState().rounds).toBe(rounds);
+});
+
+it('rejects contradictory declarer outcomes and persists the corrected result', () => {
+  const state = useGameStore.getState();
+  expect(
+    state.addRound({
+      ...payload(),
+      declarerId: 'a',
+      partnerId: 'b',
+      declarerWon: false,
+    }),
+  ).toBe(false);
+  expect(
+    state.addRound({
+      ...payload(),
+      declarerId: 'a',
+      partnerId: 'b',
+      declarerWon: true,
+    }),
+  ).toBe(true);
+  const id = useGameStore.getState().rounds[0].id;
+  expect(
+    useGameStore.getState().updateRound(id, {
+      ...payload(),
+      declarerId: 'a',
+      partnerId: 'b',
+      winnerId: 'c',
+      winnerIds: ['c', 'd'],
+      loserIds: ['a', 'b'],
+    }),
+  ).toBe(true);
+  expect(useGameStore.getState().rounds[0]).toMatchObject({
+    declarerId: 'a',
+    partnerId: 'b',
+    declarerWon: false,
+  });
+});

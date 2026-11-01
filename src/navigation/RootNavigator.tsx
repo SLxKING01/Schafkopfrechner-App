@@ -19,6 +19,7 @@ import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { useAuthStore } from '../store/authStore';
+import { useGameStore } from '../store/gameStore';
 import { authColors } from '../theme/colors';
 import { AppTabs } from './AppTabs';
 import {
@@ -147,6 +148,10 @@ function AppStackNavigator() {
 }
 
 export function RootNavigator() {
+  const sharedCacheOwner = useGameStore(
+    (state) => state.currentTable?.shared?.userId,
+  );
+  const userId = useAuthStore((state) => state.user?.id);
   const storesHydrated = useStoresHydrated();
   const gameRestore = useRestoreGame(storesHydrated);
   useCloudSync(storesHydrated && gameRestore.restored);
@@ -178,6 +183,7 @@ export function RootNavigator() {
     !storesHydrated ||
     !gameRestore.restored ||
     !authInitialized ||
+    (isAuthenticated && !!sharedCacheOwner && sharedCacheOwner !== userId) ||
     authLoading
   ) {
     return <AppLoadingScreen />;

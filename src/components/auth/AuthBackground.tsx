@@ -10,11 +10,13 @@ import { AppText } from '../ui/AppText';
 type AuthBackgroundProps = {
   children: ReactNode;
   withSafeArea?: boolean;
+  backgroundPattern?: ReactNode;
 };
 
 export function AuthBackground({
   children,
   withSafeArea = true,
+  backgroundPattern,
 }: AuthBackgroundProps) {
   // Full-screen sheets already apply their own safe-area insets.
   const Content = withSafeArea ? SafeAreaView : View;
@@ -31,13 +33,19 @@ export function AuthBackground({
       />
       <View style={styles.vignette} pointerEvents="none" />
       <View style={styles.patternLayer} pointerEvents="none" aria-hidden>
-        <AppText style={[styles.patternSuit, styles.patternTop]}>{'♥'}</AppText>
-        <AppText style={[styles.patternSuit, styles.patternMiddle]}>
-          {'♣'}
-        </AppText>
-        <AppText style={[styles.patternSuit, styles.patternBottom]}>
-          {'♦'}
-        </AppText>
+        {backgroundPattern ?? (
+          <>
+            <AppText style={[styles.patternSuit, styles.patternTop]}>
+              {'♥'}
+            </AppText>
+            <AppText style={[styles.patternSuit, styles.patternMiddle]}>
+              {'♣'}
+            </AppText>
+            <AppText style={[styles.patternSuit, styles.patternBottom]}>
+              {'♦'}
+            </AppText>
+          </>
+        )}
       </View>
       <BlurView
         pointerEvents="none"

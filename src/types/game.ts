@@ -54,6 +54,14 @@ export type StockAction =
   | 'carryIn';
 
 export type GameTable = {
+  shared?: {
+    userId: string;
+    code?: string;
+    ownerId?: string;
+    version: number;
+    baseline: string;
+    updatedAt: string;
+  };
   id: string;
   hashCode: string;
   name: string;
@@ -81,8 +89,10 @@ export type GameRound = {
   tariffOptions?: RoundTariffOptions;
   stockAction?: StockAction;
   stockCompletesDeal?: boolean;
+  /** Spielmacher/Alleinspieler; partnerId bezeichnet den gesuchten Mitspieler. */
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
   roundContext?: RoundContext;
   updatedAt?: string;
 };
@@ -140,8 +150,10 @@ export type CreateRoundPayload = {
   suit?: CardSuit;
   stockAction?: StockAction;
   stockCompletesDeal?: boolean;
+  /** Spielmacher/Alleinspieler; partnerId bezeichnet den gesuchten Mitspieler. */
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
   winnerId: string;
   winnerIds?: string[];
   loserIds: string[];

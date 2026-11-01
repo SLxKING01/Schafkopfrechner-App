@@ -48,7 +48,7 @@ export function captureGameState(): CloudGameState {
   const days = useMatchDayStore.getState();
   return {
     schemaVersion: 1,
-    archivedGameDays: game.archivedGameDays,
+    archivedGameDays: game.archivedGameDays.filter((day) => !day.table.shared),
     currentTable: game.currentTable,
     players: game.players,
     rounds: game.rounds,
@@ -401,6 +401,7 @@ export function syncGameState(): Promise<void> {
 
 async function synchronize(): Promise<void> {
   const store = useGameStore;
+  if (store.getState().currentTable?.shared) return;
   if (!isSupabaseConfigured || !useAuthStore.getState().user) return;
   const owner = useAuthStore.getState().user!.id;
   const stillSameUser = () => useAuthStore.getState().user?.id === owner;
@@ -428,7 +429,7 @@ async function synchronize(): Promise<void> {
       .eq('owner_id', owner)
       .maybeSingle();
     if (error) throw error;
-    if (!stillSameUser()) return;
+    if (!stillSameUser() || store.getState().currentTable?.shared) return;
     const local = captureGameState();
     validateSnapshot(local);
     const localFingerprint = fingerprint(local);

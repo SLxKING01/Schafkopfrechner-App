@@ -18,6 +18,7 @@ import { finishGameDay as finishGameDayService } from '../services/game/finishGa
 import { clearGameState } from '../services/persistence/clearGameState';
 import { restoreGameState } from '../services/persistence/restoreGameState';
 import { saveGameState } from '../services/persistence/saveGameState';
+import { syncSharedTable } from '../services/shared/sharedTables';
 import { syncGameState } from '../services/sync/syncGameState';
 import { reliableStorage } from '../storage/reliableStorage';
 import { normalizeRestoredTables } from '../storage/validateGameState';
@@ -45,6 +46,7 @@ import {
   archiveFinishedGameDay,
   mergeGameDayArchives,
 } from '../utils/gameDayArchive';
+import { repriceRounds } from '../utils/repriceRounds';
 import {
   calculatePartyAmount,
   calculateRoundTariff,
@@ -86,6 +88,7 @@ type GameStore = {
     settings?: TableSettings,
   ) => boolean;
   setPlayerOrder: (playerIds: string[]) => boolean;
+  setPlayerAccount: (playerId: string, userId?: string) => boolean;
   setTurboRamsch: (enabled: boolean) => void;
   togglePlayerLeger: (playerId: string) => void;
   addPlayer: (name: string) => boolean;
@@ -97,7 +100,10 @@ type GameStore = {
   markSettlementPaid: (id: string, isPaid?: boolean, tableId?: string) => void;
   resetGame: () => void;
   setTableOrderIds: (tableOrderIds: string[]) => void;
-  updateCurrentTableSettings: (settings: TableSettings) => boolean;
+  updateCurrentTableSettings: (
+    settings: TableSettings,
+    scope?: 'future' | 'all',
+  ) => boolean;
   hydrateGame: () => Promise<void>;
   persistGame: () => Promise<void>;
   clearPersistedGame: () => Promise<void>;
@@ -463,6 +469,27 @@ export const useGameStore = create<GameStore>()(
             : state,
         );
       },
+      setPlayerAccount: (playerId, userId) => {
+        const state = useGameStore.getState();
+        if (
+          !state.activeGame ||
+          !state.currentTable?.isActive ||
+          !state.players.some((player) => player.id === playerId) ||
+          (userId &&
+            state.players.some(
+              (player) => player.id !== playerId && player.userId === userId,
+            ))
+        )
+          return false;
+        set({
+          players: state.players.map((player) =>
+            player.id === playerId
+              ? { ...player, userId, isLocal: !userId }
+              : player,
+          ),
+        });
+        return true;
+      },
       setPlayerOrder: (playerIds) => {
         let didUpdate = false;
         set((state) => {
@@ -721,7 +748,9 @@ export const useGameStore = create<GameStore>()(
           return false;
         if (
           original.declarerId &&
-          ['rufspiel', 'sauspiel'].includes(payload.gameType) &&
+          ['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
+            payload.gameType,
+          ) &&
           !payload.clearPartyMetadata &&
           (!payload.declarerId || !payload.partnerId)
         )
@@ -737,7 +766,9 @@ export const useGameStore = create<GameStore>()(
           payload.clearPartyMetadata &&
           (payload.declarerId ||
             payload.partnerId ||
-            !['rufspiel', 'sauspiel'].includes(payload.gameType))
+            !['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
+              payload.gameType,
+            ))
         )
           return false;
         try {
@@ -809,6 +840,9 @@ export const useGameStore = create<GameStore>()(
             stockAction: payload.stockAction,
             stockCompletesDeal: payload.stockCompletesDeal,
             declarerId: payload.declarerId,
+            declarerWon: payload.declarerId
+              ? roundWinnerIds(payload).includes(payload.declarerId)
+              : undefined,
             partnerId: payload.partnerId,
             tariffOptions: payload.tariffOptions
               ? { ...payload.tariffOptions }
@@ -1021,7 +1055,7 @@ export const useGameStore = create<GameStore>()(
           return { tableOrderIds: nextTableOrderIds };
         });
       },
-      updateCurrentTableSettings: (settings) => {
+      updateCurrentTableSettings: (settings, scope = 'future') => {
         let didUpdate = false;
 
         set((state) => {
@@ -1033,12 +1067,26 @@ export const useGameStore = create<GameStore>()(
             return state;
           }
 
+          const normalized = normalizeTableSettings(settings);
+          let repriced = {};
+          if (scope === 'all') {
+            try {
+              const rounds = repriceRounds(state.rounds, normalized);
+              repriced = {
+                rounds,
+                ...recalculateGameState(state.players, rounds),
+              };
+            } catch {
+              return state;
+            }
+          }
           didUpdate = true;
 
           return {
+            ...repriced,
             currentTable: {
               ...state.currentTable,
-              settings: normalizeTableSettings(settings),
+              settings: normalized,
             },
             isOffline: false,
           };
@@ -1104,7 +1152,9 @@ export const useGameStore = create<GameStore>()(
         set({ hydrated: true });
       },
       syncNow: async () => {
-        await syncGameState();
+        if (useGameStore.getState().currentTable?.shared)
+          await syncSharedTable();
+        else await syncGameState();
       },
     }),
     {

@@ -4,25 +4,13 @@ import {
   summarizeStatistics,
 } from './statistics';
 
-export function dashboardPersonal(
-  tables: StatisticsTable[],
-  selections: Record<string, string>,
-  userId?: string,
-) {
+export function dashboardPersonal(tables: StatisticsTable[], userId?: string) {
   const memberships = new Map<string, string>();
   for (const table of tables) {
     const linked = userId
       ? table.players.filter((p) => p.userId === userId)
       : [];
     if (linked.length === 1) memberships.set(table.id, linked[0].id);
-    else if (
-      !linked.length &&
-      table.players.some(
-        (p) =>
-          p.id === selections[table.id] && (!p.userId || p.userId === userId),
-      )
-    )
-      memberships.set(table.id, selections[table.id]);
   }
   const entries: StatisticsEntry[] = tables.flatMap((table) => {
     const playerId = memberships.get(table.id);
