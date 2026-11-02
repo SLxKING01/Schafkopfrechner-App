@@ -18,15 +18,30 @@ jest.mock('../store/authStore', () => ({
   ),
 }));
 jest.mock('../store/gameStore', () => ({
-  useGameStore: {
-    getState: () => ({ syncNow: mockSync }),
-    setState: (...args: unknown[]) => mockSetState(...args),
-    subscribe: (listener: () => void) => {
-      mockListeners.add(listener);
-      return () => mockListeners.delete(listener);
+  useGameStore: Object.assign(
+    (selector: (state: unknown) => unknown) => selector({ currentTable: null }),
+    {
+      getState: () => ({
+        syncNow: mockSync,
+        currentTable: null,
+        archivedGameDays: [],
+      }),
+      setState: (...args: unknown[]) => mockSetState(...args),
+      subscribe: (listener: () => void) => {
+        mockListeners.add(listener);
+        return () => mockListeners.delete(listener);
+      },
     },
-  },
+  ),
 }));
+jest.mock('../services/shared/sharedTables', () => ({
+  syncSharedTable: jest.fn(async () => {}),
+  refreshSharedTables: jest.fn(async () => {}),
+}));
+jest.mock('../lib/supabase', () => {
+  const channel = { on: () => channel, subscribe: () => channel };
+  return { supabase: { channel: () => channel, removeChannel: jest.fn() } };
+});
 jest.mock('../store/playerStore', () => ({
   usePlayerStore: { subscribe: () => () => undefined },
 }));
@@ -35,7 +50,7 @@ jest.mock('../store/matchDayStore', () => ({
 }));
 jest.mock('../services/sync/syncGameState', () => ({
   captureGameState: () => mockFingerprint,
-  fingerprint: (value: string) => value,
+  fingerprint: (value: unknown) => JSON.stringify(value),
   applyingCloudState: false,
 }));
 
@@ -118,7 +133,7 @@ it('reports unexpected failures without clearing local game data', async () => {
     syncError: expect.stringContaining('Lokale Daten bleiben erhalten'),
   });
   await act(async () => {
-    jest.advanceTimersByTime(30000);
+    jest.advanceTimersByTime(5000);
   });
   expect(mockSync).toHaveBeenCalledTimes(2);
   await act(async () => view.unmount());

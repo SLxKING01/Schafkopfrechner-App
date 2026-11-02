@@ -8,6 +8,7 @@ import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { SyncStatus } from '../components/game/SyncStatus';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
+import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { reliableStorage } from '../storage/reliableStorage';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
@@ -15,6 +16,20 @@ import { emptyTariffOptions } from '../utils/roundTariff';
 
 const renderer = jest.requireActual('react-test-renderer');
 const navigate = jest.fn();
+const mockDrag = jest.fn();
+jest.mock('react-native-draggable-flatlist', () => {
+  const React = jest.requireActual('react');
+  const { FlatList } = jest.requireActual('react-native');
+  return function DraggableListMock(props: {
+    renderItem: (info: unknown) => React.ReactNode;
+  }) {
+    return React.createElement(FlatList, {
+      ...props,
+      renderItem: (info: Record<string, unknown>) =>
+        props.renderItem({ ...info, drag: mockDrag, isActive: false }),
+    });
+  };
+});
 jest.setTimeout(30000);
 jest.mock('../lib/supabase', () => ({
   isSupabaseConfigured: false,
@@ -36,6 +51,7 @@ jest.mock('react-native-reanimated', () =>
   jest.requireActual('react-native-reanimated/mock'),
 );
 jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: jest.requireActual('react-native').View,
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@gorhom/bottom-sheet', () => ({
@@ -91,6 +107,103 @@ beforeEach(() => {
   ]);
 });
 afterEach(() => jest.restoreAllMocks());
+
+it.each(['Ab jetzt', 'Auch bisherige Spiele'])(
+  'offers the explicit tariff scope %s before saving',
+  async (scope) => {
+    const store = useGameStore.getState();
+    expect(
+      store.addRound({
+        gameType: 'rufspiel',
+        winnerId: 'a',
+        winnerIds: ['a', 'b'],
+        loserIds: ['c', 'd'],
+        declarerId: 'a',
+        partnerId: 'b',
+        amount: 0.4,
+        tariffOptions: { ...emptyTariffOptions },
+      }),
+    ).toBe(true);
+    const goBack = jest.fn();
+    let view: ReturnType<typeof renderer.create>;
+    await act(async () => {
+      view = renderer.create(
+        <EditTableScreen
+          navigation={{ goBack } as never}
+          route={{} as never}
+        />,
+      );
+    });
+    const editor = view.root.findAll(
+      (node: {
+        props: { onChange?: unknown; settings?: { games?: unknown } };
+      }) =>
+        typeof node.props.onChange === 'function' &&
+        !!node.props.settings?.games,
+    )[0];
+    const settings = structuredClone(editor.props.settings);
+    settings.games.rufspiel.value = 0.5;
+    await act(async () => editor.props.onChange(settings));
+    const press = async (label: string) =>
+      act(async () => {
+        view.root
+          .findAllByProps({ accessibilityLabel: label })
+          .find(
+            (n: { props: { onPress?: unknown } }) =>
+              typeof n.props.onPress === 'function',
+          )!
+          .props.onPress();
+        await reliableStorage.flush();
+      });
+    await press('Regeln speichern');
+    expect(useGameStore.getState().rounds[0].amount).toBe(0.4);
+    await press(scope);
+    expect(
+      useGameStore.getState().currentTable!.settings.games.rufspiel.value,
+    ).toBe(0.5);
+    expect(useGameStore.getState().rounds[0].amount).toBe(
+      scope === 'Ab jetzt' ? 0.4 : 1,
+    );
+    expect(goBack).toHaveBeenCalledTimes(1);
+    await act(async () => view.unmount());
+  },
+);
+
+it('keeps dragging separate from entry, knocking and player actions, preserving dealer and the accessible seat editor', async () => {
+  const ui = await mountPlayerActions();
+  const list = () =>
+    ui.view.root
+      .findAllByProps({ testID: 'player-standings-list' })
+      .find(
+        (node: { props: { onDragBegin?: unknown } }) =>
+          typeof node.props.onDragBegin === 'function',
+      )!;
+  mockDrag.mockClear();
+  await act(async () =>
+    ui.view.root
+      .findAllByProps({ accessibilityLabel: 'Flo verschieben' })
+      .find(
+        (node: { props: { onPressIn?: unknown } }) =>
+          typeof node.props.onPressIn === 'function',
+      )!
+      .props.onPressIn(),
+  );
+  expect(mockDrag).toHaveBeenCalledTimes(1);
+  await act(async () => list().props.onDragBegin());
+  await ui.press('Flo, 0,00 €');
+  expect(ui.view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  expect(ui.button('Leger Flo: 1x').props.disabled).toBe(true);
+  const order = list().props.data.slice().reverse();
+  await act(async () => list().props.onDragEnd({ data: order }));
+  expect(useGameStore.getState().players.map((p) => p.id)).toEqual(
+    order.map((p: { id: string }) => p.id),
+  );
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('a');
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await ui.press('Sitzreihenfolge ändern');
+  expect(ui.button('Reihenfolge speichern')).toBeTruthy();
+  await act(async () => ui.view.unmount());
+});
 
 it('restores a removed round from the inline undo notice without opening an editor or duplicating the entry', async () => {
   const store = useGameStore.getState();
@@ -652,9 +765,7 @@ it('keeps the native player list bounded and restores its scroll position across
   expect(StyleSheet.flatten(list.props.style).flex).toBe(1);
   expect(list.props.scrollEnabled).toBe(true);
   expect(list.props.data).toHaveLength(4);
-  await act(async () =>
-    list.props.onScroll({ nativeEvent: { contentOffset: { x: 0, y: 120 } } }),
-  );
+  await act(async () => list.props.onScrollOffsetChange(120));
   const button = (label: string) =>
     view.root
       .findAllByProps({ accessibilityLabel: label })

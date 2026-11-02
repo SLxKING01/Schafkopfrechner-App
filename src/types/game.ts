@@ -66,6 +66,14 @@ export type InterimPayment = {
 };
 
 export type GameTable = {
+  shared?: {
+    userId: string;
+    code?: string;
+    ownerId?: string;
+    version: number;
+    baseline: string;
+    updatedAt: string;
+  };
   roundHistory?: RoundHistoryEvent[];
   interimPayments?: InterimPayment[];
   id: string;
@@ -103,6 +111,7 @@ export type GameRound = {
   stockCompletesDeal?: boolean;
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
   roundContext?: RoundContext;
   updatedAt?: string;
 };
@@ -174,6 +183,7 @@ export type CreateTablePayload = {
 };
 
 export type CreateRoundPayload = {
+  declarerWon?: boolean;
   participantIds?: string[];
   participationRevision?: string;
   customAmounts?: PlayerBalance[];

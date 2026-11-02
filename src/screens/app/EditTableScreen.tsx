@@ -1,14 +1,25 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { GoldButton } from '../../components/auth/GoldButton';
+import { PlayerAccountsEditor } from '../../components/game/PlayerAccountsEditor';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { fingerprint } from '../../services/sync/syncGameState';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useGameStore } from '../../store/gameStore';
 import { formEntering } from '../../theme/motion';
@@ -40,21 +51,42 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
   );
   const [editingTableId] = useState(currentTable?.id);
   const [saving, setSaving] = useState(false);
+  const savingLock = useRef(false);
   const rounds = useGameStore((state) => state.rounds);
   const [settings, setSettings] = useState<TableSettings>(initialSettings);
+  const [pricingChoice, setPricingChoice] = useState(false);
+  const initialSignature = useRef(fingerprint(initialSettings));
+  const applied = useRef<string | undefined>(undefined);
 
-  const saveSettings = async () => {
-    if (saving) return;
+  const saveSettings = async (scope: 'future' | 'all') => {
+    if (savingLock.current) return;
+    savingLock.current = true;
     setSaving(true);
     try {
       if (useGameStore.getState().currentTable?.id !== editingTableId)
         throw new Error(
           'Der aktive Tisch hat sich geändert. Bitte die Einstellungen erneut öffnen.',
         );
-      if (!updateCurrentTableSettings(settings))
+      const state = useGameStore.getState();
+      if (
+        applied.current
+          ? applied.current !==
+            fingerprint([state.currentTable?.settings, state.rounds])
+          : initialSignature.current !==
+            fingerprint(state.currentTable?.settings)
+      )
         throw new Error(
-          'Stock und Ramsch müssen sich ausschließen. Bei gefülltem Stock ist ein Wechsel erst nach dessen Ausspielen oder Verteilen möglich.',
+          'Tarife oder Spiele wurden inzwischen geändert. Bitte die Einstellungen schließen und erneut öffnen.',
         );
+      if (!applied.current && !updateCurrentTableSettings(settings, scope))
+        throw new Error(
+          useGameStore.getState().roundError ??
+            'Stock und Ramsch müssen sich ausschließen. Bei gefülltem Stock ist ein Wechsel erst nach dessen Ausspielen oder Verteilen möglich.',
+        );
+      applied.current = fingerprint([
+        useGameStore.getState().currentTable?.settings,
+        useGameStore.getState().rounds,
+      ]);
       await reliableStorage.retryWrites();
       if (!(await reliableStorage.confirmWrite('schafkopfrechner-games')))
         throw new Error(
@@ -67,8 +99,27 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         error instanceof Error ? error.message : 'Bitte erneut versuchen.',
       );
     } finally {
+      savingLock.current = false;
       setSaving(false);
     }
+  };
+  const requestSave = () => {
+    if (savingLock.current) return;
+    const tariffSignature = (value: TableSettings) =>
+      fingerprint(
+        [value.games, value.bonusRules].map((entries) =>
+          Object.entries(entries)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([id, entry]) => [id, entry.value, entry.mode]),
+        ),
+      );
+    if (
+      !applied.current &&
+      rounds.length &&
+      tariffSignature(initialSettings) !== tariffSignature(settings)
+    )
+      setPricingChoice(true);
+    else void saveSettings('future');
   };
 
   return (
@@ -116,6 +167,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
             stockBalanceCents={getStockBalanceCents(rounds)}
             onChange={setSettings}
           />
+          <PlayerAccountsEditor />
         </Animated.View>
       </ScrollView>
 
@@ -136,7 +188,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           accessibilityLabel="Regeln speichern"
           accessibilityRole="button"
           disabled={saving}
-          onPress={() => void saveSettings()}
+          onPress={requestSave}
           style={({ pressed }) => [
             styles.floatingButton,
             styles.saveFloating,
@@ -146,11 +198,74 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           <Check color="#17150B" size={30} strokeWidth={3} />
         </Pressable>
       </View>
+      <Modal
+        transparent
+        visible={pricingChoice}
+        animationType="none"
+        onRequestClose={() => setPricingChoice(false)}
+      >
+        <SafeAreaView style={styles.pricingRoot}>
+          <ScrollView contentContainerStyle={styles.pricingScroll}>
+            <View style={styles.pricingCard} accessibilityViewIsModal>
+              <AppText accessibilityRole="header" style={styles.title}>
+                Ab wann gelten die neuen Tarife?
+              </AppText>
+              <AppText style={styles.subtitle}>
+                Nur für neue Spiele oder auch rückwirkend für alle bisherigen
+                Spiele dieses Tisches? Manuell eingetragene Beträge bleiben
+                unverändert.
+              </AppText>
+              <GoldButton
+                title="Ab jetzt"
+                onPress={() => {
+                  setPricingChoice(false);
+                  void saveSettings('future');
+                }}
+              />
+              <GoldButton
+                title="Auch bisherige Spiele"
+                onPress={() => {
+                  setPricingChoice(false);
+                  void saveSettings('all');
+                }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tarifänderung abbrechen"
+                onPress={() => setPricingChoice(false)}
+                style={styles.pricingCancel}
+              >
+                <AppText style={styles.subtitle}>Abbrechen</AppText>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  pricingRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
+  pricingScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: authSpacing.xl,
+  },
+  pricingCard: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    backgroundColor: screenColors.backgroundMid,
+    borderRadius: authRadius.lg,
+    padding: authSpacing.lg,
+    gap: authSpacing.lg,
+  },
+  pricingCancel: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   content: {
     paddingBottom: 134,
     paddingHorizontal: authSpacing.xl,

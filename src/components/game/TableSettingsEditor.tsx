@@ -257,8 +257,8 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
           ) : null}
           {mode === 'stock' ? (
             <AppText style={styles.infoDescription}>
-              Einsatz pro Spieler. Änderungen gelten nur für künftige
-              Einzahlungen.
+              Einsatz pro Spieler. Beim Speichern wählst du, ob neue Tarife nur
+              ab jetzt oder auch für bisherige Spiele gelten.
             </AppText>
           ) : null}
         </View>

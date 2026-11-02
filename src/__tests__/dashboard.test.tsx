@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { Metric, StatAction } from '../components/statistics/StatisticsPanels';
 import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { StatisticsScreen } from '../screens/app/StatisticsScreen';
+import { useSharedTableStatus } from '../services/shared/sharedTables';
 import { useAuthStore } from '../store/authStore';
 import { useDashboardIdentityStore } from '../store/dashboardIdentityStore';
 import { useGameStore } from '../store/gameStore';
@@ -30,13 +31,25 @@ jest.mock('expo-linear-gradient', () => ({
 jest.mock('react-native-reanimated', () =>
   jest.requireActual('react-native-reanimated/mock'),
 );
-jest.mock('../components/auth/AuthBackground', () => ({
-  AuthBackground: jest.requireActual('react-native').View,
-}));
+jest.mock('../components/auth/AuthBackground', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    AuthBackground: ({ children }: { children: React.ReactNode }) => (
+      <View>{children}</View>
+    ),
+  };
+});
 beforeEach(() => {
   jest.replaceProperty(Platform, 'OS', 'web');
   mockNavigate.mockClear();
   useAuthStore.setState({ user: null });
+  useSharedTableStatus.setState({
+    tables: [],
+    tablesUserId: null,
+    error: null,
+    conflict: null,
+    busy: false,
+  });
   useDashboardIdentityStore.setState({ selections: {}, hydrated: true });
   useGameStore.setState({
     currentTable: null,
@@ -140,9 +153,9 @@ it('switches between overall, player and table statistics and opens a selected t
   });
   await act(async () => view.unmount());
 });
-function table() {
+function table(accountId?: string) {
   useGameStore.getState().createTable('Echter Tisch', [
-    { id: 'a', name: 'Anna', isLocal: true },
+    { id: 'a', name: 'Anna', isLocal: true, userId: accountId },
     { id: 'b', name: 'Ben', isLocal: true },
   ]);
   seedLegacyRound({
@@ -169,7 +182,7 @@ async function mountDashboard() {
   };
   return { view: view!, button, press };
 }
-it('keeps an empty dashboard focused on creating a table without invented statistics', async () => {
+it('keeps an empty dashboard focused on personal statistics and the table tab', async () => {
   const ui = await mountDashboard();
   expect(ui.button('Gesamtbilanz: 0,00 €')).toBeTruthy();
   expect(ui.button('Spiele gesamt: 0')).toBeTruthy();
@@ -181,22 +194,31 @@ it('keeps an empty dashboard focused on creating a table without invented statis
       accessibilityLabel: 'Offene Abrechnungen öffnen',
     }),
   ).toHaveLength(0);
-  await ui.press('Tisch erstellen');
-  expect(mockNavigate).toHaveBeenCalledWith('CreateTable');
+  await ui.press('Alle Tische ansehen');
+  expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
   await act(async () => ui.view.unmount());
 });
-it('requires explicit guest assignment and keeps personal totals through archive and payment updates', async () => {
-  table();
+it('automatically uses the authenticated account and keeps its totals through archive and payment updates', async () => {
+  useAuthStore.setState({
+    user: { id: 'account-anna', user_metadata: { username: 'Anna' } } as never,
+  });
+  table('account-anna');
   const ui = await mountDashboard();
-  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
-  await ui.press('Spielerzuordnung ändern');
-  await ui.press('Anna für Echter Tisch zuordnen');
-  await ui.press('Schließen');
+  expect(
+    ui.view.root.findAllByProps({
+      accessibilityLabel: 'Spielerzuordnung ändern',
+    }),
+  ).toHaveLength(0);
+  expect(
+    ui.view.root.findAllByProps({
+      accessibilityLabel: 'Fehlende Spieler zuordnen',
+    }),
+  ).toHaveLength(0);
   expect(ui.button('Gesamtbilanz: +1,20 €')).toBeTruthy();
   expect(ui.button('Spiele gesamt: 1')).toBeTruthy();
   expect(ui.button('Gewinnquote: 100\u00a0%')).toBeTruthy();
-  await ui.press('Weiterspielen');
-  expect(mockNavigate).toHaveBeenCalledWith('ActiveGame');
+  await ui.press('Alle Tische ansehen');
+  expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
   await act(async () => useGameStore.getState().finishGameDay());
   const archived = useGameStore.getState().archivedGameDays[0];
   expect(ui.button('Gesamtbilanz: +1,20 €')).toBeTruthy();
@@ -248,13 +270,16 @@ it('opens the table overview and profile without offering a blocked new table ac
   const ui = await mountDashboard();
   await ui.press('Alle Tische ansehen');
   expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
-  await ui.press('Weiterspielen');
-  expect(mockNavigate).toHaveBeenCalledWith('ActiveGame');
+  await ui.press('Alle Tische ansehen');
+  expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
   await ui.press('Profil öffnen');
   expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'Profile' });
   await act(async () => ui.view.unmount());
 });
-it('includes selected older offline games in personal totals without guessing identity from names', async () => {
+it('excludes old guest games without an account link instead of guessing from names', async () => {
+  useAuthStore.setState({
+    user: { id: 'account-anna', user_metadata: { username: 'Anna' } } as never,
+  });
   usePlayerStore.setState({
     players: [
       { id: 'a', name: 'Anna' },
@@ -281,19 +306,18 @@ it('includes selected older offline games in personal totals without guessing id
     options: {} as never,
   });
   const ui = await mountDashboard();
-  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
-  await ui.press('Spielerzuordnung ändern');
-  await ui.press('Anna für Alt zuordnen');
-  await ui.press('Schließen');
-  expect(ui.button('Gesamtbilanz: +1,00 €')).toBeTruthy();
-  await ui.press('Spiele gesamt: 1');
+  expect(ui.button('Gesamtbilanz: 0,00 €')).toBeTruthy();
+  await ui.press('Spiele gesamt: 0');
   expect(mockNavigate).toHaveBeenCalledWith('AppTabs', {
     screen: 'Statistics',
   });
   await act(async () => ui.view.unmount());
 });
-it('keeps guest and account assignments separate when the signed-in identity changes', async () => {
-  table();
+it('uses the signed-in account and ignores old manual guest assignments', async () => {
+  useAuthStore.setState({
+    user: { id: 'account-anna', user_metadata: { username: 'Anna' } } as never,
+  });
+  table('account-anna');
   useDashboardIdentityStore
     .getState()
     .select('guest', `table:${useGameStore.getState().currentTable!.id}`, 'a');
@@ -308,19 +332,18 @@ it('keeps guest and account assignments separate when the signed-in identity cha
       } as never,
     }),
   );
-  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
+  expect(ui.button('Gesamtbilanz: 0,00 €')).toBeTruthy();
   await act(async () => useAuthStore.setState({ user: null }));
-  expect(ui.button('Gesamtbilanz: +1,20 €')).toBeTruthy();
+  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
   await act(async () => ui.view.unmount());
 });
-it('uses the same explicitly combined personal totals in dashboard and player statistics', async () => {
-  table();
-  const first = useGameStore.getState().currentTable!.id;
+it('uses the same account-based personal totals in dashboard and player statistics', async () => {
+  useAuthStore.setState({
+    user: { id: 'account-anna', user_metadata: { username: 'Anna' } } as never,
+  });
+  table('account-anna');
   await useGameStore.getState().finishGameDay();
-  table();
-  const second = useGameStore.getState().currentTable!.id;
-  useDashboardIdentityStore.getState().select('guest', `table:${first}`, 'a');
-  useDashboardIdentityStore.getState().select('guest', `table:${second}`, 'a');
+  table('account-anna');
   const ui = await mountDashboard();
   expect(ui.button('Gesamtbilanz: +2,40 €')).toBeTruthy();
   expect(ui.button('Spiele gesamt: 2')).toBeTruthy();
@@ -348,4 +371,65 @@ it('uses the same explicitly combined personal totals in dashboard and player st
     ui.view.unmount();
     stats.unmount();
   });
+});
+
+it.each([
+  { username: 'Karl', display_name: 'Anderer Name' },
+  { display_name: 'Karl' },
+])(
+  'uses the account name for the greeting without falling back to the email address',
+  async (metadata) => {
+    useAuthStore.setState({
+      user: {
+        id: 'account-karl',
+        email: 'nicht-der-name@example.com',
+        user_metadata: metadata,
+      } as never,
+    });
+    const ui = await mountDashboard();
+    const rendered = JSON.stringify(ui.view.toJSON());
+    expect(rendered).toContain('Karl');
+    expect(rendered).not.toContain('nicht-der-name');
+    expect(rendered).not.toContain('Anderer Name');
+    await act(async () => ui.view.unmount());
+  },
+);
+it('shows no table cards on the dashboard even when local and shared tables exist', async () => {
+  useGameStore.getState().createTable(
+    'Nur im Tischreiter',
+    ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
+  );
+  const state = useGameStore.getState();
+  useAuthStore.setState({
+    user: { id: 'account-karl', user_metadata: { username: 'Karl' } } as never,
+  });
+  useSharedTableStatus.setState({
+    tablesUserId: 'account-karl',
+    tables: [
+      {
+        id: 'shared-table',
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        payload: {
+          currentTable: {
+            ...state.currentTable!,
+            id: 'shared-table',
+            name: 'Gemeinsamer Tisch',
+          },
+          players: state.players,
+          rounds: state.rounds,
+          balances: state.balances,
+          settlements: state.settlements,
+          activeGame: true,
+        },
+      },
+    ],
+  });
+  const ui = await mountDashboard();
+  const rendered = JSON.stringify(ui.view.toJSON());
+  expect(rendered).not.toContain('Nur im Tischreiter');
+  expect(rendered).not.toContain('Gemeinsamer Tisch');
+  expect(rendered).not.toContain('Tisch erstellen');
+  expect(ui.button('Alle Tische ansehen')).toBeTruthy();
+  await act(async () => ui.view.unmount());
 });

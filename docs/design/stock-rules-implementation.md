@@ -1,5 +1,12 @@
 # Stock- und Ramschregeln – Issue #7
 
+Nachtrag 02.11.2026: Bei der Integration mit Karls Main wurde die Tarifwahl
+„Ab jetzt“ / „Auch bisherige Spiele“ ausdrücklich übernommen. Ein gewählter
+rückwirkender Tarifwechsel berechnet auch historische Einzahlungen und deren
+abhängige Stockbewegungen neu und protokolliert die Änderungen. Bereits
+geleistete Zahlungen bleiben erhalten. Dies erweitert die frühere Vorgabe,
+dass Einsatzänderungen ausschließlich künftige Einzahlungen betreffen.
+
 ## Bedienung
 
 „Regeln & Tarife“ enthält die gemeinsame Auswahl „Stock“, „Ramsch“, „Beides aus“. Stock und Ramsch sind zusätzlich unter „Grundspiele“ jeweils mit Schalter und Tarif sichtbar; alle Einstiege verwenden denselben Zustand. Ist Stock oder Ramsch bereits aktiv, öffnet der Aktivierungsversuch der anderen Option eine Warnmeldung und lässt die Einstellungen unverändert. Für einen Wechsel muss zuerst die aktive Option deaktiviert werden (etwa über „Beides aus“). Rufspiel bleibt unabhängig aktivierbar. Bei gefülltem Stock erklärt ein Wechselversuch die finanzielle Sperre ebenfalls als Warnung; die bisherige Einstellung und sämtliche Buchungen bleiben erhalten. Der Store prüft die finanzielle Sperre nochmals beim Speichern.

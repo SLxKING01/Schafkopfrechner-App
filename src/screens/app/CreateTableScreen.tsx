@@ -21,17 +21,17 @@ import {
 import Animated from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { AccountPicker } from '../../components/game/AccountPicker';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { FriendChip } from '../../components/game/FriendChip';
-import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import {
   DEFAULT_USER_APPEARANCE,
-  FRIEND_PREVIEWS,
   PROFILE_ACCENTS,
 } from '../../constants/profileCustomization';
 import { createDefaultTableSettings } from '../../constants/tableSettings';
+import { usePlayerAccounts } from '../../hooks/usePlayerAccounts';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
 import { useAuthStore } from '../../store/authStore';
@@ -84,9 +84,13 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     }),
     [accentId, avatarId, user],
   );
+  const { accounts } = usePlayerAccounts();
   const selectableProfiles = useMemo(
-    () => [currentUserProfile, ...FRIEND_PREVIEWS],
-    [currentUserProfile],
+    () => [
+      currentUserProfile,
+      ...accounts.filter((account) => account.id !== currentUserProfile.id),
+    ],
+    [accounts, currentUserProfile],
   );
   const [tableName, setTableName] = useState(
     () =>
@@ -159,43 +163,41 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     playerInputRef.current?.focus();
   }
 
-  const toggleFriend = useCallback(
-    (friend: FriendProfile) => {
-      setPlayers((currentPlayers) => {
-        const existingFriendPlayer = currentPlayers.find(
-          (player) => player.friendId === friend.id,
+  const toggleFriend = useCallback((friend: FriendProfile) => {
+    setPlayers((currentPlayers) => {
+      const existingFriendPlayer = currentPlayers.find(
+        (player) => player.friendId === friend.id,
+      );
+
+      if (existingFriendPlayer) {
+        return currentPlayers.filter(
+          (player) => player.id !== existingFriendPlayer.id,
         );
+      }
 
-        if (existingFriendPlayer) {
-          return currentPlayers.filter(
-            (player) => player.id !== existingFriendPlayer.id,
-          );
-        }
+      const existsByName = currentPlayers.some(
+        (player) =>
+          player.name.trim().toLowerCase() ===
+          friend.username.trim().toLowerCase(),
+      );
 
-        const existsByName = currentPlayers.some(
-          (player) =>
-            player.name.trim().toLowerCase() ===
-            friend.username.trim().toLowerCase(),
-        );
+      if (existsByName || currentPlayers.length >= maxPlayers) {
+        return currentPlayers;
+      }
 
-        if (existsByName || currentPlayers.length >= maxPlayers) {
-          return currentPlayers;
-        }
-
-        return [
-          ...currentPlayers,
-          {
-            ...createLocalPlayer(friend.username),
-            accentColor: friend.accentColor,
-            animalId: friend.avatarId,
-            friendId: friend.id,
-            ...(user?.id === friend.id ? { userId: user.id } : {}),
-          },
-        ];
-      });
-    },
-    [user],
-  );
+      return [
+        ...currentPlayers,
+        {
+          ...createLocalPlayer(friend.username),
+          accentColor: friend.accentColor,
+          animalId: friend.avatarId,
+          friendId: friend.id,
+          userId: friend.id,
+          isLocal: false,
+        },
+      ];
+    });
+  }, []);
 
   function removePlayer(id: string) {
     setPlayers((currentPlayers) =>
@@ -366,9 +368,11 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
             <View style={styles.friendsSection}>
               <View style={styles.friendsHeader}>
                 <View style={styles.friendsCopyBlock}>
-                  <AppText style={styles.friendsTitle}>Freunde</AppText>
+                  <AppText style={styles.friendsTitle}>
+                    Mitspieler mit Konto
+                  </AppText>
                   <AppText style={styles.friendsCopy}>
-                    Schneller Einstieg mit deiner Runde.
+                    Diese Spieler sehen den Tisch automatisch auf ihrem Handy.
                   </AppText>
                 </View>
                 <Pressable
@@ -480,13 +484,13 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
         </View>
       </KeyboardAvoidingView>
 
-      <FriendPickerSheet
-        friends={selectableProfiles}
-        maxPlayersReached={hasReachedMaxPlayers}
-        selectedFriendIds={selectedFriendIds}
+      <AccountPicker
         visible={friendPickerVisible}
         onClose={() => setFriendPickerVisible(false)}
-        onToggleFriend={toggleFriend}
+        onSelect={toggleFriend}
+        excludedIds={players.flatMap((player) =>
+          player.userId ? [player.userId] : [],
+        )}
       />
     </AuthBackground>
   );

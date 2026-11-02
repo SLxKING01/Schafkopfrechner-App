@@ -493,7 +493,7 @@ it('does not confirm a failed disk write and retries the same round without a du
 });
 
 it.each(['Solo', 'Wenz'])(
-  'preselects the tapped caller for %s without selecting a win and saves a lost game with that ID',
+  'preselects the tapped caller as winner for %s and allows switching that game to a loss',
   async (type) => {
     const ui = await mount(null, players, 'b');
     expect(
@@ -507,11 +507,12 @@ it.each(['Solo', 'Wenz'])(
     expect(ui.button('Ansager B').props.accessibilityState.selected).toBe(true);
     expect(
       ui.button('Ansager gewonnen').props.accessibilityState.selected,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       ui.button('Ansager verloren').props.accessibilityState.selected,
     ).toBe(false);
-    expect(ui.button('Runde speichern').props.disabled).toBe(true);
+    expect(ui.button('Runde speichern').props.disabled).toBe(false);
+    expect(ui.button('Ansager A').props.disabled).toBe(true);
     await ui.press('Ansager verloren');
     await ui.press('Runde speichern');
     const round = useGameStore.getState().rounds[0];

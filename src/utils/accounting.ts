@@ -13,6 +13,7 @@ type RoundInput = {
   stockAction?: StockAction;
   declarerId?: string;
   partnerId?: string;
+  declarerWon?: boolean;
 };
 export function roundWinnerIds(
   round: Pick<RoundInput, 'winnerId' | 'winnerIds'>,
@@ -186,9 +187,23 @@ export function isValidRound(round: RoundInput, players: Participant[]) {
     return false;
   if (round.stockAction === 'double' && (!round.declarerId || !round.partnerId))
     return false;
-  if (round.declarerId !== undefined || round.partnerId !== undefined) {
+  if (
+    round.declarerId !== undefined ||
+    round.partnerId !== undefined ||
+    round.declarerWon !== undefined
+  ) {
     if (!round.declarerId || !ids.has(round.declarerId)) return false;
-    if (['rufspiel', 'sauspiel'].includes(round.gameType ?? '')) {
+    if (
+      round.declarerWon !== undefined &&
+      (typeof round.declarerWon !== 'boolean' ||
+        round.declarerWon !== winners.includes(round.declarerId))
+    )
+      return false;
+    if (
+      ['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
+        round.gameType ?? '',
+      )
+    ) {
       if (
         !round.partnerId ||
         round.declarerId === round.partnerId ||

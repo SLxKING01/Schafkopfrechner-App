@@ -8,6 +8,7 @@ import {
   Ellipsis,
   History,
   ListOrdered,
+  Menu,
   Plus,
   ReceiptText,
   SlidersHorizontal,
@@ -29,6 +30,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import DraggableFlatList from 'react-native-draggable-flatlist';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -47,6 +49,7 @@ import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
 import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
 import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { RoundUndoNotice } from '../../components/game/RoundUndoNotice';
+import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
@@ -198,6 +201,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     playerId: string | null;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('players');
+  const [draggingPlayers, setDraggingPlayers] = useState(false);
+  const dragTableId = useRef<string | undefined>(undefined);
   const [roundComposerVisible, setRoundComposerVisible] = useState(false);
   const [composerSession, setComposerSession] = useState(0);
   const [initialDeclarerId, setInitialDeclarerId] = useState<
@@ -541,6 +546,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </View>
 
+      <SharedTablePanel />
       <SegmentedTabs
         activeTab={activeTab}
         onShowHistory={showHistoryTab}
@@ -658,15 +664,34 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           }
         />
       ) : (
-        <FlatList
+        <DraggableFlatList<RankedPlayer>
           testID="player-standings-list"
+          containerStyle={styles.scroller}
+          activationDistance={8}
+          onDragBegin={() => {
+            dragTableId.current = useGameStore.getState().currentTable?.id;
+            setDraggingPlayers(true);
+            triggerSelectionHaptic();
+          }}
+          onDragEnd={({ data }) => {
+            setDraggingPlayers(false);
+            if (
+              dragTableId.current !==
+                useGameStore.getState().currentTable?.id ||
+              !setPlayerOrder(data.map((p) => p.id))
+            )
+              Alert.alert(
+                'Reihenfolge nicht gespeichert',
+                'Der Tisch oder die Spieler haben sich geändert. Bitte erneut versuchen.',
+              );
+          }}
           data={rankedPlayers}
           keyExtractor={(player) => player.id}
           style={styles.scroller}
           contentContainerStyle={[styles.content, { paddingBottom: 16 }]}
           contentOffset={{ x: 0, y: scrollOffsets.players }}
-          onScroll={(event) => {
-            scrollPositions.current.players = event.nativeEvent.contentOffset.y;
+          onScrollOffsetChange={(offset) => {
+            scrollPositions.current.players = offset;
           }}
           scrollEnabled
           scrollEventThrottle={16}
@@ -702,14 +727,17 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   <AppText style={[styles.columnLabel, styles.coinColumn]}>
                     Leger
                   </AppText>
+                  <View style={styles.dragHandle} />
                 </View>
               </View>
             </>
           }
-          renderItem={({ item: player }) => (
+          renderItem={({ item: player, drag, isActive }) => (
             <View style={styles.dragTableRow}>
               <PlayerRankingRow
                 participating={participantIds.has(player.id)}
+                dragging={draggingPlayers || isActive}
+                onDrag={drag}
                 isDealer={player.id === currentDealerId}
                 player={player}
                 onPressPlayer={(player) => openRoundComposer(player.id)}
@@ -728,7 +756,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <View>
               <View style={styles.dragTableEnd} />
               <AppText style={styles.dragHint}>
-                Sitzreihenfolge über das Listensymbol ändern · Spielernamen für
+                Am Griff ziehen oder Listensymbol nutzen · Spielernamen für
                 Aktionen gedrückt halten
               </AppText>
               {outstandingBalances(
@@ -1296,6 +1324,8 @@ const SegmentButton = memo(function SegmentButton({
 });
 
 type PlayerRankingRowProps = {
+  dragging: boolean;
+  onDrag: () => void;
   participating: boolean;
   onOpenActions: () => void;
   isDealer: boolean;
@@ -1305,6 +1335,8 @@ type PlayerRankingRowProps = {
 };
 
 const PlayerRankingRow = memo(function PlayerRankingRow({
+  dragging,
+  onDrag,
   participating,
   onOpenActions,
   isDealer,
@@ -1317,12 +1349,13 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
   const [hovered, setHovered] = useState(false);
   const longPressed = useRef(false);
   const handlePress = useCallback(() => {
+    if (dragging) return;
     if (longPressed.current) {
       longPressed.current = false;
       return;
     }
     if (participating) onPressPlayer(player);
-  }, [onPressPlayer, player, participating]);
+  }, [onPressPlayer, player, participating, dragging]);
   const handlePressCoin = useCallback(() => {
     onPressCoin(player.id);
   }, [onPressCoin, player.id]);
@@ -1335,10 +1368,12 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
         onPress={handlePress}
+        disabled={dragging}
         onPressIn={() => {
           longPressed.current = false;
         }}
         onLongPress={() => {
+          if (dragging) return;
           longPressed.current = true;
           onOpenActions();
         }}
@@ -1378,6 +1413,7 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
       </Text>
       {participating ? (
         <CoinMultiplierBadge
+          disabled={dragging}
           coinCount={player.placedCoins}
           playerName={player.name}
           onPress={handlePressCoin}
@@ -1385,6 +1421,19 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
       ) : (
         <View style={styles.coinColumn} />
       )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${player.name} verschieben`}
+        accessibilityHint="Am Griff ziehen, um die Sitzreihenfolge zu ändern. Alternativ das Listensymbol verwenden."
+        accessibilityState={{ selected: dragging }}
+        onPressIn={onDrag}
+        style={styles.dragHandle}
+      >
+        <Menu
+          size={20}
+          color={dragging ? screenColors.gold : screenColors.soft}
+        />
+      </Pressable>
     </View>
   );
 });
@@ -1607,6 +1656,12 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
 });
 
 const styles = StyleSheet.create({
+  dragHandle: {
+    width: 44,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   turboCard: {
     flexDirection: 'row',
     alignItems: 'center',

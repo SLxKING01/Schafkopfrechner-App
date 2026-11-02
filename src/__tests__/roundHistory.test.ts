@@ -483,3 +483,69 @@ it('restores older undo records without position metadata ahead of later entries
   snapshot.currentTable!.roundHistory![0].action = 'restored';
   expect(validCloudSnapshot(snapshot)).toBe(false);
 });
+
+it('reprices stock and games atomically, keeps real payments and audits every affected snapshot', () => {
+  const store = useGameStore.getState();
+  const settings = structuredClone(store.currentTable!.settings);
+  settings.games.stock.enabled = true;
+  store.updateCurrentTableSettings(settings);
+  expect(
+    store.addRound({
+      gameType: 'stock',
+      winnerId: '',
+      winnerIds: [],
+      loserIds: players.map((p) => p.id),
+      amount: 0.8,
+      stockAction: 'deposit',
+    }),
+  ).toBe(true);
+  const calling = {
+    gameType: 'rufspiel' as const,
+    declarerId: 'a',
+    partnerId: 'b',
+    winnerId: 'c',
+    winnerIds: ['c', 'd'],
+    loserIds: ['a', 'b'],
+    amount: 0.4,
+    tariffOptions: { ...emptyTariffOptions },
+  };
+  expect(store.addRound(calling)).toBe(true);
+  expect(
+    store.addRound({
+      ...calling,
+      winnerId: 'a',
+      winnerIds: ['a', 'b'],
+      loserIds: ['c', 'd'],
+    }),
+  ).toBe(true);
+  const before = useGameStore.getState();
+  expect(
+    store.recordInterimPayment(
+      before.currentTable!.id,
+      paymentRevision(before.currentTable!, before.balances),
+      { id: 'reprice-paid', fromPlayerId: 'c', toPlayerId: 'a', amount: 0.1 },
+    ),
+  ).toBe(true);
+  const paid = structuredClone(
+    useGameStore.getState().currentTable!.interimPayments,
+  );
+  const ids = before.rounds.map((r) => r.id);
+  const oldHistory = structuredClone(before.currentTable!.roundHistory!);
+  settings.games.stock.value = 0.3;
+  settings.games.rufspiel.value = 0.5;
+  expect(store.updateCurrentTableSettings(settings, 'all')).toBe(true);
+  const state = useGameStore.getState();
+  expect(state.rounds.map((r) => r.id)).toEqual(ids);
+  expect(state.rounds.map((r) => r.stockAfterCents)).toEqual([120, 240, 0]);
+  expect(state.balances.map((b) => b.amount)).toEqual([0.3, 0.3, -0.3, -0.3]);
+  expect(state.currentTable!.interimPayments).toEqual(paid);
+  expect(state.currentTable!.roundHistory!.slice(0, oldHistory.length)).toEqual(
+    oldHistory,
+  );
+  expect(
+    state
+      .currentTable!.roundHistory!.slice(oldHistory.length)
+      .map((e) => e.action),
+  ).toEqual(['updated', 'updated', 'updated']);
+  expect(validCloudSnapshot(captureGameState())).toBe(true);
+});

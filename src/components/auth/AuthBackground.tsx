@@ -9,11 +9,13 @@ import { authColors } from '../../theme/colors';
 type AuthBackgroundProps = {
   children: ReactNode;
   withSafeArea?: boolean;
+  backgroundPattern?: ReactNode;
 };
 
 export function AuthBackground({
   children,
   withSafeArea = true,
+  backgroundPattern,
 }: AuthBackgroundProps) {
   // Full-screen sheets already apply their own safe-area insets.
   const Content = withSafeArea ? SafeAreaView : View;
@@ -29,6 +31,11 @@ export function AuthBackground({
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.vignette} pointerEvents="none" />
+      {backgroundPattern ? (
+        <View style={styles.patternLayer} pointerEvents="none" aria-hidden>
+          {backgroundPattern}
+        </View>
+      ) : null}
       <BlurView
         pointerEvents="none"
         intensity={12}
@@ -53,6 +60,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderColor: 'rgba(0, 0, 0, 0.25)',
     borderWidth: 18,
+  },
+  patternLayer: {
+    ...StyleSheet.absoluteFill,
+    overflow: 'hidden',
   },
   blurWash: {
     ...StyleSheet.absoluteFill,
