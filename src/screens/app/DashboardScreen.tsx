@@ -55,7 +55,10 @@ export function DashboardScreen() {
     return [...map.entries()];
   }, [payments]);
   return (
-    <AuthBackground backgroundPattern={<SchafkopfBackdrop />}>
+    <AuthBackground
+      backgroundPattern={<SchafkopfBackdrop />}
+      withEdgeBorder={false}
+    >
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={s.content}

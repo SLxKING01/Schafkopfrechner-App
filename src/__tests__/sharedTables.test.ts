@@ -8,8 +8,10 @@ import {
   useSharedTableStatus,
 } from '../services/shared/sharedTables';
 import { reliableStorage } from '../storage/reliableStorage';
+import { validGameSnapshot } from '../storage/validateGameState';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { getStockBalanceCents } from '../utils/accounting';
 import { paymentRevision } from '../utils/interimPayments';
 import { emptyTariffOptions } from '../utils/roundTariff';
 
@@ -313,4 +315,214 @@ it('preserves payment journals and round history across accounts, restoration an
   expect(useGameStore.getState().rounds).toHaveLength(1);
   expect(useGameStore.getState().rounds[0].id).toBe(id);
   expect(useGameStore.getState().currentTable!.interimPayments).toEqual(paid);
+});
+
+const addSolo = (winnerId = 'a') => {
+  expect(
+    useGameStore.getState().addRound({
+      winnerId,
+      loserIds: ['a', 'b', 'c', 'd'].filter((id) => id !== winnerId),
+      gameType: 'solo',
+      amount: 0.6,
+    }),
+  ).toBe(true);
+};
+function changeNewRoundClock(createdAt: string) {
+  useGameStore.setState((state) => ({
+    rounds: state.rounds.map((r) => ({ ...r, createdAt })),
+    currentTable: {
+      ...state.currentTable!,
+      roundHistory: state.currentTable!.roundHistory!.map((e) => ({
+        ...e,
+        after: e.after ? { ...e.after, createdAt } : undefined,
+      })),
+    },
+  }));
+}
+
+it('retains independent offline additions from two accounts in server acceptance order, regardless of their clocks', async () => {
+  await publishSharedTable();
+  const baseline = clone(useGameStore.getState().currentTable);
+  const initial = clone(sharedSnapshot()!);
+  addSolo('a');
+  changeNewRoundClock('2030-01-01T00:00:00.000Z');
+  const firstId = useGameStore.getState().rounds[0].id;
+  await syncSharedTable();
+  actor('phone-b');
+  useGameStore.setState({
+    ...initial,
+    currentTable: {
+      ...baseline!,
+      shared: { ...baseline!.shared!, userId: 'phone-b' },
+    },
+  });
+  addSolo('b');
+  changeNewRoundClock('2020-01-01T00:00:00.000Z');
+  const secondId = useGameStore.getState().rounds[0].id;
+  await syncSharedTable();
+  expect(useSharedTableStatus.getState().conflict).toBeNull();
+  expect(remote.payload.rounds.map((r) => r.id)).toEqual([firstId, secondId]);
+  expect(useGameStore.getState().rounds).toEqual(remote.payload.rounds);
+  expect(remote.payload.currentTable.dealerId).toBe('c');
+  expect(
+    remote.payload.currentTable.roundHistory!.map((e) => [
+      e.sequence,
+      e.actor.kind === 'account' && e.actor.id,
+    ]),
+  ).toEqual([
+    [1, 'phone-a'],
+    [2, 'phone-b'],
+  ]);
+  const version = remote.version;
+  await syncSharedTable();
+  expect(remote.version).toBe(version);
+  expect(remote.payload.rounds).toHaveLength(2);
+});
+
+it('rebases after a compare-and-swap race rather than sending a stale whole-table snapshot', async () => {
+  await publishSharedTable();
+  const initial = clone(sharedSnapshot()!);
+  const meta = clone(useGameStore.getState().currentTable);
+  addSolo('b');
+  const other = clone(sharedSnapshot()!);
+  useGameStore.setState({ ...initial, currentTable: meta });
+  addSolo('a');
+  const implementation = mockRpc.getMockImplementation()!;
+  let raced = false;
+  mockRpc.mockImplementation(async (name, params) => {
+    if (params.p_action === 'save' && !raced) {
+      raced = true;
+      remote = { ...remote, payload: other, version: remote.version + 1 };
+      return {
+        data: null,
+        error: { code: '40001', message: 'Concurrent write' },
+      };
+    }
+    return implementation(name, params);
+  });
+  await syncSharedTable();
+  expect(remote.payload.rounds).toHaveLength(2);
+  expect(remote.payload.rounds[0].id).toBe(other.rounds[0].id);
+  expect(useSharedTableStatus.getState().error).toBeNull();
+});
+
+it('recovers a lost upload acknowledgement idempotently without duplicating balances or history', async () => {
+  await publishSharedTable();
+  addSolo();
+  const implementation = mockRpc.getMockImplementation()!;
+  mockRpc.mockImplementation(async (name, params) => {
+    const result = await implementation(name, params);
+    if (params.p_action === 'save')
+      throw new Error('Connection lost after commit');
+    return result;
+  });
+  await syncSharedTable();
+  const accepted = clone(remote.payload);
+  mockRpc.mockImplementation(implementation);
+  await syncSharedTable();
+  expect(sharedSnapshot()).toEqual(accepted);
+  expect(remote.payload.rounds).toHaveLength(1);
+  expect(remote.payload.currentTable.roundHistory).toHaveLength(1);
+});
+
+it('keeps edits to the same game as a visible conflict instead of replacing the newer correction', async () => {
+  addSolo();
+  await publishSharedTable();
+  const original = clone(sharedSnapshot()!);
+  const meta = clone(useGameStore.getState().currentTable);
+  const round = original.rounds[0];
+  expect(
+    useGameStore.getState().updateRound(round.id, { ...round, amount: 0.9 }),
+  ).toBe(true);
+  await syncSharedTable();
+  const accepted = clone(remote.payload);
+  useGameStore.setState({ ...original, currentTable: meta });
+  expect(
+    useGameStore.getState().updateRound(round.id, { ...round, amount: 1.2 }),
+  ).toBe(true);
+  await syncSharedTable();
+  expect(remote.payload).toEqual(accepted);
+  expect(useGameStore.getState().rounds[0].amount).toBe(1.2);
+  expect(useSharedTableStatus.getState().conflict).not.toBeNull();
+});
+
+it('replays concurrent stock-dependent games in accepted order with balanced cents and valid audit snapshots', async () => {
+  const settings = clone(useGameStore.getState().currentTable!.settings);
+  settings.games.stock.enabled = true;
+  settings.games.ramsch.enabled = false;
+  useGameStore.getState().updateCurrentTableSettings(settings);
+  const deposit = () =>
+    expect(
+      useGameStore.getState().addRound({
+        gameType: 'stock',
+        winnerId: '',
+        winnerIds: [],
+        loserIds: ['a', 'b', 'c', 'd'],
+        amount: 0.8,
+        stockAction: 'deposit',
+      }),
+    ).toBe(true);
+  deposit();
+  await publishSharedTable();
+  const initial = clone(sharedSnapshot()!);
+  const meta = clone(useGameStore.getState().currentTable);
+  deposit();
+  await syncSharedTable();
+  useGameStore.setState({ ...initial, currentTable: meta });
+  expect(
+    useGameStore.getState().addRound({
+      gameType: 'rufspiel',
+      declarerId: 'a',
+      partnerId: 'b',
+      winnerId: 'a',
+      winnerIds: ['a', 'b'],
+      loserIds: ['c', 'd'],
+      amount: 0.4,
+    }),
+  ).toBe(true);
+  expect(useGameStore.getState().rounds[1].stockBeforeCents).toBe(80);
+  await syncSharedTable();
+  expect(useSharedTableStatus.getState().conflict).toBeNull();
+  expect(remote.payload.rounds[2]).toMatchObject({
+    stockBeforeCents: 160,
+    stockAfterCents: 0,
+    stockAction: 'payout',
+  });
+  expect(getStockBalanceCents(remote.payload.rounds)).toBe(0);
+  expect(
+    remote.payload.balances.reduce(
+      (sum, b) => sum + Math.round(b.amount * 100),
+      0,
+    ),
+  ).toBe(0);
+  expect(validGameSnapshot(remote.payload)).toBe(true);
+  await syncSharedTable();
+  expect(remote.payload.rounds).toHaveLength(3);
+});
+
+it('keeps additions made while a merged upload is in flight and uploads them on the next sync', async () => {
+  await publishSharedTable();
+  const initial = clone(sharedSnapshot()!);
+  const meta = clone(useGameStore.getState().currentTable);
+  addSolo('a');
+  await syncSharedTable();
+  useGameStore.setState({ ...initial, currentTable: meta });
+  addSolo('b');
+  const implementation = mockRpc.getMockImplementation()!;
+  let edited = false;
+  mockRpc.mockImplementation(async (name, params) => {
+    const result = await implementation(name, params);
+    if (params.p_action === 'save' && !edited) {
+      edited = true;
+      addSolo('c');
+    }
+    return result;
+  });
+  await syncSharedTable();
+  expect(useGameStore.getState().rounds).toHaveLength(3);
+  expect(remote.payload.rounds).toHaveLength(2);
+  expect(useSharedTableStatus.getState().conflict).toBeNull();
+  await syncSharedTable();
+  expect(remote.payload.rounds).toHaveLength(3);
+  expect(sharedSnapshot()).toEqual(remote.payload);
 });

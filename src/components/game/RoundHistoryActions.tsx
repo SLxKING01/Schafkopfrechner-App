@@ -30,17 +30,15 @@ export function RoundHistoryActions({
   const number = rounds.findIndex((r) => r.id === round.id) + 1;
   return (
     <>
-      <View style={styles.row}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Aktionen für Eintrag ${number} öffnen`}
+        accessibilityHint="Spiel bearbeiten oder Änderungsverlauf ansehen"
+        onPress={() => setMode('menu')}
+        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      >
         <View style={styles.card}>{children}</View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Aktionen für Eintrag ${number} öffnen`}
-          onPress={() => setMode('menu')}
-          style={styles.more}
-        >
-          <AppText style={styles.dots}>⋯</AppText>
-        </Pressable>
-      </View>
+      </Pressable>
       {mode ? (
         <Modal
           transparent
@@ -106,19 +104,13 @@ export function RoundHistoryActions({
 }
 
 const styles = StyleSheet.create({
+  pressed: { opacity: 0.8 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: authColors.surface,
   },
   card: { flex: 1, minWidth: 0 },
-  more: {
-    width: authControlSizes.touch,
-    minHeight: authControlSizes.touch,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dots: { fontSize: 25, color: authColors.textSecondary },
   menuRoot: { flex: 1, justifyContent: 'center', padding: authSpacing.xl },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: authColors.overlay },
   menu: {

@@ -10,14 +10,16 @@ type AuthBackgroundProps = {
   children: ReactNode;
   withSafeArea?: boolean;
   backgroundPattern?: ReactNode;
+  withEdgeBorder?: boolean;
 };
 
 export function AuthBackground({
   children,
   withSafeArea = true,
   backgroundPattern,
+  withEdgeBorder = true,
 }: AuthBackgroundProps) {
-  // Full-screen sheets already apply their own safe-area insets.
+  // Disable when the surrounding layout already applies safe-area insets.
   const Content = withSafeArea ? SafeAreaView : View;
   return (
     <View style={styles.screen}>
@@ -30,7 +32,10 @@ export function AuthBackground({
         locations={[0, 0.48, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.vignette} pointerEvents="none" />
+      <View
+        style={[styles.vignette, withEdgeBorder && styles.edgeBorder]}
+        pointerEvents="none"
+      />
       {backgroundPattern ? (
         <View style={styles.patternLayer} pointerEvents="none" aria-hidden>
           {backgroundPattern}
@@ -58,6 +63,8 @@ const styles = StyleSheet.create({
   vignette: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
+  edgeBorder: {
     borderColor: 'rgba(0, 0, 0, 0.25)',
     borderWidth: 18,
   },

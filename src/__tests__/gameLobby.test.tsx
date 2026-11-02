@@ -138,6 +138,41 @@ it('shows an empty state instead of nonfunctional example tables', async () => {
   await act(async () => view.unmount());
 });
 
+it('keeps a completed table removed after reopening the overview', async () => {
+  useGameStore.getState().createTable('Entfernter Tisch', [
+    { id: 'a', name: 'Anna', isLocal: true },
+    { id: 'b', name: 'Max', isLocal: true },
+  ]);
+  useGameStore.getState().finishGameDay();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<GameLobbyScreen />);
+  });
+  const table = view.root.findByType(FlatList).props.data[0];
+  const card = view.root.findAll(
+    (node: { props: { table?: { id: string }; onLeave?: unknown } }) =>
+      node.props.table?.id === table.id &&
+      typeof node.props.onLeave === 'function',
+  )[0];
+  await act(async () => card.props.onLeave(table));
+  const dialog = view.root.findAll(
+    (node: { props: { visible?: boolean; onConfirm?: unknown } }) =>
+      node.props.visible === true && typeof node.props.onConfirm === 'function',
+  )[0];
+  await act(async () => {
+    dialog.props.onConfirm();
+    await reliableStorage.flush();
+  });
+  expect(view.root.findByType(FlatList).props.data).toHaveLength(0);
+  await act(async () => view.unmount());
+  await act(async () => {
+    view = renderer.create(<GameLobbyScreen />);
+  });
+  expect(view.root.findByType(FlatList).props.data).toHaveLength(0);
+  expect(useGameStore.getState().archivedGameDays).toHaveLength(1);
+  await act(async () => view.unmount());
+});
+
 it.each([false, true])(
   'opens working settings instead of a placeholder, active table=%s',
   async (active) => {

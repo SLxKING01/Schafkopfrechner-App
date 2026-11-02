@@ -9,7 +9,6 @@ import {
   History,
   ListOrdered,
   Menu,
-  Plus,
   ReceiptText,
   SlidersHorizontal,
   Trash2,
@@ -308,6 +307,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         >
           <HistoryRoundRow
             round={item}
+            roundNumber={rounds.findIndex((round) => round.id === item.id) + 1}
             stockPayoutCents={
               item.stockAction === 'payout'
                 ? getStockBalanceCents(
@@ -319,7 +319,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 : 0
             }
             getPlayerName={getPlayerName}
-            onEdit={editRound}
           />
         </RoundHistoryActions>
       ) : null,
@@ -538,15 +537,28 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
         <View style={styles.statChip}>
           <AppText style={styles.statChipLabel}>Geber</AppText>
-          <Text style={styles.statChipValue}>{dealerName}</Text>
+          <Text
+            style={styles.statChipValue}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {dealerName}
+          </Text>
         </View>
         <View style={styles.statChip}>
           <AppText style={styles.statChipLabel}>Danach</AppText>
-          <Text style={styles.statChipValue}>{nextDealerName}</Text>
+          <Text
+            style={styles.statChipValue}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {nextDealerName}
+          </Text>
         </View>
       </View>
 
-      <SharedTablePanel />
       <SegmentedTabs
         activeTab={activeTab}
         onShowHistory={showHistoryTab}
@@ -585,17 +597,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         style={StyleSheet.absoluteFill}
       />
 
-      {roundSaved ? (
-        <View
-          accessibilityLiveRegion="polite"
-          pointerEvents="none"
-          style={[styles.savedNotice, { bottom: 190 }]}
-        >
-          <AppText style={{ color: screenColors.gold }}>
-            Auf Gerät gespeichert · Spielstände aktualisiert
-          </AppText>
-        </View>
-      ) : null}
       {activeTab === 'history' ? (
         <FlatList
           style={styles.scroller}
@@ -620,8 +621,14 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <EmptyGameState
               icon={ReceiptText}
               title="Noch keine Runden"
-              message="Tippe auf Spiel eintragen, um das erste Spiel zu erfassen."
+              message="Wechsle zu Spieler und tippe auf den Ansager, um das erste Spiel zu erfassen."
             />
+          }
+          ListFooterComponent={
+            <View>
+              <SharedTablePanel />
+              {finishDayButton}
+            </View>
           }
           ListHeaderComponent={
             <>
@@ -631,7 +638,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   <View>
                     <AppText style={styles.sectionTitle}>Spielverlauf</AppText>
                     <AppText style={styles.sectionSubtitle}>
-                      Spiel antippen, um es zu bearbeiten
+                      Zeile antippen für Bearbeitung und Verlauf
                     </AppText>
                   </View>
                   <View style={styles.roundCountPill}>
@@ -644,7 +651,10 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   </View>
                 </View>
                 <View style={styles.historyColumns}>
-                  <AppText style={[styles.columnLabel, { width: 72 }]}>
+                  <AppText style={[styles.columnLabel, { width: 32 }]}>
+                    Nr.
+                  </AppText>
+                  <AppText style={[styles.columnLabel, { width: 64 }]}>
                     Spiel
                   </AppText>
                   <AppText style={[styles.columnLabel, { flex: 1 }]}>
@@ -653,7 +663,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   <AppText
                     style={[
                       styles.columnLabel,
-                      { width: 72, textAlign: 'right' },
+                      { width: 64, textAlign: 'right' },
                     ]}
                   >
                     Betrag
@@ -700,14 +710,11 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           ListHeaderComponent={
             <>
               {tableOverviewHeader}
-              <AppText style={styles.dragHint}>
-                {participantIds.size === 4
-                  ? `Spielen: ${players
-                      .filter((p) => participantIds.has(p.id))
-                      .map((p) => p.name)
-                      .join(', ')}`
-                  : 'Mindestens vier aktive Spieler erforderlich'}
-              </AppText>
+              {participantIds.size !== 4 ? (
+                <AppText style={styles.dragHint}>
+                  Mindestens vier aktive Spieler erforderlich
+                </AppText>
+              ) : null}
               <View style={[styles.stack, styles.dragTableHeader]}>
                 <View style={styles.playerTableHeader}>
                   <View style={[styles.nameColumn, styles.orderHeader]}>
@@ -756,8 +763,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <View>
               <View style={styles.dragTableEnd} />
               <AppText style={styles.dragHint}>
-                Am Griff ziehen oder Listensymbol nutzen · Spielernamen für
-                Aktionen gedrückt halten
+                Griff gedrückt halten und ziehen oder Listensymbol nutzen ·
+                Spielernamen für Aktionen gedrückt halten
               </AppText>
               {outstandingBalances(
                 balances,
@@ -806,6 +813,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   Bezahlen & weiterspielen
                 </AppText>
               </Pressable>
+              <SharedTablePanel />
+              {finishDayButton}
             </View>
           }
         />
@@ -857,6 +866,13 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             {roundMultiplier}×
           </AppText>
         </View>
+        {roundSaved ? (
+          <View accessibilityLiveRegion="polite" style={styles.savedNotice}>
+            <AppText style={{ color: screenColors.gold }}>
+              Auf Gerät gespeichert · Spielstände aktualisiert
+            </AppText>
+          </View>
+        ) : null}
         {currentTable?.settings.games.stock.enabled ||
         getStockBalanceCents(rounds) > 0 ? (
           <View
@@ -868,19 +884,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             </AppText>
           </View>
         ) : null}
-        <Pressable
-          accessibilityLabel="Spiel eintragen"
-          accessibilityRole="button"
-          onPress={() => openRoundComposer()}
-          style={({ pressed }) => [
-            styles.addGameButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Plus color="#15241B" size={24} />
-          <AppText style={styles.addGameText}>Spiel eintragen</AppText>
-        </Pressable>
-        {finishDayButton}
       </View>
       <Modal
         transparent
@@ -1386,6 +1389,8 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         <CardStackIcon isDealer={isDealer} />
         <View style={styles.playerCopy}>
           <Text
+            numberOfLines={2}
+            ellipsizeMode="tail"
             style={[styles.playerName, player.isPaused && { opacity: 0.5 }]}
           >
             {player.name}
@@ -1424,9 +1429,10 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${player.name} verschieben`}
-        accessibilityHint="Am Griff ziehen, um die Sitzreihenfolge zu ändern. Alternativ das Listensymbol verwenden."
+        accessibilityHint="Griff gedrückt halten und ziehen, um die Sitzreihenfolge zu ändern. Loslassen beendet das Verschieben. Alternativ das Listensymbol verwenden."
         accessibilityState={{ selected: dragging }}
-        onPressIn={onDrag}
+        delayLongPress={300}
+        onLongPress={onDrag}
         style={styles.dragHandle}
       >
         <Menu
@@ -1576,7 +1582,7 @@ const CoinMultiplierBadge = memo(function CoinMultiplierBadge({
 
 type HistoryRoundRowProps = {
   stockPayoutCents: number;
-  onEdit: (round: GameRound) => void;
+  roundNumber: number;
   round: GameRound;
   getPlayerName: (playerId: string) => string;
 };
@@ -1585,7 +1591,7 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
   stockPayoutCents,
   round,
   getPlayerName,
-  onEdit,
+  roundNumber,
 }: HistoryRoundRowProps) {
   const losers = useMemo(
     () => round.loserIds.map(getPlayerName).join(', '),
@@ -1607,6 +1613,7 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
   return (
     <MatchHistoryCard
       compact
+      roundNumber={roundNumber}
       displayGameType={formatRoundGameType(round.gameType, round.suit)}
       customAmounts={
         isCustomBooking(round)
@@ -1614,13 +1621,6 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
               name: getPlayerName(entry.playerId),
               amount: entry.amount,
             }))
-          : undefined
-      }
-      accessibilityLabel={`Runde ${round.id} bearbeiten`}
-      onPress={
-        !round.stockAction ||
-        ['deposit', 'payout', 'double'].includes(round.stockAction)
-          ? () => onEdit(round)
           : undefined
       }
       stockMovement={
@@ -1838,17 +1838,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(245,245,245,0.07)',
   },
-  addGameButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: screenColors.gold,
-    borderRadius: 24,
-    minHeight: 52,
-    paddingHorizontal: 16,
-  },
-  addGameText: { color: '#15241B', fontSize: 17, fontWeight: '700' },
   menuRoot: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
   menuBackdrop: {
     ...StyleSheet.absoluteFill,
@@ -1876,10 +1865,6 @@ const styles = StyleSheet.create({
   menuText: { color: screenColors.text, fontSize: 16 },
 
   savedNotice: {
-    position: 'absolute',
-    zIndex: 2,
-    left: 20,
-    right: 20,
     padding: 12,
     borderRadius: 16,
     backgroundColor: screenColors.cardStrong,
@@ -1932,6 +1917,7 @@ const styles = StyleSheet.create({
   },
   statChip: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -1945,6 +1931,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   statChipValue: {
+    textAlign: 'center',
     color: screenColors.text,
     fontSize: 16,
     fontWeight: '700',
@@ -2103,6 +2090,14 @@ const styles = StyleSheet.create({
     color: screenColors.muted,
   },
   finishButton: {
+    marginTop: 20,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: screenColors.border,
+    backgroundColor: screenColors.goldSoft,
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6,

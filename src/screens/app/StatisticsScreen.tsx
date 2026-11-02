@@ -17,11 +17,11 @@ import {
   StatPanel,
   TableStatisticsPanel,
 } from '../../components/statistics/StatisticsPanels';
-import { AppText } from '../../components/ui/AppText';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import { useAuthStore } from '../../store/authStore';
-import { authColors, authSpacing, authTextStyles } from '../../theme';
+import { authSpacing } from '../../theme';
 import { dashboardPersonal } from '../../utils/dashboardPersonal';
 import { formatOverviewMoney } from '../../utils/gameOverview';
 import {
@@ -85,15 +85,13 @@ export function StatisticsScreen() {
   const summary = useMemo(() => summarizeStatistics(entries), [entries]);
   const personal = mode === 'player';
   return (
-    <AuthBackground>
+    <AuthBackground withEdgeBorder={false}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <AppText accessibilityRole="header" style={styles.title}>
-          Statistik
-        </AppText>
+        <PageHeader title="Statistik" />
         <StatNote>
           Spielarten, Kartenfarben und der Verlauf deiner Tische.
         </StatNote>
@@ -312,12 +310,10 @@ export function StatisticsScreen() {
 }
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: authSpacing.lgPlus,
-    paddingTop: authSpacing.lg,
+    paddingHorizontal: authSpacing.xl,
     paddingBottom: 120,
     gap: authSpacing.md,
   },
-  title: { ...authTextStyles.hero, color: authColors.textPrimary },
   inline: {
     flexDirection: 'row',
     flexWrap: 'wrap',

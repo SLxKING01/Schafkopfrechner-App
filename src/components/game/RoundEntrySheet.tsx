@@ -56,6 +56,7 @@ import {
 } from '../../utils/customRound';
 import { participationRevision, roundPlayers } from '../../utils/dealerOrder';
 import { formatOverviewMoney } from '../../utils/gameOverview';
+import { roundHistoryFingerprint } from '../../utils/roundHistory';
 import {
   calculatePartyAmount,
   calculateRoundTariff,
@@ -292,7 +293,7 @@ export function RoundEntrySheet({
   );
   const savingLock = useRef(false);
   const editingRevision = useRef(
-    editingRound?.updatedAt ?? editingRound?.createdAt,
+    editingRound ? roundHistoryFingerprint(editingRound) : undefined,
   );
   const [loadingDraft, setLoadingDraft] = useState(true);
   const [committedId, setCommittedId] = useState<string | null>(
@@ -867,7 +868,7 @@ export function RoundEntrySheet({
           );
           if (
             !latest ||
-            (latest.updatedAt ?? latest.createdAt) !== editingRevision.current
+            roundHistoryFingerprint(latest) !== editingRevision.current
           )
             throw new Error(
               'Dieses Spiel wurde inzwischen geändert. Bitte die Eingabe schließen und den aktuellen Stand erneut öffnen.',
@@ -1000,6 +1001,7 @@ export function RoundEntrySheet({
     <>
       <InteractionSheet
         fullScreen
+        contentHandlesSafeArea
         visible={visible && !closeChoice}
         onClose={requestClose}
         onDismiss={() => {
@@ -1007,7 +1009,7 @@ export function RoundEntrySheet({
         }}
         dismissible={!saving}
       >
-        <AuthBackground withSafeArea={false}>
+        <AuthBackground withEdgeBorder={false}>
           <View style={styles.container}>
             <View style={styles.header}>
               <Pressable

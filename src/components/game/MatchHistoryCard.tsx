@@ -6,6 +6,7 @@ import { authTypography } from '../../theme/typography';
 import { AppText } from '../ui/AppText';
 
 type MatchHistoryCardProps = {
+  roundNumber?: number;
   displayGameType?: string;
   stockMovement?: string;
   participation?: string;
@@ -24,6 +25,7 @@ type MatchHistoryCardProps = {
 };
 
 export function MatchHistoryCard({
+  roundNumber,
   displayGameType,
   stockMovement,
   participation,
@@ -40,16 +42,24 @@ export function MatchHistoryCard({
   onPress,
   accessibilityLabel,
 }: MatchHistoryCardProps) {
+  const numberCell =
+    roundNumber !== undefined ? (
+      <AppText style={styles.numberColumn}>{roundNumber}</AppText>
+    ) : null;
   if (compact && customAmounts) {
     const label = `Eigenes Spiel, ${customAmounts.map((p) => `${p.name}: ${p.amount.toFixed(2).replace('.', ',')} Euro`).join(', ')}, ${time}`;
     const content = (
       <>
         <View style={styles.customHeading}>
+          {numberCell}
           <View style={styles.gameColumn}>
             <AppText style={styles.tableTitle}>Eigenes Spiel</AppText>
             <AppText style={styles.tableTime}>{time}</AppText>
           </View>
-          <AppText style={styles.tableTime}>{amount} verteilt</AppText>
+          <AppText style={[styles.entryResult, styles.resultCopy]}>
+            Ausgleich
+          </AppText>
+          <AppText style={styles.entryAmount}>{amount}</AppText>
         </View>
         {customAmounts.map((entry, index) => (
           <View key={index} style={styles.customLine}>
@@ -64,7 +74,7 @@ export function MatchHistoryCard({
         ))}
       </>
     );
-    return onPress ? (
+    const row = onPress ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
@@ -82,6 +92,7 @@ export function MatchHistoryCard({
         {content}
       </View>
     );
+    return row;
   }
   if (compact) {
     const booking = !!stockBooking || !!stockDeposit;
@@ -92,14 +103,13 @@ export function MatchHistoryCard({
     const content = (
       <>
         <View style={styles.entryHeading}>
+          {numberCell}
           <View style={styles.headingCopy}>
-            <AppText numberOfLines={2} style={styles.entryTitle}>
-              {heading}
-            </AppText>
+            <AppText style={styles.entryTitle}>{heading}</AppText>
             <AppText style={styles.entryTime}>{time}</AppText>
           </View>
           <View style={styles.resultCopy}>
-            <AppText numberOfLines={2} style={styles.entryResult}>
+            <AppText style={styles.entryResult}>
               {booking ? (stockDeposit ? 'Vier Spieler' : losers) : winner}
             </AppText>
             {!booking && details ? (
@@ -124,7 +134,7 @@ export function MatchHistoryCard({
         ) : null}
       </>
     );
-    return onPress ? (
+    const row = onPress ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
@@ -142,6 +152,7 @@ export function MatchHistoryCard({
         {content}
       </View>
     );
+    return row;
   }
   return (
     <View style={styles.card}>
@@ -185,6 +196,12 @@ export function MatchHistoryCard({
 }
 
 const styles = StyleSheet.create({
+  numberColumn: {
+    width: 32,
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    fontVariant: ['tabular-nums'],
+  },
   customRow: {
     gap: authSpacing.sm,
     paddingHorizontal: authSpacing.md,
@@ -226,7 +243,7 @@ const styles = StyleSheet.create({
     gap: authSpacing.sm,
     minHeight: 40,
   },
-  headingCopy: { width: 72, minWidth: 0 },
+  headingCopy: { width: 64, minWidth: 0 },
   entryTitle: {
     color: authColors.textPrimary,
     fontSize: authTypography.caption,
@@ -234,7 +251,7 @@ const styles = StyleSheet.create({
   },
   entryTime: { color: authColors.textSecondary, fontSize: 10, marginTop: 2 },
   entryAmount: {
-    width: 72,
+    width: 64,
     textAlign: 'right',
     color: authColors.accentGreen,
     fontSize: authTypography.caption,
@@ -256,7 +273,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   tablePressed: { backgroundColor: authColors.control },
-  gameColumn: { flex: 1.1, minWidth: 0 },
+  gameColumn: { width: 64, minWidth: 0 },
   tableTitle: {
     color: authColors.textPrimary,
     fontSize: authTypography.caption,

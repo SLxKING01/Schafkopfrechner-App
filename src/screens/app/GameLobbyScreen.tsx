@@ -40,9 +40,11 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import Animated, { FadeOutLeft } from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { SchafkopfBackdrop } from '../../components/dashboard/SchafkopfBackdrop';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { SharedTableConflictNotice } from '../../components/game/SharedTablePanel';
 import { AppText } from '../../components/ui/AppText';
+import { PageHeader } from '../../components/ui/PageHeader';
 import type { AppStackParamList } from '../../navigation/types';
 import {
   openSharedTable,
@@ -50,6 +52,7 @@ import {
 } from '../../services/shared/sharedTables';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { useTableVisibilityStore } from '../../store/tableVisibilityStore';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import { isStockBooking } from '../../utils/accounting';
@@ -187,7 +190,13 @@ export function GameLobbyScreen() {
   const [isRenameFocused, setIsRenameFocused] = useState(false);
   const [leaveTableCandidate, setLeaveTableCandidate] =
     useState<TablePreview | null>(null);
-  const [removedTableIds, setRemovedTableIds] = useState<string[]>([]);
+  const visibility = useTableVisibilityStore();
+  const { hydrate: hydrateVisibility, hideTable } = visibility;
+  const scope = userId ? `user:${userId}` : 'guest';
+  const removedTableIds = visibility.hiddenByScope[scope];
+  useEffect(() => {
+    void hydrateVisibility();
+  }, [hydrateVisibility]);
   const [favoriteTableIds, setFavoriteTableIds] = useState<string[]>([]);
   const [activeReorderTableId, setActiveReorderTableId] = useState<
     string | null
@@ -275,7 +284,7 @@ export function GameLobbyScreen() {
         (table) =>
           (table.isCurrent && activeGame) ||
           table.hasOpenPayments ||
-          !removedTableIds.includes(table.id),
+          !removedTableIds?.includes(table.id),
       )
       .sort((firstTable, secondTable) => {
         if (firstTable.isFavorite === secondTable.isFavorite) {
@@ -412,10 +421,10 @@ export function GameLobbyScreen() {
       leaveTableCandidate.hasOpenPayments
     )
       return;
-    setRemovedTableIds((current) =>
-      current.includes(tableId) ? current : [...current, tableId],
+    void hideTable(scope, tableId).catch((error: Error) =>
+      Alert.alert('Tisch nicht entfernt', error.message),
     );
-  }, [activeGame, currentTable?.id, leaveTableCandidate]);
+  }, [activeGame, currentTable?.id, leaveTableCandidate, hideTable, scope]);
 
   const openRenameTable = useCallback((table: TablePreview) => {
     setRenameTable(table);
@@ -475,28 +484,27 @@ export function GameLobbyScreen() {
 
   const listHeader = (
     <>
+      <PageHeader
+        title="Tische"
+        action={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              activeGame && currentTable
+                ? 'Tischregeln bearbeiten'
+                : 'Profil und Einstellungen öffnen'
+            }
+            onPress={openSettings}
+            style={({ pressed }) => [
+              styles.settingsButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Settings color={screenColors.gold} size={20} strokeWidth={2.2} />
+          </Pressable>
+        }
+      />
       <SharedTableConflictNotice />
-      <View style={styles.header}>
-        <View>
-          <AppText style={styles.kicker}>Spiel</AppText>
-          <AppText style={styles.title}>Tische</AppText>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            activeGame && currentTable
-              ? 'Tischregeln bearbeiten'
-              : 'Profil und Einstellungen öffnen'
-          }
-          onPress={openSettings}
-          style={({ pressed }) => [
-            styles.settingsButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Settings color={screenColors.gold} size={20} strokeWidth={2.2} />
-        </Pressable>
-      </View>
 
       <View style={styles.sectionHeader}>
         <AppText style={styles.sectionTitle}>Deine Tische</AppText>
@@ -509,18 +517,15 @@ export function GameLobbyScreen() {
   );
 
   return (
-    <AuthBackground>
-      <LinearGradient
-        colors={[
-          screenColors.background,
-          screenColors.backgroundMid,
-          screenColors.backgroundSoft,
-        ]}
-        locations={[0, 0.48, 1]}
-        pointerEvents="none"
-        style={StyleSheet.absoluteFill}
-      />
-      {Platform.OS === 'web' || visibleTables.length < 2 ? (
+    <AuthBackground
+      backgroundPattern={<SchafkopfBackdrop />}
+      withEdgeBorder={false}
+    >
+      {!visibility.hydrated ? (
+        <AppText style={{ color: screenColors.muted }}>
+          Tische werden geladen …
+        </AppText>
+      ) : Platform.OS === 'web' || visibleTables.length < 2 ? (
         <FlatList
           contentContainerStyle={styles.content}
           data={visibleTables}
@@ -993,29 +998,9 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 128,
     paddingHorizontal: authSpacing.xl,
-    paddingTop: authSpacing.lg,
   },
   scroller: {
     flex: 1,
-  },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 68,
-  },
-  kicker: {
-    color: screenColors.gold,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: screenColors.text,
-    fontSize: 32,
-    fontWeight: '700',
-    marginTop: 4,
   },
   settingsButton: {
     alignItems: 'center',

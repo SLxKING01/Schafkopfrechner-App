@@ -436,6 +436,17 @@ export function validCloudSnapshot(value: unknown): boolean {
   return true;
 }
 export function validateStoredValue(key: string, value: unknown): boolean {
+  if (key === 'schafkopfrechner-table-visibility')
+    return (
+      record(value) &&
+      value.schemaVersion === 1 &&
+      record(value.hiddenByScope) &&
+      Object.values(value.hiddenByScope).every(
+        (ids) =>
+          Array.isArray(ids) &&
+          ids.every((id) => typeof id === 'string' && !!id),
+      )
+    );
   if (key === 'schafkopfrechner-sync-conflict-backup')
     return (
       record(value) &&

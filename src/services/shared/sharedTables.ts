@@ -14,6 +14,7 @@ import type {
 } from '../../types/game';
 import { archiveFinishedGameDay } from '../../utils/gameDayArchive';
 import { fingerprint } from '../sync/syncGameState';
+import { mergeSharedRounds, rebaseInFlightRounds } from './mergeSharedRounds';
 
 export type SharedSnapshot = {
   currentTable: GameTable;
@@ -106,7 +107,8 @@ async function command(
     clearTimeout(timeout);
   }
   const { data, error } = response;
-  if (error) throw new Error(error.message);
+  if (error)
+    throw Object.assign(new Error(error.message), { code: error.code });
   assertSnapshot(data?.payload);
   if (
     data.id !== data.payload.currentTable.id ||
@@ -429,29 +431,77 @@ async function synchronize(tableId: string) {
   if (useSharedTableStatus.getState().conflict?.tableId === table.id) return;
   useSharedTableStatus.setState({ busy: true });
   try {
-    const remote = await command('read', { p_table_id: table.id });
-    if (!isPresent(table.id, actor)) return;
-    const local = sharedSnapshot(table.id)!;
-    assertSnapshot(local);
-    const localKey = fingerprint(local);
-    const remoteKey = fingerprint(remote.payload);
-    if (localKey === remoteKey || localKey === meta.baseline) {
-      apply(remote, actor);
-    } else if (remote.version !== meta.version) {
-      useSharedTableStatus.setState({
-        conflict: { userId: actor, tableId: table.id, remote },
-        error:
-          'Ein anderes Handy hat den Tisch geändert. Deine Änderungen sind noch nicht übertragen.',
-      });
-      return;
-    } else {
-      const saved = await command('save', {
-        p_table_id: table.id,
-        p_version: remote.version,
-        p_payload: local,
-      });
+    let remote = await command('read', { p_table_id: table.id });
+    for (let attempt = 0; attempt < 3; attempt++) {
       if (!isPresent(table.id, actor)) return;
-      setBinding(saved, actor);
+      const currentMeta = localTable(table.id)?.shared;
+      if (!currentMeta || currentMeta.userId !== actor) return;
+      const local = sharedSnapshot(table.id)!;
+      assertSnapshot(local);
+      const localKey = fingerprint(local);
+      const remoteKey = fingerprint(remote.payload);
+      if (localKey === remoteKey || localKey === currentMeta.baseline) {
+        apply(remote, actor);
+        break;
+      }
+      let candidate = local;
+      if (remote.version !== currentMeta.version) {
+        let merged: SharedSnapshot | null = null;
+        try {
+          merged = mergeSharedRounds(
+            JSON.parse(currentMeta.baseline),
+            local,
+            remote.payload,
+          );
+        } catch {
+          /* Older or invalid baseline: keep both versions for review. */
+        }
+        if (merged) candidate = merged;
+        else {
+          useSharedTableStatus.setState({
+            conflict: { userId: actor, tableId: table.id, remote },
+            error:
+              'Der Tisch oder ein Spiel wurde inzwischen auf einem anderen Handy geändert. Deine Eingaben bleiben erhalten. Lade den aktuellen Stand, prüfe die Änderung und bearbeite das Spiel erneut.',
+          });
+          return;
+        }
+      }
+      try {
+        const saved =
+          fingerprint(candidate) === remoteKey
+            ? remote
+            : await command('save', {
+                p_table_id: table.id,
+                p_version: remote.version,
+                p_payload: candidate,
+              });
+        if (!isPresent(table.id, actor)) return;
+        const latest = sharedSnapshot(table.id)!;
+        if (fingerprint(latest) === localKey) apply(saved, actor);
+        else if (fingerprint(candidate) === localKey) setBinding(saved, actor);
+        else {
+          const rebased = rebaseInFlightRounds(local, latest, saved.payload);
+          if (rebased) apply({ ...saved, payload: rebased }, actor);
+          // Keep the actual accepted baseline, including unsent edits made in flight.
+          setBinding(saved, actor);
+          if (!rebased)
+            useSharedTableStatus.setState({
+              conflict: { userId: actor, tableId: table.id, remote: saved },
+              error:
+                'Während des Abgleichs wurde der Tisch bearbeitet. Deine Änderungen bleiben lokal erhalten. Bitte den aktuellen Stand prüfen.',
+            });
+        }
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== '40001') throw error;
+        // A writer won the compare-and-swap after our read. Re-read and rebase,
+        // never retry the old whole-table snapshot against a newer version.
+        if (attempt === 2)
+          throw new Error(
+            'Der Tisch wird gerade auf einem anderen Handy geändert. Deine Eingaben bleiben erhalten. Bitte erneut synchronisieren.',
+          );
+        remote = await command('read', { p_table_id: table.id });
+      }
     }
     if (!useSharedTableStatus.getState().conflict)
       useSharedTableStatus.setState({ error: null });

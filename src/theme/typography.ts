@@ -36,6 +36,12 @@ export const authTypography = {
 };
 
 export const authTextStyles = {
+  pageTitle: {
+    fontSize: authTypography.title,
+    lineHeight: 36,
+    fontWeight: '600',
+    color: authColors.textPrimary,
+  },
   balanceHero: {
     fontSize: 48,
     fontWeight: '600',

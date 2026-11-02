@@ -17,6 +17,25 @@ import { emptyTariffOptions } from '../utils/roundTariff';
 const renderer = jest.requireActual('react-test-renderer');
 const navigate = jest.fn();
 const mockDrag = jest.fn();
+function pressPlayerForEntry(
+  view: ReturnType<typeof renderer.create>,
+  name?: string,
+) {
+  const player = view.root
+    .findAllByProps({
+      accessibilityHint:
+        'Antippen, um ein Spiel mit diesem Ansager zu erfassen. Gedrückt halten, um Spieleraktionen zu öffnen.',
+    })
+    .find(
+      (node: { props: { onPress?: unknown; accessibilityLabel?: string } }) =>
+        typeof node.props.onPress === 'function' &&
+        (!name || node.props.accessibilityLabel?.startsWith(`${name},`)) &&
+        !node.props.accessibilityLabel?.includes('setzt aus') &&
+        !node.props.accessibilityLabel?.includes('Pausiert'),
+    )!;
+  player.props.onPress();
+}
+
 jest.mock('react-native-draggable-flatlist', () => {
   const React = jest.requireActual('react');
   const { FlatList } = jest.requireActual('react-native');
@@ -171,6 +190,9 @@ it.each(['Ab jetzt', 'Auch bisherige Spiele'])(
 
 it('keeps dragging separate from entry, knocking and player actions, preserving dealer and the accessible seat editor', async () => {
   const ui = await mountPlayerActions();
+  expect(
+    ui.view.root.findAllByProps({ accessibilityLabel: 'Spiel eintragen' }),
+  ).toHaveLength(0);
   const list = () =>
     ui.view.root
       .findAllByProps({ testID: 'player-standings-list' })
@@ -179,14 +201,27 @@ it('keeps dragging separate from entry, knocking and player actions, preserving 
           typeof node.props.onDragBegin === 'function',
       )!;
   mockDrag.mockClear();
+  expect(
+    list().props.ListFooterComponent.props.children.at(-1).props
+      .accessibilityLabel,
+  ).toBe('Spieltag abschliessen');
+  const handle = ui.view.root
+    .findAllByProps({ accessibilityLabel: 'Flo verschieben' })
+    .find(
+      (node: { props: { onLongPress?: unknown } }) =>
+        typeof node.props.onLongPress === 'function',
+    )!;
+  await act(async () => handle.props.onPress?.());
+  expect(handle.props.onPressIn).toBeUndefined();
+  expect(mockDrag).not.toHaveBeenCalled();
   await act(async () =>
     ui.view.root
       .findAllByProps({ accessibilityLabel: 'Flo verschieben' })
       .find(
-        (node: { props: { onPressIn?: unknown } }) =>
-          typeof node.props.onPressIn === 'function',
+        (node: { props: { onLongPress?: unknown } }) =>
+          typeof node.props.onLongPress === 'function',
       )!
-      .props.onPressIn(),
+      .props.onLongPress(),
   );
   expect(mockDrag).toHaveBeenCalledTimes(1);
   await act(async () => list().props.onDragBegin());
@@ -322,8 +357,9 @@ it('opens the saved configuration by tapping the compact history row and updates
   expect(row.props.compact).toBe(true);
   expect(row.props.winner).toBe('Berkay & Flo');
   await act(async () =>
-    button(`Runde ${original.id} bearbeiten`).props.onPress(),
+    button('Aktionen für Eintrag 1 öffnen').props.onPress(),
   );
+  await act(async () => button('Spiel bearbeiten').props.onPress());
   expect(button('Berkay gewonnen').props.accessibilityState.selected).toBe(
     true,
   );
@@ -402,7 +438,7 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => button('Spiel eintragen').props.onPress());
+  await act(async () => pressPlayerForEntry(view));
   await act(async () => button('Spieltyp Stock').props.onPress());
   expect(
     view.root.findAllByProps({
@@ -418,14 +454,13 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Stock: 2,00 €' }).length,
   ).toBeGreaterThan(0);
-  await act(async () => button('Spiel eintragen').props.onPress());
+  await act(async () => pressPlayerForEntry(view));
   await act(async () => button('Spieltyp Rufspiel').props.onPress());
   await act(async () => button('Berkay gewonnen').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Stock auszahlen' }),
   ).toHaveLength(0);
   await act(async () => button('Flo gewonnen').props.onPress());
-  await act(async () => button('Ansager Berkay').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds[1].stockAction).toBe('payout');
   expect(useGameStore.getState().rounds[1].winnerIds).toEqual(['a', 'b']);
@@ -521,7 +556,7 @@ it('records Ramsch with a Jungfrau and restricts its bonus controls', async () =
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => button('Spiel eintragen').props.onPress());
+  await act(async () => pressPlayerForEntry(view, 'Andi'));
   await act(async () => button('Spieltyp Ramsch').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Laufende erhöhen' }),
@@ -603,7 +638,7 @@ it('allows one Leger per player and combines four players into a 16x factor', as
   kpi(1);
   expect(navigate).not.toHaveBeenCalled();
   await act(async () => button('Leger Berkay: 1x').props.onPress());
-  await act(async () => button('Spiel eintragen').props.onPress());
+  await act(async () => pressPlayerForEntry(view));
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Wenz' }),
   ).toHaveLength(0);
@@ -620,7 +655,6 @@ it('allows one Leger per player and combines four players into a 16x factor', as
   ).toBe(true);
   await act(async () => button('Berkay gewonnen').props.onPress());
   await act(async () => button('Simon gewonnen').props.onPress());
-  await act(async () => button('Ansager Berkay').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds).toHaveLength(1);
   expect(useGameStore.getState().rounds[0].amount).toBe(0.8);
@@ -859,7 +893,7 @@ it.each([false, true])(
       }).length,
     ).toBeGreaterThan(0);
     await act(async () => turboSwitch().props.onValueChange(true));
-    await act(async () => button('Spiel eintragen').props.onPress());
+    await act(async () => pressPlayerForEntry(view));
     expect(
       view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Wenz' }),
     ).toHaveLength(0);
@@ -869,7 +903,6 @@ it.each([false, true])(
     await act(async () => button('Spieltyp Rufspiel').props.onPress());
     await act(async () => button('Berkay gewonnen').props.onPress());
     await act(async () => button('Simon gewonnen').props.onPress());
-    await act(async () => button('Ansager Berkay').props.onPress());
     await act(async () => button('Runde speichern').props.onPress());
     expect(useGameStore.getState().rounds[0].amount).toBe(
       withLeger ? 1.6 : 0.8,
@@ -961,7 +994,7 @@ it('calculates a selected Solo with configured bonuses and saves its three oppon
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => button('Spiel eintragen').props.onPress());
+  await act(async () => pressPlayerForEntry(view));
   await act(async () => button('Spieltyp Solo').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Gesamtgewinn manuell' }),
@@ -969,7 +1002,7 @@ it('calculates a selected Solo with configured bonuses and saves its three oppon
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Kontra / Re erhöhen' }),
   ).toHaveLength(0);
-  expect(button('Runde speichern').props.disabled).toBe(true);
+  expect(button('Runde speichern').props.disabled).toBe(false);
   await act(async () => button('Alleinspieler Berkay').props.onPress());
   await act(async () => button('Ansager gewonnen').props.onPress());
   expect(button('Runde speichern').props.disabled).toBe(false);
@@ -1191,7 +1224,8 @@ it('shows custom signed amounts in history and opens the same custom entry for c
     { name: 'Andi', amount: 0 },
   ]);
   expect(card.props.details).toBeUndefined();
-  await ui.press(`Runde ${original.id} bearbeiten`);
+  await ui.press('Aktionen für Eintrag 1 öffnen');
+  await ui.press('Spiel bearbeiten');
   expect(ui.view.root.findByType(RoundEntrySheet).props.editingRound.id).toBe(
     original.id,
   );
@@ -1283,11 +1317,10 @@ it('automatically doubles stock for a lost calling party and shows the movement 
         )!
         .props.onPress(),
     );
-  await press('Spiel eintragen');
+  await act(async () => pressPlayerForEntry(view));
   await press('Spieltyp Rufspiel');
   await press('Berkay verloren');
   await press('Flo verloren');
-  await press('Ansager Berkay');
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Stock auszahlen' }),
   ).toHaveLength(0);

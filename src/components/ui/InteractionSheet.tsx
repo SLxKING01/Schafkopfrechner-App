@@ -28,6 +28,7 @@ type InteractionSheetProps = {
   onDismiss?: () => void;
   dismissible?: boolean;
   fullScreen?: boolean;
+  contentHandlesSafeArea?: boolean;
 };
 
 /** Keep the modal mounted until the sheet's closing gesture/animation completes. */
@@ -45,6 +46,7 @@ function FullScreenSheet({
   onClose,
   onDismiss,
   dismissible = true,
+  contentHandlesSafeArea = false,
 }: InteractionSheetProps) {
   const insets = useSafeAreaInsets();
   const wasVisible = useRef(visible);
@@ -66,7 +68,7 @@ function FullScreenSheet({
           style={[
             styles.root,
             styles.background,
-            {
+            !contentHandlesSafeArea && {
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
               paddingLeft: insets.left,

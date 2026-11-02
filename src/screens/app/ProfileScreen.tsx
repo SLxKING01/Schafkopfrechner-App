@@ -40,6 +40,7 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { AvatarPickerSheet } from '../../components/profile/AvatarPickerSheet';
 import { AppText } from '../../components/ui/AppText';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAuthStore } from '../../store/authStore';
 import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
@@ -306,11 +307,13 @@ export function ProfileScreen() {
   return (
     <AuthBackground>
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
+        <PageHeader title="Profil" />
         <View style={[styles.profileHeader, { borderColor: accentColor }]}>
           <View style={[styles.avatarGlow, { backgroundColor: accentColor }]} />
           <Pressable
@@ -461,7 +464,6 @@ const styles = StyleSheet.create({
     gap: authSpacing.lg,
     paddingBottom: 120,
     paddingHorizontal: authSpacing.xl,
-    paddingTop: authSpacing.xxl,
   },
   profileHeader: {
     alignItems: 'center',

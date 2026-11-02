@@ -148,6 +148,23 @@ function addPartnerRound() {
   });
   return useGameStore.getState().rounds[0];
 }
+it('rejects a stale correction even when another edit has the identical timestamp', async () => {
+  const round = addPartnerRound();
+  const ui = await mount(round);
+  await act(async () => {
+    useGameStore.setState((state) => ({
+      rounds: state.rounds.map((r) =>
+        r.id === round.id ? { ...r, suit: 'herz', updatedAt: r.updatedAt } : r,
+      ),
+    }));
+  });
+  await ui.press('Kartenfarbe Schellen');
+  await ui.press('Korrektur speichern');
+  expect(ui.onSaved).not.toHaveBeenCalled();
+  expect(useGameStore.getState().rounds[0].suit).toBe('herz');
+  expect(JSON.stringify(ui.view.toJSON())).toContain('inzwischen geändert');
+  await act(async () => ui.view.unmount());
+});
 it('keeps full player names and independent coin/result actions available at large system font sizes', async () => {
   jest
     .spyOn(jest.requireActual('react-native'), 'useWindowDimensions')
