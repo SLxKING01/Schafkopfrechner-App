@@ -149,7 +149,7 @@ export function calculatePartyAmount(
     options &&
     (options.durchmarsch
       ? winners !== 1 || losers !== 3
-      : winners !== 3 || losers !== 1)
+      : !((winners === 3 && losers === 1) || (winners === 2 && losers === 2)))
   )
     throw new Error(
       options.durchmarsch
@@ -165,7 +165,11 @@ export function calculatePartyAmount(
   if (
     partnerGame
       ? winners !== 2 || losers !== 2
-      : !((winners === 1 && losers === 3) || (winners === 3 && losers === 1))
+      : !(
+          (winners === 1 && losers === 3) ||
+          (winners === 3 && losers === 1) ||
+          (gameType === 'ramsch' && winners === 2 && losers === 2)
+        )
   )
     throw new Error(
       partnerGame
@@ -189,6 +193,27 @@ export function isValidRoundMetadata(
   round: import('../types/game').GameRound,
 ): boolean {
   try {
+    if (round.stockRulesVersion !== undefined && round.stockRulesVersion !== 1)
+      return false;
+    for (const cents of [round.stockBeforeCents, round.stockAfterCents])
+      if (
+        cents !== undefined &&
+        (round.stockRulesVersion !== 1 ||
+          !Number.isSafeInteger(cents) ||
+          cents < 0)
+      )
+        return false;
+    if (
+      round.customAmounts !== undefined &&
+      (round.gameType !== 'custom' ||
+        round.tariffOptions !== undefined ||
+        round.stockAction !== undefined ||
+        round.stockCompletesDeal !== undefined ||
+        round.suit !== undefined ||
+        round.declarerId !== undefined ||
+        round.partnerId !== undefined)
+    )
+      return false;
     if (
       round.suit !== undefined &&
       (!cardSuits.some(({ id }) => id === round.suit) ||
@@ -203,7 +228,7 @@ export function isValidRoundMetadata(
       return false;
     if (
       round.stockAction &&
-      !['deposit', 'payout'].includes(round.stockAction)
+      !['deposit', 'payout', 'double'].includes(round.stockAction)
     ) {
       const cents = toSafeCents(round.amount);
       if (
@@ -211,8 +236,7 @@ export function isValidRoundMetadata(
         round.gameType !== 'stock' ||
         round.tariffOptions !== undefined ||
         cents === null ||
-        cents <= 0 ||
-        cents % 4 !== 0
+        cents <= 0
       )
         return false;
     }

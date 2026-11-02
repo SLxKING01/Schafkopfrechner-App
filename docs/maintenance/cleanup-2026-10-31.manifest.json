@@ -1,0 +1,815 @@
+{
+  "date": "2026-10-31",
+  "baseCommit": "0ed95546e2aeb607a55b141579012a0dca755d19",
+  "branch": "master",
+  "backupArchive": "C:\\Users\\simon\\Codeing\\Schafkopfrechner-App-cleanup-backups\\2026-10-31-0ed9554\\original-files.zip",
+  "backupArchiveSha256": "e03bba26f8b46b9555c08b3faeef09c46d18de0ab5ae560fd76c7ac81eb41f4d",
+  "files": [
+    {
+      "path": "src/components/GameTypeCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1520,
+      "sha256": "a1bd92cb226f9d02c39f18c620aafbb6564130b62bbb4ed8dfbd88ee9a9803f3"
+    },
+    {
+      "path": "src/components/OptionToggle.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1423,
+      "sha256": "6d821fcef90979161067c543ca72c253d0cad630ca2967c89466173a3ee963aa"
+    },
+    {
+      "path": "src/components/PartySummary.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1380,
+      "sha256": "abc58b7d059a9b3e038e01b2daebc3d6c55f05e2488f29cc0e80178e09f186a7"
+    },
+    {
+      "path": "src/components/PlayerChip.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2031,
+      "sha256": "5c40f83899b95f4202641a479836993a3ed328d2a31859342486e28bf14f332f"
+    },
+    {
+      "path": "src/components/dashboard/OpenSettlementCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2647,
+      "sha256": "a7796c348d8963b757d4a937ff740e9704fff3acd4a0c9a58c623eff9821ac05"
+    },
+    {
+      "path": "src/components/dashboard/QuickActionCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2149,
+      "sha256": "8658e6ef77b5a2dea7dc91266c50dd6f60fab46537787a2603c5b9ff7572c42b"
+    },
+    {
+      "path": "src/components/dashboard/RecentGameCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1921,
+      "sha256": "8eea9f69d876c13d7365860d39cb5de26c0ba2567d1bb207eb8552c640889f85"
+    },
+    {
+      "path": "src/components/dashboard/SectionHeader.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1430,
+      "sha256": "92da4b8613f16e97bc5da610ad70714dcd305feafd3226206bf6752df6370c22"
+    },
+    {
+      "path": "src/components/dashboard/StatsCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 3139,
+      "sha256": "dcbbc5445fa37c0f9bfd4bbdc0d4fff2fa03b1a506ec62a19f0a563229e45013"
+    },
+    {
+      "path": "src/components/dashboard/SyncStatusBadge.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1910,
+      "sha256": "bbe8d687e94aa0f9814c665ba0b4a3447ba4f50e254350f5449867954060b638"
+    },
+    {
+      "path": "src/components/game/AddPlayerModal.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2912,
+      "sha256": "14dc6dfa6344c9a2fd51ce5e28d93cba12bbdf96fb01d3ca87cf88fa30d34a31"
+    },
+    {
+      "path": "src/components/game/PlayerBalanceCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1614,
+      "sha256": "3998d7ccdc22ac04b8eb0efc36e6f2152d7e32c720e494e158ffd9724c10a092"
+    },
+    {
+      "path": "src/components/game/PlayerChip.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2693,
+      "sha256": "9fcce0f59fc62e087a0fb36f7216e6e4b901be4c0c47d702637d7709ee581e6e"
+    },
+    {
+      "path": "src/components/game/ScoreCard.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 1195,
+      "sha256": "70fe1e6bf524498b72d4d8d599fc5c148a1e3eea8bd7421caf5ef366d2ee389e"
+    },
+    {
+      "path": "src/navigation/AppNavigator.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 65,
+      "sha256": "00438762f06192540b50dd9095d810607c70f297e4529bd1729329c54cd43f74"
+    },
+    {
+      "path": "src/navigation/TabNavigator.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2381,
+      "sha256": "c9764e6b3dbc078981c9b6afec8baa0764f325791c72da26ed7e6b1f182f11ec"
+    },
+    {
+      "path": "src/screens/CreateGameScreen.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 13420,
+      "sha256": "444764e3a367086d17cae569093f492fbc12bdc7c46ac9c933007c96233799d8"
+    },
+    {
+      "path": "src/screens/HistoryScreen.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 4178,
+      "sha256": "0533b54dd45e327dd7d5f65485eaa137f37653a8edc2a8d03c412f7069a25913"
+    },
+    {
+      "path": "src/screens/HomeScreen.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 8911,
+      "sha256": "034fbb32106602942b47cd9df5f623096940ac305fa03083c617b01847054305"
+    },
+    {
+      "path": "src/screens/PlayersScreen.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 2974,
+      "sha256": "6b8be1b221752b594f7965607a4de050c1bad856f29f1e6265723133e2e9d0a0"
+    },
+    {
+      "path": "src/screens/StatisticsScreen.tsx",
+      "change": "remove",
+      "reason": "unused_disconnected_code",
+      "bytes": 5410,
+      "sha256": "8c75cfd2718c2502f626f8d48b608e41001e838f7f29daf8a5886df77d337bd5"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/_expo/static/js/ios/index-17899afe7f7b9e4a389562402449b7c5.hbc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 6995379,
+      "sha256": "ce541a9fa171e10a9e9aad312e526fd5c3a68823dbfb1c33cdd0c6e4a65f27ce"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/0747a1317bbe9c6fc340b889ef8ab3ae",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 332,
+      "sha256": "2325c53a73e54c438cbbc60dffdd8b513d471ba42e2f56713ef404b95e0ca1fc"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/0a328cd9c1afd0afe8e3b1ec5165b1b4",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 653,
+      "sha256": "9adb8c5efca932e2b732b293da813bd2e31952263056bce9e2517fec0f0b6a76"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/0ea69b5077e7c4696db85dbcba75b0e1",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 761,
+      "sha256": "3ddd0773ed27e23d25789f301731b3ac455ad8be5aa27a0a1b838f89c6d27225"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/1190ab078c57159f4245a328118fcd9a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 201,
+      "sha256": "cbdf9213e55f65c48d076acd8423b7c9aee4f1b81101ff6c95a38c4cd8a86461"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/2d0a9133e39524f138be6d4db9f4851f",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 809,
+      "sha256": "92ed8176ac8cb44362a5fc6a3703626a0006ac6b7cb272ee99f5850262ec070e"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/3cd68ccdb8938e3711da2e8831b85493",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 645,
+      "sha256": "c86bb485eee687e06c500fc4234f51a6784b4530c2ae11d0c76481110bce3105"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/61ca7e64b7d605716c57706cef640b9a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 220,
+      "sha256": "d03a5cd7a66ef10c5147916f9d5878b2d0a0a5ad46f405a31cd9967efaa55afd"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/78c625386b4d0690b421eb0fc78f7b9c",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 266,
+      "sha256": "d05c9d30d79f45a78e5585a2e7ec67c6a06a883dd9137e1d5059e8c87b33ce76"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/7d40544b395c5949f4646f5e150fe020",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 290,
+      "sha256": "2cdfeb8e5ccde7976f7012fb8cce73af2229029ee21d4f1509fed114871c6cd8"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/a132ecc4ba5c1517ff83c0fb321bc7fc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 405,
+      "sha256": "2b7443a9a58e92ca11a575bdc11598615a57dde305cd8ce70d602606b302cd98"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/aff2c65b39a296d4f7e96d0f58169170",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 334,
+      "sha256": "ab5613d2ce70fa67c5926e831353664945199fc195fa6fe76c5fe3cec452e31a"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/b4eb097d35f44ed943676fd56f6bdc51",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 389724,
+      "sha256": "fa2ab7d2557819b2bfe5009e46844efa7170cf177be7735d43aa2ac1295f1d54"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/d62ddc38b69aff346c20a28774933d6a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 839,
+      "sha256": "b434a7cf18c2d4ce747c70942ea2fee2d4412d93967ed92b372f810bb9261ea5"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/d84e297c3b3e49a614248143d53e40ca",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 141,
+      "sha256": "b1bc1810ca23e2c38cd76971c43591d726161061240d8b792b05757196ddb528"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/d8e7601e3df962f83c62371ac14964d8",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 502,
+      "sha256": "c4e54e6a0a7de636aa153378fbc62ea4a41695bfedf807f90df7b18ffd733f67"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/dad2fa9f4394a630f0f9a0d6dabd44bc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 317,
+      "sha256": "dc56b976bd45638e1125f6689743525e6886ae0bef2c8f4651994833685a831f"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/assets/f3a81967828232c893d547162e922764",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 589,
+      "sha256": "ef13fc0dfc52ec23817585fd7e109fbdf593a3b2549c40ce71ac9b0eda12cc2c"
+    },
+    {
+      "path": "test-results/ios-entry-save-smoke/metadata.json",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 1229,
+      "sha256": "9817909d549133b2581bb649efac1ff077391b045dae94cbb4bb232e56d23f7b"
+    },
+    {
+      "path": "test-results/ios-stock-rules-dev.hbc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 14341918,
+      "sha256": "70b6fe785b9e677005558644e50c0ec2ef11f91018977d4cea034c26e08d6e0c"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/_expo/static/js/ios/index-afd137174f30f3a330bff74e5d126146.hbc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 6963652,
+      "sha256": "25d5bf8846cb5bef39095823c8106f323af13b6a65feffa4b2e192360a17d358"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/0747a1317bbe9c6fc340b889ef8ab3ae",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 332,
+      "sha256": "2325c53a73e54c438cbbc60dffdd8b513d471ba42e2f56713ef404b95e0ca1fc"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/0a328cd9c1afd0afe8e3b1ec5165b1b4",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 653,
+      "sha256": "9adb8c5efca932e2b732b293da813bd2e31952263056bce9e2517fec0f0b6a76"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/0ea69b5077e7c4696db85dbcba75b0e1",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 761,
+      "sha256": "3ddd0773ed27e23d25789f301731b3ac455ad8be5aa27a0a1b838f89c6d27225"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/1190ab078c57159f4245a328118fcd9a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 201,
+      "sha256": "cbdf9213e55f65c48d076acd8423b7c9aee4f1b81101ff6c95a38c4cd8a86461"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/2d0a9133e39524f138be6d4db9f4851f",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 809,
+      "sha256": "92ed8176ac8cb44362a5fc6a3703626a0006ac6b7cb272ee99f5850262ec070e"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/3cd68ccdb8938e3711da2e8831b85493",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 645,
+      "sha256": "c86bb485eee687e06c500fc4234f51a6784b4530c2ae11d0c76481110bce3105"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/61ca7e64b7d605716c57706cef640b9a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 220,
+      "sha256": "d03a5cd7a66ef10c5147916f9d5878b2d0a0a5ad46f405a31cd9967efaa55afd"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/78c625386b4d0690b421eb0fc78f7b9c",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 266,
+      "sha256": "d05c9d30d79f45a78e5585a2e7ec67c6a06a883dd9137e1d5059e8c87b33ce76"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/7d40544b395c5949f4646f5e150fe020",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 290,
+      "sha256": "2cdfeb8e5ccde7976f7012fb8cce73af2229029ee21d4f1509fed114871c6cd8"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/a132ecc4ba5c1517ff83c0fb321bc7fc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 405,
+      "sha256": "2b7443a9a58e92ca11a575bdc11598615a57dde305cd8ce70d602606b302cd98"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/aff2c65b39a296d4f7e96d0f58169170",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 334,
+      "sha256": "ab5613d2ce70fa67c5926e831353664945199fc195fa6fe76c5fe3cec452e31a"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/b4eb097d35f44ed943676fd56f6bdc51",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 389724,
+      "sha256": "fa2ab7d2557819b2bfe5009e46844efa7170cf177be7735d43aa2ac1295f1d54"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/d62ddc38b69aff346c20a28774933d6a",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 839,
+      "sha256": "b434a7cf18c2d4ce747c70942ea2fee2d4412d93967ed92b372f810bb9261ea5"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/d84e297c3b3e49a614248143d53e40ca",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 141,
+      "sha256": "b1bc1810ca23e2c38cd76971c43591d726161061240d8b792b05757196ddb528"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/d8e7601e3df962f83c62371ac14964d8",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 502,
+      "sha256": "c4e54e6a0a7de636aa153378fbc62ea4a41695bfedf807f90df7b18ffd733f67"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/dad2fa9f4394a630f0f9a0d6dabd44bc",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 317,
+      "sha256": "dc56b976bd45638e1125f6689743525e6886ae0bef2c8f4651994833685a831f"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/assets/f3a81967828232c893d547162e922764",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 589,
+      "sha256": "ef13fc0dfc52ec23817585fd7e109fbdf593a3b2549c40ce71ac9b0eda12cc2c"
+    },
+    {
+      "path": "test-results/ios-stock-rules-smoke/metadata.json",
+      "change": "remove",
+      "reason": "generated_ios_test_export",
+      "bytes": 1229,
+      "sha256": "33a9f6f16ea840798f339418162e1bca4a6a41c2ceaef5caa568f91c5fe9aaf5"
+    },
+    {
+      "path": "src/screens/app/ActiveGameScreen.tsx",
+      "change": "modify",
+      "reason": "unused_static_styles",
+      "bytes": 68343,
+      "sha256": "9ba77e53509f7e20660241c8348d1f9c68f5b7ba5b87a77f62d12d11baf45561"
+    },
+    {
+      "path": "src/components/game/FriendPickerSheet.tsx",
+      "change": "modify",
+      "reason": "unused_static_styles",
+      "bytes": 8591,
+      "sha256": "7691bae50022100dfd2ff47595d8a6621a5f8707812adf413c5e1bc6fa330e3e"
+    },
+    {
+      "path": "src/screens/app/GameLobbyScreen.tsx",
+      "change": "modify",
+      "reason": "unused_static_styles",
+      "bytes": 39552,
+      "sha256": "9277f4b885b0ad18191eef308e0526724addb4ed2848fdff13ae67fad25766a0"
+    },
+    {
+      "path": ".gitignore",
+      "change": "modify",
+      "reason": "prevent_generated_artifacts",
+      "bytes": 440,
+      "sha256": "5936b94a73a28b6735de672b54c2c058a33c9ae1edb62d87d6a4418e14447805"
+    }
+  ],
+  "removedStyles": [
+    {
+      "file": "src/components/game/FriendPickerSheet.tsx",
+      "dynamic": false,
+      "unused": [
+        {
+          "name": "root",
+          "line": 174
+        },
+        {
+          "name": "backdrop",
+          "line": 178
+        },
+        {
+          "name": "sheet",
+          "line": 182
+        },
+        {
+          "name": "handle",
+          "line": 197
+        }
+      ]
+    },
+    {
+      "file": "src/screens/app/ActiveGameScreen.tsx",
+      "dynamic": false,
+      "unused": [
+        {
+          "name": "draggedPlayerRow",
+          "line": 1560
+        },
+        {
+          "name": "playerTable",
+          "line": 1645
+        },
+        {
+          "name": "goldGlow",
+          "line": 1763
+        },
+        {
+          "name": "greenGlow",
+          "line": 1772
+        },
+        {
+          "name": "topBarActions",
+          "line": 1787
+        },
+        {
+          "name": "archivePill",
+          "line": 1793
+        },
+        {
+          "name": "monthLabel",
+          "line": 1804
+        },
+        {
+          "name": "statChipValueGold",
+          "line": 1841
+        },
+        {
+          "name": "hero",
+          "line": 1844
+        },
+        {
+          "name": "heroBlur",
+          "line": 1853
+        },
+        {
+          "name": "heroTop",
+          "line": 1862
+        },
+        {
+          "name": "heroTitleRow",
+          "line": 1868
+        },
+        {
+          "name": "backButton",
+          "line": 1875
+        },
+        {
+          "name": "heroTitleCopy",
+          "line": 1889
+        },
+        {
+          "name": "kicker",
+          "line": 1893
+        },
+        {
+          "name": "gameBadge",
+          "line": 1906
+        },
+        {
+          "name": "gameBadgeValue",
+          "line": 1916
+        },
+        {
+          "name": "gameBadgeLabel",
+          "line": 1921
+        },
+        {
+          "name": "heroStats",
+          "line": 1927
+        },
+        {
+          "name": "metricTile",
+          "line": 1931
+        },
+        {
+          "name": "metricTileGold",
+          "line": 1940
+        },
+        {
+          "name": "metricLabel",
+          "line": 1944
+        },
+        {
+          "name": "metricValue",
+          "line": 1950
+        },
+        {
+          "name": "metricValueGold",
+          "line": 1956
+        },
+        {
+          "name": "heroFooter",
+          "line": 1959
+        },
+        {
+          "name": "leaderWrap",
+          "line": 1964
+        },
+        {
+          "name": "leaderIcon",
+          "line": 1971
+        },
+        {
+          "name": "leaderCopy",
+          "line": 1979
+        },
+        {
+          "name": "leaderLabel",
+          "line": 1983
+        },
+        {
+          "name": "leaderName",
+          "line": 1989
+        },
+        {
+          "name": "historyShortcut",
+          "line": 1995
+        },
+        {
+          "name": "historyShortcutText",
+          "line": 2006
+        },
+        {
+          "name": "segmentButtonActive",
+          "line": 2048
+        },
+        {
+          "name": "statsButton",
+          "line": 2091
+        },
+        {
+          "name": "playerRowLeader",
+          "line": 2123
+        },
+        {
+          "name": "coinBadge",
+          "line": 2147
+        },
+        {
+          "name": "coinBadgeEmpty",
+          "line": 2157
+        },
+        {
+          "name": "coinStack",
+          "line": 2158
+        },
+        {
+          "name": "multiplierText",
+          "line": 2165
+        },
+        {
+          "name": "multiplierTextMuted",
+          "line": 2171
+        },
+        {
+          "name": "cardIconWrap",
+          "line": 2172
+        },
+        {
+          "name": "cardIcon",
+          "line": 2178
+        },
+        {
+          "name": "cardIconDealer",
+          "line": 2188
+        },
+        {
+          "name": "playerNameRow",
+          "line": 2196
+        },
+        {
+          "name": "leaderBadge",
+          "line": 2207
+        },
+        {
+          "name": "playerMeta",
+          "line": 2215
+        },
+        {
+          "name": "fab",
+          "line": 2251
+        },
+        {
+          "name": "fabPressed",
+          "line": 2266
+        },
+        {
+          "name": "modalRoot",
+          "line": 2270
+        },
+        {
+          "name": "modalBackdrop",
+          "line": 2274
+        },
+        {
+          "name": "sheet",
+          "line": 2278
+        },
+        {
+          "name": "sheetHeader",
+          "line": 2293
+        },
+        {
+          "name": "sheetKicker",
+          "line": 2298
+        },
+        {
+          "name": "sheetTitle",
+          "line": 2305
+        },
+        {
+          "name": "closeButton",
+          "line": 2311
+        },
+        {
+          "name": "sheetContent",
+          "line": 2319
+        },
+        {
+          "name": "label",
+          "line": 2324
+        },
+        {
+          "name": "chipWrap",
+          "line": 2329
+        },
+        {
+          "name": "amountInput",
+          "line": 2334
+        },
+        {
+          "name": "multiplierHint",
+          "line": 2345
+        },
+        {
+          "name": "multiplierHintText",
+          "line": 2354
+        }
+      ]
+    },
+    {
+      "file": "src/screens/app/GameLobbyScreen.tsx",
+      "dynamic": false,
+      "unused": [
+        {
+          "name": "headerSymbols",
+          "line": 1036
+        },
+        {
+          "name": "headerSuit",
+          "line": 1040
+        },
+        {
+          "name": "headerSuitLeft",
+          "line": 1046
+        },
+        {
+          "name": "headerSuitRight",
+          "line": 1051
+        }
+      ]
+    }
+  ],
+  "removedFileCount": 60,
+  "removedFileBytes": 29162766,
+  "deferred": [
+    "src/hooks/useRealtimeTable.ts",
+    "src/services/realtime/subscribeToTable.ts",
+    "src/services/realtime/unsubscribeFromTable.ts",
+    "unused exports/types",
+    "dependencies",
+    "QA screenshots/design-previews",
+    "runtime assets and historical data models"
+  ],
+  "removedImports": [
+    {
+      "path": "src/screens/app/ActiveGameScreen.tsx",
+      "name": "authTypography",
+      "from": "../../theme/typography",
+      "reason": "Only used by removed style blocks"
+    }
+  ],
+  "activeCodeVerification": [
+    {
+      "file": "src/components/game/FriendPickerSheet.tsx",
+      "onlyDocumentedStylesAndUnusedImportChanged": true,
+      "afterSha256": "97d95dbd919851886b8698971ea2186b7668932dc4e2e4266611be00b19e936a"
+    },
+    {
+      "file": "src/screens/app/ActiveGameScreen.tsx",
+      "onlyDocumentedStylesAndUnusedImportChanged": true,
+      "afterSha256": "3087c06f431755ae2a3599dce3081ae3bbdd4ef1e1aafa9454a0c96fcd09b1a2"
+    },
+    {
+      "file": "src/screens/app/GameLobbyScreen.tsx",
+      "onlyDocumentedStylesAndUnusedImportChanged": true,
+      "afterSha256": "71d5cf68541d66eb30a94407187ab01b298939cfe1ea94a4bb6b6e6ad46a4392"
+    }
+  ],
+  "validation": {
+    "fullJest": {
+      "suites": 40,
+      "testsPassed": 376
+    },
+    "finalScreenTests": {
+      "suites": 2,
+      "testsPassed": 40
+    },
+    "typescriptWithUnusedChecks": "passed",
+    "changedFilesEslint": "passed",
+    "webProductionExport": "passed",
+    "iosProductionExport": "passed",
+    "existingGlobalLintErrors": {
+      "count": 4,
+      "files": [
+        "src/components/profile/AccentColorPicker.tsx",
+        "src/components/profile/AvatarGridItem.tsx"
+      ],
+      "rule": "react-hooks/immutability"
+    },
+    "backupRoundTrip": "all 64 original files verified",
+    "retainedAssets": "all 6 byte-identical to base commit",
+    "temporaryVerificationExports": "removed after successful export",
+    "preexistingDist": "retained: 35 files, 12181375 bytes"
+  }
+}

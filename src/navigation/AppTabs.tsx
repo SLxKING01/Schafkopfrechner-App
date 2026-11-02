@@ -9,11 +9,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DashboardScreen } from '../screens/app/DashboardScreen';
@@ -33,24 +29,11 @@ type TabIconProps = {
   icon: ComponentType<LucideProps>;
 };
 
-function AnimatedTabIcon({ focused, color, icon: Icon }: TabIconProps) {
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: withSpring(focused ? 1.14 : 1, {
-          damping: 15,
-          stiffness: 240,
-        }),
-      },
-    ],
-  }));
-
+function TabIcon({ focused, color, icon: Icon }: TabIconProps) {
   return (
-    <Animated.View
-      style={[styles.iconWrap, focused && styles.iconActive, animatedStyle]}
-    >
+    <View style={styles.iconWrap}>
       <Icon color={color} size={21} strokeWidth={focused ? 2.6 : 2} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -87,7 +70,7 @@ export function AppTabs() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon focused={focused} color={color} icon={House} />
+            <TabIcon focused={focused} color={color} icon={House} />
           ),
         }}
       />
@@ -97,7 +80,7 @@ export function AppTabs() {
         options={{
           title: 'Statistik',
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon focused={focused} color={color} icon={BarChart3} />
+            <TabIcon focused={focused} color={color} icon={BarChart3} />
           ),
         }}
       />
@@ -107,7 +90,7 @@ export function AppTabs() {
         options={{
           title: 'Tische',
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon focused={focused} color={color} icon={Users} />
+            <TabIcon focused={focused} color={color} icon={Users} />
           ),
         }}
       />
@@ -117,7 +100,7 @@ export function AppTabs() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ focused, color }) => (
-            <AnimatedTabIcon focused={focused} color={color} icon={User} />
+            <TabIcon focused={focused} color={color} icon={User} />
           ),
         }}
       />
@@ -149,8 +132,5 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: 'center',
     width: 42,
-  },
-  iconActive: {
-    backgroundColor: authColors.transparent,
   },
 });

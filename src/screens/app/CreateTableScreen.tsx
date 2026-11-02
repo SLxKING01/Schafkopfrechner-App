@@ -18,7 +18,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AccountPicker } from '../../components/game/AccountPicker';
@@ -37,6 +37,7 @@ import { createLocalPlayer } from '../../services/game/addPlayer';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
+import { formEntering, selectionEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import type { Player, TableSettings } from '../../types/game';
@@ -66,7 +67,7 @@ const screenColors = {
   shadow: '#000000',
 };
 
-const maxPlayers = 8;
+const maxPlayers = 5;
 
 export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   const playerInputRef = useRef<ComponentRef<typeof TextInput>>(null);
@@ -259,10 +260,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View
-            entering={FadeInDown.duration(420)}
-            style={styles.header}
-          >
+          <Animated.View entering={formEntering} style={styles.header}>
             <View>
               <AppText style={styles.kicker}>Neuer Tisch</AppText>
               <AppText style={styles.title}>Runde erstellen</AppText>
@@ -289,10 +287,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
             </AppText>
           </View>
 
-          <Animated.View
-            entering={FadeInDown.duration(460).delay(80)}
-            style={styles.createCard}
-          >
+          <Animated.View entering={formEntering} style={styles.createCard}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIcon}>
                 <Spade color={screenColors.gold} size={24} strokeWidth={2.4} />
@@ -428,11 +423,8 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               </View>
             ) : (
               <View style={styles.playerChips}>
-                {players.map((player, index) => (
-                  <Animated.View
-                    key={player.id}
-                    entering={FadeInDown.duration(260).delay(index * 45)}
-                  >
+                {players.map((player) => (
+                  <Animated.View key={player.id} entering={selectionEntering}>
                     <PlayerPill
                       accentColor={player.accentColor}
                       animalId={player.animalId}
@@ -445,10 +437,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
             )}
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.duration(460).delay(120)}
-            style={styles.settingsCard}
-          >
+          <Animated.View entering={formEntering} style={styles.settingsCard}>
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderText}>
                 <AppText style={styles.cardTitle}>Regeln & Tarife</AppText>

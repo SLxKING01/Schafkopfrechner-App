@@ -22,16 +22,21 @@ export function SettlementCard({
 }: SettlementCardProps) {
   return (
     <View style={[styles.card, isPaid && styles.paid]}>
-      <View style={styles.copy}>
-        <AppText style={styles.title}>
-          {from} zahlt {to}
+      <View style={styles.paymentRow}>
+        <AppText selectable style={styles.title}>
+          {from} → {to}
         </AppText>
-        <AppText style={styles.subtitle}>PayPal / QR vorbereitet</AppText>
+        <AppText selectable style={styles.amount}>
+          {amount}
+        </AppText>
       </View>
       <View style={styles.side}>
-        <AppText style={styles.amount}>{amount}</AppText>
+        <AppText style={styles.subtitle}>
+          {isPaid ? 'Bezahlt' : 'Offene Zahlung'}
+        </AppText>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel={`${from} an ${to}, ${amount}: ${isPaid ? 'Zahlung wieder öffnen' : 'als bezahlt markieren'}`}
           onPress={onMarkPaid}
           style={[styles.button, isPaid && styles.buttonPaid]}
         >
@@ -54,12 +59,19 @@ const styles = StyleSheet.create({
     padding: authSpacing.lg,
   },
   paid: {
-    opacity: 0.58,
+    borderColor: authColors.accentGreen,
   },
-  copy: {
-    gap: authSpacing.xs,
+  paymentRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: authSpacing.sm,
   },
   title: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 130,
     color: authColors.textPrimary,
     fontSize: authTypography.body,
     fontWeight: '900',
@@ -74,10 +86,13 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: authColors.goldHighlight,
-    fontSize: 24,
+    fontSize: 22,
+    fontVariant: ['tabular-nums'],
     fontWeight: '900',
   },
   button: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: authColors.gold,
     borderRadius: authRadius.pill,
     paddingHorizontal: authSpacing.md,

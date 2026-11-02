@@ -2,11 +2,11 @@
 
 ## Bedienung
 
-- Unter „Regeln & Tarife“ die Spielarten, Einsätze und globalen Bonuspreise festlegen.
+- Unter „Regeln & Tarife“ die Spielarten, Einsätze und globalen Bonuspreise festlegen. Für „Wenn alle weiter sagen“ exklusiv Stock, Ramsch oder „Beides aus“ wählen. Ein Wechsel ist nur bei leerem Stock möglich.
 - Unter „Hausregeln je Spielart“ erlaubte Boni sowie Mindest- und Maximallaufende konfigurieren. Bei Ramsch können Jungfrauen und Durchmarsch ausgeschaltet werden.
-- „Stock“ bucht den konfigurierten Einsatz einmal für jeden der vier Spieler. Spielboni und Multiplikatoren verändern diese Einzahlung nicht.
-- Beim Rufspiel Spieler und Partner wählen, anschließend das Ergebnis der Spielerpartei. Nur eine gewinnende Spielerpartei kann den gesamten vorhandenen Stock zusätzlich zum Spielgewinn erhalten, je zur Hälfte.
-- Beim Abschluss mit Rest-Stock entweder an die vier Einzahler zurückgeben oder auf einen automatisch erstellten Folgetisch mit denselben Spielern übernehmen. Die Übernahme wird in beiden Spieltagen gebucht. Sie ist keine weitere Bareinzahlung. Die anfängliche Übernahmebuchung kann nicht einzeln gelöscht oder geändert werden.
+- „Stock“ bucht den konfigurierten Einsatz einmal für jeden der vier tatsächlichen Rundenteilnehmer. Bei fünf aktiven Spielern zahlt der aussetzende Geber nicht mit. Nach „Alle weiter“ teilt derselbe Geber erneut aus; gesetzte Leger bleiben erhalten. Spielboni und Multiplikatoren verändern diese Einzahlung nicht.
+- Beim Rufspiel Ansager und Partner wählen, anschließend das Ergebnis: Bei neuen Spielen erhält die gewinnende ansagende Partei automatisch den gesamten Stock. Verliert sie, zahlen die beiden zusammen den bisherigen Stock zusätzlich ein und verdoppeln ihn. Die normale Spielabrechnung bleibt bestehen. Andere Spielarten verändern den Stock nicht. Historische manuelle Stockbuchungen behalten ihre Bedeutung.
+- Beim Abschluss mit Rest-Stock entweder unter den dann aktiven Spielern verteilen (einschließlich des regulär aussetzenden Gebers, ohne manuell pausierte Spieler) oder auf einen automatisch erstellten Folgetisch mit denselben Spielern übernehmen. Die Übernahme wird in beiden Spieltagen gebucht. Sie ist keine weitere Bareinzahlung. Die anfängliche Übernahmebuchung kann nicht einzeln gelöscht oder geändert werden.
 - Stock-Buchungen bleiben im Verlauf sichtbar, zählen aber nicht als gespielte Spiele, Siege, Niederlagen oder Lieblingsspielart.
 
 ## Neue Tische und historische Daten
@@ -29,7 +29,7 @@ Automatisierte Prüfungen decken Tarifberechnung, Parteien, Stock-Salden, Abschl
 2. Sauspieler und Partner auswählen, gewonnen/verloren wechseln; Stock darf nur bei gewonnener Spielerpartei ausgezahlt werden.
 3. In der langen Eingabe bis zum Speichern scrollen; auch mit größerer Systemschrift und geöffneter Tastatur bei einer alten manuellen Runde.
 4. Stock einzahlen, auszahlen, letzte Runde zurücknehmen und erneut speichern. Kontostände und Topf vergleichen.
-5. Mit Rest-Stock abschließen: Rückgabe sowie Übernahme auf einen Folgetisch getrennt prüfen.
+5. Mit Rest-Stock abschließen: Verteilung sowie Übernahme auf einen Folgetisch getrennt prüfen.
 6. App vollständig schließen und erneut öffnen. Kontostände, Stock, Archiv und Zahlungsstände müssen erhalten bleiben.
 7. Beim Wechseln der Bildschirme prüfen, dass der frühere Statusleistenfehler nicht wieder erscheint.
 

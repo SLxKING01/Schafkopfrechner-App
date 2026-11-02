@@ -10,6 +10,7 @@ import {
 import { reliableStorage } from '../storage/reliableStorage';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { paymentRevision } from '../utils/interimPayments';
 import { emptyTariffOptions } from '../utils/roundTariff';
 
 const mockRpc = jest.fn();
@@ -265,4 +266,51 @@ it('does not remove a newly published table when an older discovery request retu
   finish({ data: [], error: null });
   await discovering;
   expect(useGameStore.getState().currentTable!.shared).toBeDefined();
+});
+
+it('preserves payment journals and round history across accounts, restoration and subsequent uploads', async () => {
+  const store = useGameStore.getState();
+  expect(
+    store.addRound({
+      gameType: 'rufspiel',
+      winnerId: 'a',
+      winnerIds: ['a', 'b'],
+      loserIds: ['c', 'd'],
+      declarerId: 'a',
+      partnerId: 'b',
+      amount: 0.4,
+      tariffOptions: { ...emptyTariffOptions },
+    }),
+  ).toBe(true);
+  const state = useGameStore.getState();
+  const id = state.rounds[0].id;
+  expect(
+    store.recordInterimPayment(
+      state.currentTable!.id,
+      paymentRevision(state.currentTable!, state.balances),
+      { id: 'shared-paid', fromPlayerId: 'c', toPlayerId: 'a', amount: 0.1 },
+    ),
+  ).toBe(true);
+  const paid = clone(useGameStore.getState().currentTable!.interimPayments);
+  const history = clone(useGameStore.getState().currentTable!.roundHistory);
+  await publishSharedTable();
+  actor('phone-b');
+  clearTable();
+  await openSharedTable(remote.id);
+  expect(useGameStore.getState().currentTable!.interimPayments).toEqual(paid);
+  expect(useGameStore.getState().currentTable!.roundHistory).toEqual(history);
+  expect(store.undoLastRound()).toBe(true);
+  expect(store.restoreRound(remote.id, id)).toBe(true);
+  await syncSharedTable();
+  expect(remote.payload.currentTable.interimPayments).toEqual(paid);
+  expect(remote.payload.currentTable.roundHistory!.at(-1)).toMatchObject({
+    action: 'restored',
+    actor: { id: 'phone-b' },
+  });
+  actor('phone-a');
+  clearTable();
+  await openSharedTable(remote.id);
+  expect(useGameStore.getState().rounds).toHaveLength(1);
+  expect(useGameStore.getState().rounds[0].id).toBe(id);
+  expect(useGameStore.getState().currentTable!.interimPayments).toEqual(paid);
 });

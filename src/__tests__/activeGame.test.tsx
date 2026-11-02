@@ -1,8 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
 import { Alert, Platform, StyleSheet } from 'react-native';
 import { G } from 'react-native-svg';
 
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
+import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { SyncStatus } from '../components/game/SyncStatus';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
@@ -14,22 +16,25 @@ import { emptyTariffOptions } from '../utils/roundTariff';
 
 const renderer = jest.requireActual('react-test-renderer');
 const navigate = jest.fn();
-function playerEntry(view: ReturnType<typeof renderer.create>) {
-  return view.root.findAll(
-    (node: { props: { accessibilityLabel?: string; onPress?: unknown } }) =>
-      node.props.accessibilityLabel?.startsWith('Berkay,') === true &&
-      typeof node.props.onPress === 'function',
-  )[0];
-}
+const mockDrag = jest.fn();
+jest.mock('react-native-draggable-flatlist', () => {
+  const React = jest.requireActual('react');
+  const { FlatList } = jest.requireActual('react-native');
+  return function DraggableListMock(props: {
+    renderItem: (info: unknown) => React.ReactNode;
+  }) {
+    return React.createElement(FlatList, {
+      ...props,
+      renderItem: (info: Record<string, unknown>) =>
+        props.renderItem({ ...info, drag: mockDrag, isActive: false }),
+    });
+  };
+});
 jest.setTimeout(30000);
 jest.mock('../lib/supabase', () => ({
   isSupabaseConfigured: false,
   supabase: {},
 }));
-jest.mock(
-  'react-native-draggable-flatlist',
-  () => jest.requireActual('react-native').FlatList,
-);
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(),
   notificationAsync: jest.fn(),
@@ -46,6 +51,7 @@ jest.mock('react-native-reanimated', () =>
   jest.requireActual('react-native-reanimated/mock'),
 );
 jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: jest.requireActual('react-native').View,
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@gorhom/bottom-sheet', () => ({
@@ -102,6 +108,157 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it.each(['Ab jetzt', 'Auch bisherige Spiele'])(
+  'offers the explicit tariff scope %s before saving',
+  async (scope) => {
+    const store = useGameStore.getState();
+    expect(
+      store.addRound({
+        gameType: 'rufspiel',
+        winnerId: 'a',
+        winnerIds: ['a', 'b'],
+        loserIds: ['c', 'd'],
+        declarerId: 'a',
+        partnerId: 'b',
+        amount: 0.4,
+        tariffOptions: { ...emptyTariffOptions },
+      }),
+    ).toBe(true);
+    const goBack = jest.fn();
+    let view: ReturnType<typeof renderer.create>;
+    await act(async () => {
+      view = renderer.create(
+        <EditTableScreen
+          navigation={{ goBack } as never}
+          route={{} as never}
+        />,
+      );
+    });
+    const editor = view.root.findAll(
+      (node: {
+        props: { onChange?: unknown; settings?: { games?: unknown } };
+      }) =>
+        typeof node.props.onChange === 'function' &&
+        !!node.props.settings?.games,
+    )[0];
+    const settings = structuredClone(editor.props.settings);
+    settings.games.rufspiel.value = 0.5;
+    await act(async () => editor.props.onChange(settings));
+    const press = async (label: string) =>
+      act(async () => {
+        view.root
+          .findAllByProps({ accessibilityLabel: label })
+          .find(
+            (n: { props: { onPress?: unknown } }) =>
+              typeof n.props.onPress === 'function',
+          )!
+          .props.onPress();
+        await reliableStorage.flush();
+      });
+    await press('Regeln speichern');
+    expect(useGameStore.getState().rounds[0].amount).toBe(0.4);
+    await press(scope);
+    expect(
+      useGameStore.getState().currentTable!.settings.games.rufspiel.value,
+    ).toBe(0.5);
+    expect(useGameStore.getState().rounds[0].amount).toBe(
+      scope === 'Ab jetzt' ? 0.4 : 1,
+    );
+    expect(goBack).toHaveBeenCalledTimes(1);
+    await act(async () => view.unmount());
+  },
+);
+
+it('keeps dragging separate from entry, knocking and player actions, preserving dealer and the accessible seat editor', async () => {
+  const ui = await mountPlayerActions();
+  const list = () =>
+    ui.view.root
+      .findAllByProps({ testID: 'player-standings-list' })
+      .find(
+        (node: { props: { onDragBegin?: unknown } }) =>
+          typeof node.props.onDragBegin === 'function',
+      )!;
+  mockDrag.mockClear();
+  await act(async () =>
+    ui.view.root
+      .findAllByProps({ accessibilityLabel: 'Flo verschieben' })
+      .find(
+        (node: { props: { onPressIn?: unknown } }) =>
+          typeof node.props.onPressIn === 'function',
+      )!
+      .props.onPressIn(),
+  );
+  expect(mockDrag).toHaveBeenCalledTimes(1);
+  await act(async () => list().props.onDragBegin());
+  await ui.press('Flo, 0,00 €');
+  expect(ui.view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  expect(ui.button('Leger Flo: 1x').props.disabled).toBe(true);
+  const order = list().props.data.slice().reverse();
+  await act(async () => list().props.onDragEnd({ data: order }));
+  expect(useGameStore.getState().players.map((p) => p.id)).toEqual(
+    order.map((p: { id: string }) => p.id),
+  );
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('a');
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await ui.press('Sitzreihenfolge ändern');
+  expect(ui.button('Reihenfolge speichern')).toBeTruthy();
+  await act(async () => ui.view.unmount());
+});
+
+it('restores a removed round from the inline undo notice without opening an editor or duplicating the entry', async () => {
+  const store = useGameStore.getState();
+  expect(
+    store.addRound({
+      gameType: 'rufspiel',
+      winnerId: 'a',
+      winnerIds: ['a', 'b'],
+      loserIds: ['c', 'd'],
+      declarerId: 'a',
+      partnerId: 'b',
+      amount: 0.4,
+      tariffOptions: { ...emptyTariffOptions },
+    }),
+  ).toBe(true);
+  const original = useGameStore.getState().rounds[0];
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const press = async (label: string) =>
+    act(async () =>
+      view.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(
+          (n: { props: { onPress?: unknown } }) =>
+            typeof n.props.onPress === 'function',
+        )!
+        .props.onPress(),
+    );
+  await press('Tischmenü öffnen');
+  await press('Letzte Runde zurücknehmen');
+  await press('Runde zurücknehmen bestätigen');
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await press('Gelöschtes Spiel rückgängig machen');
+  expect(useGameStore.getState().rounds).toEqual([original]);
+  expect(
+    useGameStore.getState().currentTable!.roundHistory!.at(-1)!.action,
+  ).toBe('restored');
+  expect(
+    view.root.findAllByProps({
+      accessibilityLabel: 'Gelöschtes Spiel rückgängig machen',
+    }),
+  ).toHaveLength(0);
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Runde speichern' }),
+  ).toHaveLength(0);
+  await act(async () => view.unmount());
+});
+
 it('opens the round selected in statistics directly in the existing editor', async () => {
   useGameStore.getState().addRound({
     gameType: 'rufspiel',
@@ -124,7 +281,6 @@ it('opens the round selected in statistics directly in the existing editor', asy
       />,
     );
   });
-  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Korrektur speichern' })
       .length,
@@ -246,7 +402,7 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => playerEntry(view).props.onPress());
+  await act(async () => button('Spiel eintragen').props.onPress());
   await act(async () => button('Spieltyp Stock').props.onPress());
   expect(
     view.root.findAllByProps({
@@ -262,28 +418,14 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Stock: 2,00 €' }).length,
   ).toBeGreaterThan(0);
-  await act(async () => playerEntry(view).props.onPress());
+  await act(async () => button('Spiel eintragen').props.onPress());
   await act(async () => button('Spieltyp Rufspiel').props.onPress());
   await act(async () => button('Berkay gewonnen').props.onPress());
-  const stockSwitch = () =>
-    view.root
-      .findAllByProps({ accessibilityLabel: 'Stock auszahlen' })
-      .find(
-        (node: { props: { onValueChange?: unknown } }) =>
-          typeof node.props.onValueChange === 'function',
-      )!;
-  expect(stockSwitch().props.disabled).toBe(true);
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Stock auszahlen' }),
+  ).toHaveLength(0);
   await act(async () => button('Flo gewonnen').props.onPress());
-  expect(stockSwitch().props.disabled).toBe(false);
-  await act(async () =>
-    view.root
-      .findAllByProps({ accessibilityLabel: 'Stock auszahlen' })
-      .find(
-        (node: { props: { onValueChange?: unknown } }) =>
-          typeof node.props.onValueChange === 'function',
-      )!
-      .props.onValueChange(true),
-  );
+  await act(async () => button('Ansager Berkay').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds[1].stockAction).toBe('payout');
   expect(useGameStore.getState().rounds[1].winnerIds).toEqual(['a', 'b']);
@@ -305,6 +447,7 @@ it.each(['refund', 'carry'] as const)(
       useGameStore.getState().currentTable!.settings,
     );
     settings.games.stock.enabled = true;
+    settings.games.stock.value = 0.5;
     useGameStore.getState().updateCurrentTableSettings(settings);
     useGameStore.getState().addRound({
       winnerId: '',
@@ -327,39 +470,25 @@ it.each(['refund', 'carry'] as const)(
     });
     await act(async () =>
       view.root
-        .findAllByProps({ accessibilityLabel: 'Tischmenü öffnen' })
+        .findAllByProps({ accessibilityLabel: 'Spieltag abschliessen' })
         .find(
           (node: { props: { onPress?: unknown } }) =>
             typeof node.props.onPress === 'function',
         )!
         .props.onPress(),
-    );
-    await act(async () =>
-      view.root
-        .findAllByProps({ accessibilityLabel: 'Tisch archivieren' })
-        .find(
-          (node: { props: { onPress?: unknown } }) =>
-            typeof node.props.onPress === 'function',
-        )!
-        .props.onPress(),
-    );
-    await act(async () =>
-      alert.mock.calls
-        .at(-1)![2]!
-        .find((action) => action.text === 'Archivieren')!.onPress!(),
     );
     expect(useGameStore.getState().activeGame).toBe(true);
     const actions = alert.mock.calls.at(-1)![2]!;
     expect(actions.map(({ text }) => text)).toEqual([
       'Abbrechen',
-      'Stock zurückgeben',
+      'Stock verteilen',
       'Stock übernehmen',
     ]);
     await act(async () =>
       actions.find(
         ({ text }) =>
           text ===
-          (resolution === 'refund' ? 'Stock zurückgeben' : 'Stock übernehmen'),
+          (resolution === 'refund' ? 'Stock verteilen' : 'Stock übernehmen'),
       )!.onPress!(),
     );
     expect(navigate).toHaveBeenCalledWith('Settlement', {
@@ -392,7 +521,7 @@ it('records Ramsch with a Jungfrau and restricts its bonus controls', async () =
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => playerEntry(view).props.onPress());
+  await act(async () => button('Spiel eintragen').props.onPress());
   await act(async () => button('Spieltyp Ramsch').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Laufende erhöhen' }),
@@ -400,7 +529,7 @@ it('records Ramsch with a Jungfrau and restricts its bonus controls', async () =
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Schneider' }),
   ).toHaveLength(0);
-  await act(async () => button('Ramsch-Verlierer Andi').props.onPress());
+  await act(async () => button('Andi verloren').props.onPress());
   await act(async () => button('Jungfrauen erhöhen').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds[0]).toMatchObject({
@@ -474,7 +603,7 @@ it('allows one Leger per player and combines four players into a 16x factor', as
   kpi(1);
   expect(navigate).not.toHaveBeenCalled();
   await act(async () => button('Leger Berkay: 1x').props.onPress());
-  await act(async () => playerEntry(view).props.onPress());
+  await act(async () => button('Spiel eintragen').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Wenz' }),
   ).toHaveLength(0);
@@ -491,6 +620,7 @@ it('allows one Leger per player and combines four players into a 16x factor', as
   ).toBe(true);
   await act(async () => button('Berkay gewonnen').props.onPress());
   await act(async () => button('Simon gewonnen').props.onPress());
+  await act(async () => button('Ansager Berkay').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds).toHaveLength(1);
   expect(useGameStore.getState().rounds[0].amount).toBe(0.8);
@@ -531,6 +661,93 @@ it('keeps table settings reachable through the menu', async () => {
   await act(async () => button('Tischmenü öffnen').props.onPress());
   await act(async () => button('Tisch bearbeiten').props.onPress());
   expect(navigate).toHaveBeenCalledWith('EditTable');
+  await act(async () => view.unmount());
+});
+
+it('edits seats without changing the current dealer and cancels draft changes', async () => {
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const button = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!;
+  await act(async () => button('Sitzreihenfolge ändern').props.onPress());
+  await act(async () => button('Flo nach unten').props.onPress());
+  await act(async () => button('Reihenfolge speichern').props.onPress());
+  expect(useGameStore.getState().players.map(({ name }) => name)).toEqual([
+    'Berkay',
+    'Simon',
+    'Flo',
+    'Andi',
+  ]);
+  expect(useGameStore.getState().currentTable?.dealerId).toBe('a');
+  await act(async () => button('Sitzreihenfolge ändern').props.onPress());
+  await act(async () => button('Simon nach unten').props.onPress());
+  await act(async () => button('Reihenfolge abbrechen').props.onPress());
+  expect(useGameStore.getState().players.map(({ name }) => name)).toEqual([
+    'Berkay',
+    'Simon',
+    'Flo',
+    'Andi',
+  ]);
+  await act(async () => view.unmount());
+});
+
+it('keeps scrolling and explicit seat editing available alongside held-name actions', async () => {
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const button = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!;
+  const name = button('Berkay, 0,00 €, Geber');
+  await act(async () => name.props.onLongPress());
+  expect(useGameStore.getState().players.map(({ id }) => id)).toEqual([
+    'a',
+    'b',
+    'c',
+    'd',
+  ]);
+  expect(button('Berkay als Geber auswählen').props.disabled).toBe(true);
+  await act(async () => button('Spieleraktionen abbrechen').props.onPress());
+  await act(async () => button('Sitzreihenfolge ändern').props.onPress());
+  await act(async () => button('Berkay nach unten').props.onPress());
+  await act(async () => button('Reihenfolge speichern').props.onPress());
+  expect(useGameStore.getState().players.map(({ id }) => id)).toEqual([
+    'b',
+    'a',
+    'c',
+    'd',
+  ]);
+  expect(useGameStore.getState().currentTable?.dealerId).toBe('a');
+  expect(
+    view.root.findByProps({ testID: 'player-standings-list' }).props
+      .scrollEnabled,
+  ).toBe(true);
+  await act(async () => button('Leger Berkay: 1x').props.onPress());
+  expect(useGameStore.getState().currentTable?.placedLegerPlayerIds).toEqual([
+    'a',
+  ]);
   await act(async () => view.unmount());
 });
 
@@ -642,7 +859,7 @@ it.each([false, true])(
       }).length,
     ).toBeGreaterThan(0);
     await act(async () => turboSwitch().props.onValueChange(true));
-    await act(async () => playerEntry(view).props.onPress());
+    await act(async () => button('Spiel eintragen').props.onPress());
     expect(
       view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Wenz' }),
     ).toHaveLength(0);
@@ -652,6 +869,7 @@ it.each([false, true])(
     await act(async () => button('Spieltyp Rufspiel').props.onPress());
     await act(async () => button('Berkay gewonnen').props.onPress());
     await act(async () => button('Simon gewonnen').props.onPress());
+    await act(async () => button('Ansager Berkay').props.onPress());
     await act(async () => button('Runde speichern').props.onPress());
     expect(useGameStore.getState().rounds[0].amount).toBe(
       withLeger ? 1.6 : 0.8,
@@ -672,15 +890,8 @@ it('opens the exact newly closed table rather than a previously viewed archive',
       />,
     );
   });
-  const menu = view.root
-    .findAllByProps({ accessibilityLabel: 'Tischmenü öffnen' })
-    .find(
-      (node: { props: { onPress?: unknown } }) =>
-        typeof node.props.onPress === 'function',
-    )!;
-  await act(async () => menu.props.onPress());
   const button = view.root
-    .findAllByProps({ accessibilityLabel: 'Spieltag abschließen' })
+    .findAllByProps({ accessibilityLabel: 'Spieltag abschliessen' })
     .find(
       (node: { props: { onPress?: unknown } }) =>
         typeof node.props.onPress === 'function',
@@ -750,7 +961,7 @@ it('calculates a selected Solo with configured bonuses and saves its three oppon
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () => playerEntry(view).props.onPress());
+  await act(async () => button('Spiel eintragen').props.onPress());
   await act(async () => button('Spieltyp Solo').props.onPress());
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Gesamtgewinn manuell' }),
@@ -758,9 +969,9 @@ it('calculates a selected Solo with configured bonuses and saves its three oppon
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Kontra / Re erhöhen' }),
   ).toHaveLength(0);
-  expect(button('Alleinspieler Berkay').props.accessibilityState.selected).toBe(
-    true,
-  );
+  expect(button('Runde speichern').props.disabled).toBe(true);
+  await act(async () => button('Alleinspieler Berkay').props.onPress());
+  await act(async () => button('Ansager gewonnen').props.onPress());
   expect(button('Runde speichern').props.disabled).toBe(false);
   await act(async () => button('Laufende erhöhen').props.onPress());
   await act(async () =>
@@ -784,7 +995,7 @@ it('calculates a selected Solo with configured bonuses and saves its three oppon
   await act(async () => view.unmount());
 });
 
-it('saves the order after dragging a player and keeps the current dealer', async () => {
+it('opens quick entry for a tapped player while keeping coins and long press independent', async () => {
   let view: ReturnType<typeof renderer.create>;
   await act(async () => {
     view = renderer.create(
@@ -794,47 +1005,87 @@ it('saves the order after dragging a player and keeps the current dealer', async
       />,
     );
   });
-  expect(
-    view.root.findAllByProps({ accessibilityLabel: 'Berkay verschieben' })
-      .length,
-  ).toBeGreaterThan(0);
-  expect(
-    view.root.findAllByProps({ accessibilityLabel: 'Sitzreihenfolge ändern' }),
-  ).toHaveLength(0);
-  const list = view.root.findByProps({ testID: 'player-standings-list' });
-  const [first, second, third, fourth] = list.props.data;
-  await act(async () =>
-    list.props.onDragEnd({
-      data: [second, third, first, fourth],
-      from: 0,
-      to: 2,
-    }),
-  );
-  expect(useGameStore.getState().players.map(({ id }) => id)).toEqual([
-    'b',
-    'c',
+  const button = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!;
+  await act(async () => button('Leger Flo: 1x').props.onPress());
+  expect(view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  const player = button('Berkay, 0,00 €, Geber');
+  await act(async () => {
+    player.props.onPressIn();
+    player.props.onLongPress();
+    player.props.onPress();
+  });
+  expect(view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  await act(async () => button('Spieleraktionen abbrechen').props.onPress());
+  await act(async () => {
+    player.props.onPressIn();
+    player.props.onPress();
+  });
+  expect(view.root.findByType(RoundEntrySheet).props.visible).toBe(true);
+  expect(view.root.findByType(RoundEntrySheet).props.initialDeclarerId).toBe(
     'a',
-    'd',
-  ]);
-  expect(useGameStore.getState().currentTable?.dealerId).toBe('a');
+  );
+  expect(useGameStore.getState().rounds).toHaveLength(0);
   await act(async () => view.unmount());
 });
-
-it('asks when changed tariffs should apply and waits for a choice', async () => {
+it('shows a stored caller on compact history rows and labels missing legacy data as unknown', async () => {
   useGameStore.getState().addRound({
+    gameType: 'solo',
+    winnerId: 'b',
+    winnerIds: ['b', 'c', 'd'],
+    loserIds: ['a'],
+    amount: 1.5,
+    declarerId: 'a',
+  });
+  useGameStore.getState().addRound({
+    gameType: 'rufspiel',
     winnerId: 'a',
     winnerIds: ['a', 'b'],
     loserIds: ['c', 'd'],
     amount: 0.4,
-    gameType: 'rufspiel',
-    tariffOptions: { ...emptyTariffOptions },
   });
-  const goBack = jest.fn();
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   let view: ReturnType<typeof renderer.create>;
   await act(async () => {
     view = renderer.create(
-      <EditTableScreen navigation={{ goBack } as never} route={{} as never} />,
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Verlauf Tab' })
+      .find(
+        (n: { props: { onPress?: unknown } }) =>
+          typeof n.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
+  const rows = view.root.findAllByType(MatchHistoryCard);
+  expect(
+    rows.map((r: { props: { details: string } }) => r.props.details),
+  ).toEqual(['Ansager: unbekannt', 'Ansager: Berkay']);
+  expect(
+    view.root.findAllByProps({ children: 'Ans. Berkay' }).length,
+  ).toBeGreaterThan(0);
+  await act(async () => view.unmount());
+});
+
+async function mountPlayerActions() {
+  await reliableStorage.flush();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
     );
   });
   const button = (label: string) =>
@@ -844,25 +1095,215 @@ it('asks when changed tariffs should apply and waits for a choice', async () => 
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  await act(async () =>
-    button('Rufspiel: Tarif um 0,10 € erhöhen').props.onPress(),
-  );
-  await act(async () => button('Regeln speichern').props.onPress());
-  expect(goBack).not.toHaveBeenCalled();
-  expect(
-    useGameStore.getState().currentTable?.settings.games.rufspiel.value,
-  ).toBe(0.2);
-  const actions = alert.mock.calls.at(-1)![2]!;
-  expect(actions.map((action) => action.text)).toEqual([
-    'Abbrechen',
-    'Ab jetzt',
-    'Auch bisherige Spiele',
+  const press = async (label: string) => {
+    await act(async () => button(label).props.onPress());
+  };
+  const longPressFlo = async () => {
+    const player = button('Flo, 0,00 €');
+    await act(async () => {
+      player.props.onPressIn();
+      player.props.onLongPress();
+      player.props.onPress();
+    });
+  };
+  return { view: view!, button, press, longPressFlo };
+}
+it('requires an explicit player action to switch the dealer after long press and preserves knocking', async () => {
+  const ui = await mountPlayerActions();
+  await ui.press('Leger Andi: 1x');
+  await ui.longPressFlo();
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('a');
+  expect(ui.view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  await ui.press('Flo als Geber auswählen');
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('b');
+  expect(useGameStore.getState().currentTable!.placedLegerPlayerIds).toEqual([
+    'd',
   ]);
-  await act(async () =>
-    actions.find((action) => action.text === 'Auch bisherige Spiele')!
-      .onPress!(),
+  expect(ui.button('Flo, 0,00 €, Geber')).toBeTruthy();
+  expect(ui.button('Berkay, 0,00 €')).toBeTruthy();
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await act(async () => ui.view.unmount());
+});
+it('provides player actions through the table menu without long press and can cancel without changing the dealer', async () => {
+  const ui = await mountPlayerActions();
+  await ui.press('Tischmenü öffnen');
+  await ui.press('Spieleraktionen öffnen');
+  await ui.press('Aktionen für Simon');
+  await ui.press('Spieleraktionen schließen');
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('a');
+  await ui.press('Tischmenü öffnen');
+  await ui.press('Spieleraktionen öffnen');
+  await ui.press('Aktionen für Simon');
+  await ui.press('Simon als Geber auswählen');
+  expect(useGameStore.getState().currentTable!.dealerId).toBe('c');
+  await act(async () => ui.view.unmount());
+});
+it('keeps a failed dealer write visible and retries the same choice', async () => {
+  const ui = await mountPlayerActions();
+  await ui.longPressFlo();
+  const originalWrite = jest
+    .mocked(AsyncStorage.setItem)
+    .getMockImplementation()!;
+  const failure = jest
+    .spyOn(AsyncStorage, 'setItem')
+    .mockImplementation(async (key, value) => {
+      if (key === 'schafkopfrechner-games') throw new Error('disk full');
+      return originalWrite(key, value);
+    });
+  await ui.press('Flo als Geber auswählen');
+  expect(ui.button('Geberauswahl erneut sichern')).toBeTruthy();
+  expect(ui.view.root.findByType(RoundEntrySheet).props.visible).toBe(false);
+  failure.mockImplementation(originalWrite);
+  await ui.press('Geberauswahl erneut sichern');
+  expect(
+    JSON.parse((await AsyncStorage.getItem('schafkopfrechner-games'))!).state
+      .currentTable.dealerId,
+  ).toBe('b');
+  expect(useGameStore.getState().rounds).toEqual([]);
+  await act(async () => ui.view.unmount());
+});
+
+it('shows custom signed amounts in history and opens the same custom entry for correction', async () => {
+  expect(
+    useGameStore.getState().addRound({
+      gameType: 'custom',
+      winnerId: '',
+      winnerIds: [],
+      loserIds: [],
+      amount: 5,
+      customAmounts: [
+        { playerId: 'a', amount: 5 },
+        { playerId: 'b', amount: -3 },
+        { playerId: 'c', amount: -2 },
+        { playerId: 'd', amount: 0 },
+      ],
+    }),
+  ).toBe(true);
+  const original = useGameStore.getState().rounds[0];
+  const ui = await mountPlayerActions();
+  await ui.press('Verlauf Tab');
+  const card = ui.view.root.findByType(MatchHistoryCard);
+  expect(card.props.gameType).toBe('Eigenes Spiel');
+  expect(card.props.customAmounts).toEqual([
+    { name: 'Berkay', amount: 5 },
+    { name: 'Flo', amount: -3 },
+    { name: 'Simon', amount: -2 },
+    { name: 'Andi', amount: 0 },
+  ]);
+  expect(card.props.details).toBeUndefined();
+  await ui.press(`Runde ${original.id} bearbeiten`);
+  expect(ui.view.root.findByType(RoundEntrySheet).props.editingRound.id).toBe(
+    original.id,
   );
-  expect(useGameStore.getState().rounds[0].amount).toBe(0.6);
-  expect(goBack).toHaveBeenCalled();
+  expect(ui.button('Flo Minus').props.accessibilityState.selected).toBe(true);
+  await act(async () => ui.view.unmount());
+});
+
+it('pauses and reactivates through the centered player menu while keeping its balance and blocking quick entry', async () => {
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const button = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (n: { props: { onPress?: unknown } }) =>
+          typeof n.props.onPress === 'function',
+      )!;
+  const row = () =>
+    view.root.findAll(
+      (n: { props: { accessibilityLabel?: string; onLongPress?: unknown } }) =>
+        n.props.accessibilityLabel?.startsWith('Berkay, ') &&
+        typeof n.props.onLongPress === 'function',
+    )[0];
+  await act(async () => row().props.onLongPress());
+  await act(async () => button('Berkay pausieren').props.onPress());
+  expect(useGameStore.getState().players[0].isPaused).toBe(true);
+  expect(useGameStore.getState().currentTable?.dealerId).toBe('b');
+  expect(
+    view.root.findAllByProps({
+      children: 'Mindestens vier aktive Spieler erforderlich',
+    }).length,
+  ).toBeGreaterThan(0);
+  await act(async () => row().props.onPress());
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Rufspiel' }),
+  ).toHaveLength(0);
+  await act(async () => row().props.onLongPress());
+  expect(button('Berkay als Geber ausw�hlen')).toBeUndefined();
+  await act(async () => button('Berkay wieder aktivieren').props.onPress());
+  expect(useGameStore.getState().players[0].isPaused).toBe(false);
+  expect(useGameStore.getState().players.map((p) => p.id)).toEqual([
+    'a',
+    'b',
+    'c',
+    'd',
+  ]);
+  await act(async () => view.unmount());
+});
+
+it('automatically doubles stock for a lost calling party and shows the movement in history', async () => {
+  const store = useGameStore.getState();
+  const settings = structuredClone(store.currentTable!.settings);
+  settings.games.stock.enabled = true;
+  settings.games.stock.value = 0.2;
+  store.updateCurrentTableSettings(settings);
+  expect(
+    store.addRound({
+      gameType: 'stock',
+      winnerId: '',
+      winnerIds: [],
+      loserIds: ['a', 'b', 'c', 'd'],
+      amount: 0.8,
+      stockAction: 'deposit',
+    }),
+  ).toBe(true);
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const press = async (label: string) =>
+    act(async () =>
+      view.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(
+          (n: { props: { onPress?: unknown } }) =>
+            typeof n.props.onPress === 'function',
+        )!
+        .props.onPress(),
+    );
+  await press('Spiel eintragen');
+  await press('Spieltyp Rufspiel');
+  await press('Berkay verloren');
+  await press('Flo verloren');
+  await press('Ansager Berkay');
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Stock auszahlen' }),
+  ).toHaveLength(0);
+  await press('Runde speichern');
+  expect(useGameStore.getState().rounds[1]).toMatchObject({
+    stockAction: 'double',
+    stockBeforeCents: 80,
+    stockAfterCents: 160,
+  });
+  await press('Verlauf Tab');
+  expect(
+    view.root
+      .findAllByType(MatchHistoryCard)
+      .some((n: { props: { stockMovement?: string } }) =>
+        n.props.stockMovement?.includes('verdoppelt'),
+      ),
+  ).toBe(true);
   await act(async () => view.unmount());
 });

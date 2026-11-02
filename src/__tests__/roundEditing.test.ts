@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createDefaultTableSettings } from '../constants/tableSettings';
 import { reliableStorage } from '../storage/reliableStorage';
 import { useGameStore } from '../store/gameStore';
+import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 import { emptyTariffOptions } from '../utils/roundTariff';
 
 jest.mock('../lib/supabase', () => ({
@@ -153,7 +154,7 @@ it('restores the consumed dealer/Leger/Turbo snapshot after restart even after s
 });
 it('keeps old manual total-gain rounds editable without reinterpreting their amounts', () => {
   const store = useGameStore.getState();
-  store.addRound({
+  seedLegacyRound({
     winnerId: 'a',
     loserIds: ['b'],
     amount: 10,

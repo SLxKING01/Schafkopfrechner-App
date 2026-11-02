@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createDefaultTableSettings } from '../constants/tableSettings';
 import { reliableStorage } from '../storage/reliableStorage';
 import { useGameStore } from '../store/gameStore';
+import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 import type { Player } from '../types/game';
 
 jest.mock('../lib/supabase', () => ({
@@ -41,7 +42,7 @@ function finishEvening() {
     useGameStore.getState().createTable('Alter Spielabend', makePlayers()),
   ).toBe(true);
   expect(
-    useGameStore.getState().addRound({
+    seedLegacyRound({
       winnerId: 'a',
       loserIds: ['b'],
       amount: 10,
@@ -49,7 +50,7 @@ function finishEvening() {
     }),
   ).toBe(true);
   expect(
-    useGameStore.getState().addRound({
+    seedLegacyRound({
       winnerId: 'c',
       loserIds: ['b'],
       amount: 5,
@@ -239,12 +240,17 @@ it('restores data fields without accepting persisted replacements for store acti
 });
 
 it('retains pending Leger, Turbo and seat order across a cold restart and clears Leger only after a valid round', async () => {
-  useGameStore.getState().createTable('Offline Neustart', makePlayers());
+  useGameStore
+    .getState()
+    .createTable('Offline Neustart', [
+      ...makePlayers(),
+      { id: 'd', name: 'Dani', isLocal: true },
+    ]);
   const game = useGameStore.getState();
   game.togglePlayerLeger('a');
   game.togglePlayerLeger('b');
   game.setTurboRamsch(true);
-  game.setPlayerOrder(['a', 'c', 'b']);
+  game.setPlayerOrder(['a', 'c', 'b', 'd']);
   await game.persistGame();
   await reliableStorage.flush();
   const saved = await AsyncStorage.getItem('schafkopfrechner-games');
@@ -258,7 +264,7 @@ it('retains pending Leger, Turbo and seat order across a cold restart and clears
     turboRamschEnabled: true,
     dealerId: 'a',
   });
-  expect(restored.players.map((p) => p.id)).toEqual(['a', 'c', 'b']);
+  expect(restored.players.map((p) => p.id)).toEqual(['a', 'c', 'b', 'd']);
   expect(
     restored.addRound({
       winnerId: 'a',
@@ -274,7 +280,7 @@ it('retains pending Leger, Turbo and seat order across a cold restart and clears
   expect(
     restored.addRound({
       winnerId: 'a',
-      loserIds: ['b', 'c'],
+      loserIds: ['b', 'c', 'd'],
       amount: 2.4,
       gameType: 'rufspiel',
     }),
@@ -286,7 +292,12 @@ it('retains pending Leger, Turbo and seat order across a cold restart and clears
   });
 });
 it('rejects unknown Leger players, toggles each contribution once and protects closed tables', () => {
-  useGameStore.getState().createTable('Leger', makePlayers());
+  useGameStore
+    .getState()
+    .createTable('Leger', [
+      ...makePlayers(),
+      { id: 'd', name: 'Dani', isLocal: true },
+    ]);
   useGameStore.getState().togglePlayerLeger('unknown');
   expect(
     useGameStore.getState().currentTable?.placedLegerPlayerIds ?? [],

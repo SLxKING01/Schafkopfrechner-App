@@ -13,7 +13,10 @@ import {
   isValidRound,
   toSafeCents,
 } from '../utils/accounting';
+import { outstandingBalances } from '../utils/interimPayments';
+import { roundHistoryFingerprint } from '../utils/roundHistory';
 import { isValidRoundMetadata } from '../utils/roundTariff';
+import { replayStockRules } from '../utils/stockRules';
 
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -23,7 +26,13 @@ const text = (value: unknown): value is string =>
 function players(value: unknown): value is Player[] {
   return (
     Array.isArray(value) &&
-    value.every((p) => record(p) && text(p.id) && text(p.name)) &&
+    value.every(
+      (p) =>
+        record(p) &&
+        text(p.id) &&
+        text(p.name) &&
+        (p.isPaused === undefined || typeof p.isPaused === 'boolean'),
+    ) &&
     hasUniquePlayerIds(value)
   );
 }
@@ -41,12 +50,80 @@ function table(value: unknown): value is GameTable {
     text(value.name) &&
     typeof value.isActive === 'boolean' &&
     text(value.createdAt) &&
-    settings(value.settings)
+    settings(value.settings) &&
+    validRoundHistory(value.roundHistory, value.id)
   );
+}
+
+function validRoundHistory(value: unknown, tableId: string): boolean {
+  if (value === undefined) return true; // Older tables have no invented history.
+  if (!identified(value)) return false;
+  const latest = new Map<string, GameRound | undefined>();
+  return value.every((event, index) => {
+    if (
+      !text(event.roundId) ||
+      event.sequence !== index + 1 ||
+      !text(event.occurredAt) ||
+      !Number.isFinite(Date.parse(event.occurredAt)) ||
+      !record(event.actor) ||
+      !text(event.actor.name) ||
+      !(
+        event.actor.kind === 'local' ||
+        (event.actor.kind === 'account' && text(event.actor.id))
+      ) ||
+      !players(event.players) ||
+      (event.causeRoundId !== undefined && !text(event.causeRoundId)) ||
+      !['created', 'updated', 'deleted', 'restored'].includes(
+        String(event.action),
+      ) ||
+      (event.roundOrderIds !== undefined &&
+        (!Array.isArray(event.roundOrderIds) ||
+          !event.roundOrderIds.every(text) ||
+          new Set(event.roundOrderIds).size !== event.roundOrderIds.length ||
+          !event.roundOrderIds.includes(event.roundId)))
+    )
+      return false;
+    const snapshot = (r: unknown) =>
+      record(r) &&
+      r.id === event.roundId &&
+      r.tableId === tableId &&
+      text(r.createdAt) &&
+      settings(r.settingsSnapshot) &&
+      isValidRound(r as unknown as GameRound, event.players as Player[]) &&
+      isValidRoundMetadata(r as unknown as GameRound);
+    if (
+      event.action === 'created' || event.action === 'restored'
+        ? event.before !== undefined || !snapshot(event.after)
+        : event.action === 'deleted'
+          ? !snapshot(event.before) || event.after !== undefined
+          : !snapshot(event.before) || !snapshot(event.after)
+    )
+      return false;
+    if (
+      event.action === 'restored' &&
+      (!latest.has(event.roundId) || latest.get(event.roundId) !== undefined)
+    )
+      return false;
+    if (latest.has(event.roundId)) {
+      const previous = latest.get(event.roundId);
+      if (
+        previous
+          ? !event.before ||
+            roundHistoryFingerprint(previous) !==
+              roundHistoryFingerprint(event.before as GameRound)
+          : event.before !== undefined
+      )
+        return false;
+    }
+    latest.set(event.roundId, event.after as GameRound | undefined);
+    return true;
+  });
 }
 function settings(value: unknown): boolean {
   return (
     record(value) &&
+    (value.stockStakeConfigured === undefined ||
+      typeof value.stockStakeConfigured === 'boolean') &&
     (value.gameRules === undefined ||
       (record(value.gameRules) &&
         Object.values(value.gameRules).every(
@@ -136,7 +213,43 @@ function day(value: unknown): boolean {
     )
   )
     return false;
+  if (value.currentTable) {
+    const history = (value.currentTable as GameTable).roundHistory ?? [];
+    const latest = new Map(history.map((event) => [event.roundId, event]));
+    const currentById = new Map(
+      (value.rounds as unknown as GameRound[]).map((round) => [
+        round.id,
+        round,
+      ]),
+    );
+    for (const [id, event] of latest) {
+      const current = currentById.get(id);
+      if (
+        event.after
+          ? !current ||
+            roundHistoryFingerprint(event.after) !==
+              roundHistoryFingerprint(current)
+          : !!current
+      )
+        return false;
+    }
+  }
   try {
+    const storedRounds = value.rounds as unknown as GameRound[];
+    const replayed = replayStockRules(
+      storedRounds,
+      value.currentTable as GameTable | null,
+    );
+    if (
+      replayed.some(
+        (r, i) =>
+          r.stockRulesVersion === 1 &&
+          (r.stockAction !== storedRounds[i].stockAction ||
+            r.stockBeforeCents !== storedRounds[i].stockBeforeCents ||
+            r.stockAfterCents !== storedRounds[i].stockAfterCents),
+      )
+    )
+      return false;
     const expected = calculateRoundBalances(
       roster,
       value.rounds as unknown as GameRound[],
@@ -182,11 +295,19 @@ function day(value: unknown): boolean {
     )
   )
     return false;
+  let outstanding;
+  try {
+    const payments = (value.currentTable as GameTable | null)?.interimPayments;
+    if (payments !== undefined && !Array.isArray(payments)) return false;
+    outstanding = outstandingBalances(
+      value.balances as { playerId: string; amount: number }[],
+      payments,
+    );
+  } catch {
+    return false;
+  }
   const remaining = new Map(
-    (value.balances as { playerId: string; amount: number }[]).map((b) => [
-      b.playerId,
-      toSafeCents(b.amount)!,
-    ]),
+    outstanding.map((b) => [b.playerId, toSafeCents(b.amount)!]),
   );
   const stock = getStockBalanceCents(value.rounds as unknown as GameRound[]);
   if (stock > 0)

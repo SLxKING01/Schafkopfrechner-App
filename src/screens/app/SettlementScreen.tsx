@@ -1,12 +1,16 @@
 import { Handshake } from 'lucide-react-native';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
+import { InterimPaymentsPanel } from '../../components/game/InterimPaymentsPanel';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
-import { ScoreCard } from '../../components/game/ScoreCard';
+import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
+import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { SettlementCard } from '../../components/game/SettlementCard';
+import { SettlementShare } from '../../components/game/SettlementShare';
 import {
   Money,
   StatAction,
@@ -22,10 +26,13 @@ import { authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import {
   getStockBalanceCents,
+  isCustomBooking,
+  isPlayedRound,
   isStockBooking,
   roundWinnerIds,
 } from '../../utils/accounting';
 import { formatRoundGameType } from '../../utils/cardSuits';
+import { outstandingBalances } from '../../utils/interimPayments';
 import { createStatisticsTable } from '../../utils/statistics';
 
 type SettlementScreenProps = AppStackScreenProps<'Settlement'>;
@@ -35,6 +42,8 @@ function formatAmount(amount: number) {
 }
 
 export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
+  const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
+  const [historyVisible, setHistoryVisible] = useState(false);
   const currentTable = useGameStore((state) => state.currentTable);
   const currentPlayers = useGameStore((state) => state.players);
   const currentSettlements = useGameStore((state) => state.settlements);
@@ -46,16 +55,12 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const tableId = route?.params?.tableId ?? currentTable?.id;
   const archived = archivedGameDays.find((day) => day.table.id === tableId);
   const table =
-    archived?.table ??
-    (currentTable?.id === tableId && !activeGame ? currentTable : null);
+    archived?.table ?? (currentTable?.id === tableId ? currentTable : null);
   const players = archived?.players ?? currentPlayers;
   const settlements = archived?.settlements ?? currentSettlements;
   const rounds = archived?.rounds ?? currentRounds;
   const balances = archived?.balances ?? currentBalances;
-  const total = settlements.reduce(
-    (sum, settlement) => sum + settlement.amount,
-    0,
-  );
+  const openPayments = settlements.filter(({ isPaid }) => !isPaid).length;
   const playerNameById = new Map(
     players.map((player) => [player.id, player.name]),
   );
@@ -85,6 +90,10 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
     );
   }
 
+  const displayedBalances = outstandingBalances(
+    balances,
+    table.interimPayments,
+  );
   const selected =
     table && route?.params?.roundId
       ? createStatisticsTable(
@@ -102,7 +111,9 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <AppText style={styles.kicker}>Abrechnung</AppText>
+        <AppText style={styles.kicker}>
+          {table.isActive ? 'Zwischenabrechnung' : 'Abrechnung'}
+        </AppText>
         <AppText style={styles.title}>{table.name}</AppText>
         {selected ? (
           <StatPanel>
@@ -133,6 +144,123 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
             </StatNote>
           </StatPanel>
         ) : null}
+        <AppText style={styles.subtitle}>
+          {archived?.completedAt
+            ? `${new Date(archived.completedAt).toLocaleDateString('de-DE')} · `
+            : ''}
+          {players.length} Spieler
+        </AppText>
+        {!table.isActive ? (
+          <SettlementShare
+            table={table}
+            players={players}
+            balances={balances}
+            settlements={settlements}
+            completedAt={archived?.completedAt ?? null}
+          />
+        ) : null}
+        <AppText accessibilityRole="header" style={styles.sectionTitle}>
+          {table.isActive
+            ? 'Bezahlen und weiterspielen'
+            : openPayments === 0
+              ? 'Keine Zahlungen offen'
+              : `${openPayments} ${openPayments === 1 ? 'Zahlung' : 'Zahlungen'} zum Ausgleichen`}
+        </AppText>
+        {settlements.length > 0 && openPayments === 0 ? (
+          <AppText style={styles.subtitle}>
+            Alle Zahlungen sind als bezahlt markiert.
+          </AppText>
+        ) : null}
+        {table.isActive ? (
+          <InterimPaymentsPanel
+            table={table}
+            players={players}
+            balances={balances}
+            plan={settlements}
+            stockCents={getStockBalanceCents(rounds)}
+          />
+        ) : (
+          <>
+            <View style={styles.stack}>
+              {settlements.length === 0 ? (
+                <EmptyGameState
+                  icon={Handshake}
+                  title="Keine Zahlungen nötig"
+                  message="Alle Spieler sind bereits ausgeglichen."
+                />
+              ) : (
+                settlements.map((settlement) => (
+                  <SettlementCard
+                    key={settlement.id}
+                    amount={formatAmount(settlement.amount)}
+                    from={getPlayerName(settlement.fromPlayerId)}
+                    isPaid={settlement.isPaid}
+                    to={getPlayerName(settlement.toPlayerId)}
+                    onMarkPaid={() =>
+                      markSettlementPaid(
+                        settlement.id,
+                        !settlement.isPaid,
+                        table.id,
+                      )
+                    }
+                  />
+                ))
+              )}
+            </View>
+          </>
+        )}
+        <View style={styles.stack}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Endstände anzeigen"
+            accessibilityState={{ expanded: expandedTableId === table.id }}
+            onPress={() =>
+              setExpandedTableId(expandedTableId === table.id ? null : table.id)
+            }
+            style={styles.disclosure}
+          >
+            <AppText style={styles.sectionTitle}>
+              {table.isActive ? 'Noch offene Beträge' : 'Endstände'}
+            </AppText>
+            <AppText style={styles.subtitle}>
+              {expandedTableId === table.id ? '−' : '+'}
+            </AppText>
+          </Pressable>
+          {expandedTableId === table.id
+            ? players.map((player) => {
+                const amount =
+                  displayedBalances.find(
+                    (balance) => balance.playerId === player.id,
+                  )?.amount ?? 0;
+                return (
+                  <View key={player.id} style={styles.balanceRow}>
+                    <AppText selectable style={styles.balanceName}>
+                      {player.name}
+                    </AppText>
+                    <AppText selectable style={styles.balanceAmount}>
+                      {amount > 0 ? '+' : ''}
+                      {formatAmount(amount)}
+                    </AppText>
+                  </View>
+                );
+              })
+            : null}
+        </View>
+        {!table.isActive && table.interimPayments?.some((p) => !p.voidedAt) ? (
+          <View style={styles.stack}>
+            <AppText style={styles.sectionTitle}>
+              Bereits während des Abends bezahlt
+            </AppText>
+            {table.interimPayments
+              .filter((p) => !p.voidedAt)
+              .map((p) => (
+                <AppText key={p.id} style={styles.subtitle}>
+                  {getPlayerName(p.fromPlayerId)} →{' '}
+                  {getPlayerName(p.toPlayerId)} · {formatAmount(p.amount)}
+                </AppText>
+              ))}
+          </View>
+        ) : null}
         <StatAction
           onPress={() =>
             navigation.navigate('TableStatistics', {
@@ -142,113 +270,91 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         >
           Tischstatistik öffnen
         </StatAction>
-        <AppText style={styles.subtitle}>
-          {archived?.completedAt
-            ? `Abgeschlossen am ${new Date(archived.completedAt).toLocaleDateString('de-DE')}. `
-            : 'Spieltag abgeschlossen. '}
-          Runden und Zahlungsstände bleiben dauerhaft gespeichert.
-        </AppText>
-
-        <View style={styles.scoreRow}>
-          <ScoreCard label="Zahlungen" value={`${settlements.length}`} />
-          <ScoreCard label="Gesamt" value={formatAmount(total)} />
-        </View>
-
-        <View style={styles.stack}>
-          {settlements.length === 0 ? (
-            <EmptyGameState
-              icon={Handshake}
-              title="Nichts offen"
-              message="Alle Spieler sind bereits ausgeglichen."
-            />
-          ) : (
-            settlements.map((settlement) => (
-              <SettlementCard
-                key={settlement.id}
-                amount={formatAmount(settlement.amount)}
-                from={getPlayerName(settlement.fromPlayerId)}
-                isPaid={settlement.isPaid}
-                to={getPlayerName(settlement.toPlayerId)}
-                onMarkPaid={() =>
-                  markSettlementPaid(
-                    settlement.id,
-                    !settlement.isPaid,
-                    table.id,
-                  )
-                }
-              />
-            ))
-          )}
-        </View>
-
-        <View style={styles.stack}>
-          <AppText style={styles.sectionTitle}>Endstände</AppText>
-          {players.map((player) => (
-            <View key={player.id} style={styles.balanceRow}>
-              <AppText style={styles.balanceName}>{player.name}</AppText>
-              <AppText style={styles.balanceAmount}>
-                {formatAmount(
-                  balances.find((balance) => balance.playerId === player.id)
-                    ?.amount ?? 0,
-                )}
-              </AppText>
-            </View>
-          ))}
-        </View>
+        <StatAction onPress={() => setHistoryVisible(true)}>
+          Änderungsverlauf des Tisches
+        </StatAction>
         <View style={styles.stack}>
           <AppText style={styles.sectionTitle}>
-            Spielverlauf ·{' '}
-            {rounds.filter((round) => !isStockBooking(round)).length} Spiele
+            Spielverlauf · {rounds.filter(isPlayedRound).length} Spiele
           </AppText>
           {[...rounds].reverse().map((round) => (
-            <MatchHistoryCard
+            <RoundHistoryActions
               key={round.id}
-              details={
-                round.declarerId && round.partnerId
-                  ? `Spieler: ${getPlayerName(round.declarerId)} · Partner: ${getPlayerName(round.partnerId)} · ${roundWinnerIds(round).includes(round.declarerId) ? 'gewonnen' : 'verloren'}`
-                  : undefined
-              }
-              stockDeposit={round.stockAction === 'deposit'}
-              stockBooking={
-                round.stockAction === 'carryIn'
-                  ? 'Stock übernommen'
-                  : round.stockAction === 'carryOut'
-                    ? 'Stock übertragen'
-                    : round.stockAction === 'refund'
-                      ? 'Stock zurückgegeben'
-                      : undefined
-              }
-              amount={formatAmount(
-                round.amount +
+              table={table}
+              players={players}
+              rounds={rounds}
+              round={round}
+            >
+              <MatchHistoryCard
+                customAmounts={
+                  isCustomBooking(round)
+                    ? round.customAmounts!.map((entry) => ({
+                        name: getPlayerName(entry.playerId),
+                        amount: entry.amount,
+                      }))
+                    : undefined
+                }
+                participation={
+                  round.participantIds
+                    ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` � Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
+                    : undefined
+                }
+                stockMovement={
+                  round.stockRulesVersion === 1 &&
+                  (round.stockAction === 'double' ||
+                    round.stockAction === 'payout')
+                    ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
+                    : undefined
+                }
+                details={
+                  isStockBooking(round) || isCustomBooking(round)
+                    ? undefined
+                    : round.declarerId
+                      ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
+                      : 'Ansager: unbekannt'
+                }
+                stockDeposit={round.stockAction === 'deposit'}
+                stockBooking={
+                  round.stockAction === 'carryIn'
+                    ? 'Stock übernommen'
+                    : round.stockAction === 'carryOut'
+                      ? 'Stock übertragen'
+                      : round.stockAction === 'refund'
+                        ? 'Stock zurückgegeben'
+                        : undefined
+                }
+                amount={formatAmount(
+                  round.amount +
+                    (round.stockAction === 'payout'
+                      ? getStockBalanceCents(
+                          rounds.slice(
+                            0,
+                            rounds.findIndex((entry) => entry.id === round.id),
+                          ),
+                        ) / 100
+                      : 0),
+                )}
+                gameType={
+                  formatRoundGameType(round.gameType, round.suit) +
                   (round.stockAction === 'payout'
-                    ? getStockBalanceCents(
-                        rounds.slice(
-                          0,
-                          rounds.findIndex((entry) => entry.id === round.id),
-                        ),
-                      ) / 100
-                    : 0),
-              )}
-              gameType={
-                formatRoundGameType(round.gameType, round.suit) +
-                (round.stockAction === 'payout'
-                  ? ` + Stock ${formatAmount(
-                      getStockBalanceCents(
-                        rounds.slice(
-                          0,
-                          rounds.findIndex((entry) => entry.id === round.id),
-                        ),
-                      ) / 100,
-                    )}`
-                  : '')
-              }
-              losers={round.loserIds.map(getPlayerName).join(', ')}
-              winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
-              time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            />
+                    ? ` + Stock ${formatAmount(
+                        getStockBalanceCents(
+                          rounds.slice(
+                            0,
+                            rounds.findIndex((entry) => entry.id === round.id),
+                          ),
+                        ) / 100,
+                      )}`
+                    : '')
+                }
+                losers={round.loserIds.map(getPlayerName).join(', ')}
+                winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
+                time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              />
+            </RoundHistoryActions>
           ))}
         </View>
         <GoldButton
@@ -266,6 +372,14 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
           <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
         )}
       </ScrollView>
+      {historyVisible ? (
+        <RoundHistoryModal
+          table={table}
+          rounds={rounds}
+          players={players}
+          onClose={() => setHistoryVisible(false)}
+        />
+      ) : null}
     </AuthBackground>
   );
 }
@@ -313,8 +427,11 @@ const styles = StyleSheet.create({
     fontSize: authTypography.body,
     lineHeight: 23,
   },
-  scoreRow: {
+  disclosure: {
+    minHeight: 48,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: authSpacing.md,
   },
   stack: {

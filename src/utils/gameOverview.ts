@@ -13,6 +13,8 @@ import type {
 import {
   calculateRoundBalances,
   getStockBalanceCents,
+  isCustomBooking,
+  isPlayedRound,
   isStockBooking,
   roundWinnerIds,
   toSafeCents,
@@ -122,9 +124,13 @@ export function buildGameOverview(input: OverviewInput, now = new Date()) {
       createStatisticsTable(key, tableName, roster, source, target, order),
     );
     const names = new Map(roster.map((player) => [player.id, player.name]));
-    const balances = calculateRoundBalances(roster, source, order);
+    const balances = calculateRoundBalances(
+      roster,
+      source.filter((round) => !isCustomBooking(round)),
+      order,
+    );
     for (const [index, round] of source.entries()) {
-      if (isStockBooking(round)) continue;
+      if (!isPlayedRound(round)) continue;
       rounds.push({
         id: `${key}:${round.id}`,
         tableName,

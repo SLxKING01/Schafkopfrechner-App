@@ -102,3 +102,60 @@ it.each(
     expect(() => calculateGameSettlements(balances)).toThrow();
   },
 );
+
+// Independent oracle: a zero-sum group of k nonzero balances needs k−1
+// payments. Find the partition with the largest number of zero-sum groups.
+function minimumByPartitions(values: number[]): number {
+  const nonzero = values.filter((n) => n !== 0);
+  if (!nonzero.length) return 0;
+  let best = nonzero.length - 1;
+  for (let mask = 1; mask < 2 ** nonzero.length; mask += 2) {
+    const group = nonzero.filter((_, i) => mask & (1 << i));
+    if (group.reduce((sum, n) => sum + n, 0) !== 0) continue;
+    const rest = nonzero.filter((_, i) => !(mask & (1 << i)));
+    best = Math.min(best, group.length - 1 + minimumByPartitions(rest));
+  }
+  return best;
+}
+it('finds exact matching subgroups instead of producing an unnecessary payment', () => {
+  const balances = [5, 3, -3, -5, 0].map((amount, i) => ({
+    playerId: String(i),
+    amount,
+  }));
+  const payments = calculateMoneyTransfers(balances);
+  expect(payments).toHaveLength(2);
+  expect(payments).toEqual([
+    { fromPlayerId: '2', toPlayerId: '1', amount: 3 },
+    { fromPlayerId: '3', toPlayerId: '0', amount: 5 },
+  ]);
+  expect(calculateMoneyTransfers([...balances].reverse(), 'id')).toEqual(
+    calculateMoneyTransfers(balances, 'id'),
+  );
+});
+it('matches exhaustive zero-sum partitions and clears each balance for 625 five-player cent ledgers', () => {
+  for (let encoded = 0; encoded < 625; encoded++) {
+    let remaining = encoded;
+    const values = Array.from({ length: 4 }, () => {
+      const value = (remaining % 5) - 2;
+      remaining = Math.floor(remaining / 5);
+      return value;
+    });
+    values.push(-values.reduce((sum, n) => sum + n, 0));
+    const payments = calculateMoneyTransfers(
+      values.map((cents, i) => ({ playerId: String(i), amount: cents / 100 })),
+    );
+    expect(payments).toHaveLength(minimumByPartitions(values));
+    const after = [...values];
+    for (const payment of payments) {
+      expect(payment.amount).toBeGreaterThan(0);
+      expect(payment.fromPlayerId).not.toBe(payment.toPlayerId);
+      const from = Number(payment.fromPlayerId);
+      const to = Number(payment.toPlayerId);
+      expect(values[from]).toBeLessThan(0);
+      expect(values[to]).toBeGreaterThan(0);
+      after[from] += toSafeCents(payment.amount)!;
+      after[to] -= toSafeCents(payment.amount)!;
+    }
+    expect(after.every((cents) => cents === 0)).toBe(true);
+  }
+});

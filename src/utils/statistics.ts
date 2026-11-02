@@ -1,6 +1,7 @@
-import type { CardSuit, GameRound } from '../types/game';
+import type { CardSuit, GameRound, PlayerBalance } from '../types/game';
 import {
   calculateRoundBalances,
+  isPlayedRound,
   isStockBooking,
   roundWinnerIds,
   toSafeCents,
@@ -8,6 +9,7 @@ import {
 import type { OverviewTarget } from './gameOverview';
 
 export type StatisticsSourceRound = {
+  customAmounts?: PlayerBalance[];
   id: string;
   winnerId: string;
   winnerIds?: string[];
@@ -68,32 +70,30 @@ export function createStatisticsTable(
     players,
     target,
     stockBookings: source.filter(isStockBooking).length,
-    rounds: source
-      .filter((r) => !isStockBooking(r))
-      .map((r) => ({
-        ...r,
-        declarerId: statisticsDeclarer(r),
-        declarerWon: statisticsDeclarer(r)
-          ? roundWinnerIds(r).includes(statisticsDeclarer(r)!)
-          : undefined,
-        key: `${id}:${r.id}`,
-        tableKey: id,
-        type:
-          (r.gameType ?? r.gameTypeId ?? 'sauspiel') === 'sauspiel'
-            ? 'rufspiel'
-            : (r.gameType ?? r.gameTypeId ?? 'rufspiel'),
-        cents: toSafeCents(r.amount)!,
-        winners: roundWinnerIds(r),
-        participants: [...roundWinnerIds(r), ...r.loserIds],
-        // Strip payout metadata: the stock is not a played win or loss.
-        deltas: Object.fromEntries(
-          calculateRoundBalances(
-            players,
-            [{ ...r, stockAction: undefined }],
-            order,
-          ).map((b) => [b.playerId, toSafeCents(b.amount)!]),
-        ),
-      })),
+    rounds: source.filter(isPlayedRound).map((r) => ({
+      ...r,
+      declarerId: statisticsDeclarer(r),
+      declarerWon: statisticsDeclarer(r)
+        ? roundWinnerIds(r).includes(statisticsDeclarer(r)!)
+        : undefined,
+      key: `${id}:${r.id}`,
+      tableKey: id,
+      type:
+        (r.gameType ?? r.gameTypeId ?? 'sauspiel') === 'sauspiel'
+          ? 'rufspiel'
+          : (r.gameType ?? r.gameTypeId ?? 'rufspiel'),
+      cents: toSafeCents(r.amount)!,
+      winners: roundWinnerIds(r),
+      participants: [...roundWinnerIds(r), ...r.loserIds],
+      // Strip payout metadata: the stock is not a played win or loss.
+      deltas: Object.fromEntries(
+        calculateRoundBalances(
+          players,
+          [{ ...r, stockAction: undefined }],
+          order,
+        ).map((b) => [b.playerId, toSafeCents(b.amount)!]),
+      ),
+    })),
   };
 }
 export type StatisticsSubject = {

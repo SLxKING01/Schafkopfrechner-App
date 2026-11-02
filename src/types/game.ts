@@ -1,4 +1,5 @@
 export type Player = {
+  isPaused?: boolean;
   id: string;
   name: string;
   isLocal: boolean;
@@ -34,6 +35,7 @@ export type TableSettingEntry = {
 };
 
 export type TableSettings = {
+  stockStakeConfigured?: boolean;
   gameRules?: Partial<Record<TableGameTypeId, GameRuleOptions>>;
   games: Record<TableGameTypeId, TableSettingEntry>;
   bonusRules: Record<BonusRuleId, TableSettingEntry>;
@@ -49,9 +51,19 @@ export type GameRuleOptions = {
 export type StockAction =
   | 'deposit'
   | 'payout'
+  | 'double'
   | 'refund'
   | 'carryOut'
   | 'carryIn';
+
+export type InterimPayment = {
+  id: string;
+  fromPlayerId: string;
+  toPlayerId: string;
+  amount: number;
+  createdAt: string;
+  voidedAt?: string;
+};
 
 export type GameTable = {
   shared?: {
@@ -62,6 +74,8 @@ export type GameTable = {
     baseline: string;
     updatedAt: string;
   };
+  roundHistory?: RoundHistoryEvent[];
+  interimPayments?: InterimPayment[];
   id: string;
   hashCode: string;
   name: string;
@@ -76,6 +90,12 @@ export type GameTable = {
 };
 
 export type GameRound = {
+  stockRulesVersion?: 1;
+  stockBeforeCents?: number;
+  stockAfterCents?: number;
+  participantIds?: string[];
+  seatOrderIds?: string[];
+  customAmounts?: PlayerBalance[];
   suit?: CardSuit;
   id: string;
   tableId: string;
@@ -89,12 +109,30 @@ export type GameRound = {
   tariffOptions?: RoundTariffOptions;
   stockAction?: StockAction;
   stockCompletesDeal?: boolean;
-  /** Spielmacher/Alleinspieler; partnerId bezeichnet den gesuchten Mitspieler. */
   declarerId?: string;
   partnerId?: string;
   declarerWon?: boolean;
   roundContext?: RoundContext;
   updatedAt?: string;
+};
+
+export type RoundHistoryActor =
+  | { kind: 'account'; id: string; name: string }
+  | { kind: 'local'; name: string };
+
+export type RoundHistoryEvent = {
+  id: string;
+  roundId: string;
+  sequence: number;
+  occurredAt: string;
+  action: 'created' | 'updated' | 'deleted' | 'restored';
+  actor: RoundHistoryActor;
+  players: { id: string; name: string }[];
+  before?: GameRound;
+  after?: GameRound;
+  causeRoundId?: string;
+  /** Order before deletion, including legacy rounds without creation events. */
+  roundOrderIds?: string[];
 };
 
 export type RoundTariffOptions = {
@@ -145,15 +183,17 @@ export type CreateTablePayload = {
 };
 
 export type CreateRoundPayload = {
+  declarerWon?: boolean;
+  participantIds?: string[];
+  participationRevision?: string;
+  customAmounts?: PlayerBalance[];
   clearPartyMetadata?: boolean;
   legerPlayerIds?: string[];
   suit?: CardSuit;
   stockAction?: StockAction;
   stockCompletesDeal?: boolean;
-  /** Spielmacher/Alleinspieler; partnerId bezeichnet den gesuchten Mitspieler. */
   declarerId?: string;
   partnerId?: string;
-  declarerWon?: boolean;
   winnerId: string;
   winnerIds?: string[];
   loserIds: string[];

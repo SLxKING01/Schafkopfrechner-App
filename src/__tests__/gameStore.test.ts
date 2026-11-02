@@ -17,6 +17,8 @@ const players: Player[] = [
     isLocal: true,
     name: 'Berkay',
   },
+  { id: 'player-3', name: 'Chris', isLocal: true },
+  { id: 'player-4', name: 'Dani', isLocal: true },
 ];
 
 function resetGameStore() {
@@ -54,7 +56,7 @@ describe('gameStore round validation', () => {
       const didAdd = useGameStore.getState().addRound({
         amount,
         gameType: 'sauspiel',
-        loserIds: ['player-2'],
+        loserIds: ['player-2', 'player-3', 'player-4'],
         winnerId: 'player-1',
       });
       const state = useGameStore.getState();
@@ -71,7 +73,7 @@ describe('gameStore round validation', () => {
     const didAdd = useGameStore.getState().addRound({
       amount: 10,
       gameType: 'sauspiel',
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
       winnerId: 'player-1',
     });
     const state = useGameStore.getState();
@@ -80,7 +82,9 @@ describe('gameStore round validation', () => {
     expect(state.rounds).toHaveLength(1);
     expect(state.balances).toEqual([
       { amount: 10, playerId: 'player-1' },
-      { amount: -10, playerId: 'player-2' },
+      { amount: -3.34, playerId: 'player-2' },
+      { amount: -3.33, playerId: 'player-3' },
+      { amount: -3.33, playerId: 'player-4' },
     ]);
   });
 
@@ -88,7 +92,7 @@ describe('gameStore round validation', () => {
     useGameStore.getState().addRound({
       amount: 10,
       gameType: 'sauspiel',
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
       winnerId: 'player-1',
     });
     useGameStore.getState().finishGameDay();
@@ -111,14 +115,30 @@ describe('accounting invariants at the table boundary', () => {
     createActiveTable();
   });
   it.each([
-    { winnerId: 'ghost', loserIds: ['player-2'], amount: 1 },
+    {
+      winnerId: 'ghost',
+      loserIds: ['player-2', 'player-3', 'player-4'],
+      amount: 1,
+    },
     { winnerId: 'player-1', loserIds: ['ghost'], amount: 1 },
     { winnerId: 'player-1', loserIds: ['player-2', 'player-2'], amount: 1 },
     { winnerId: 'player-1', loserIds: ['player-1'], amount: 1 },
     { winnerId: 'player-1', loserIds: [], amount: 1 },
-    { winnerId: 'player-1', loserIds: ['player-2'], amount: 0.001 },
-    { winnerId: 'player-1', loserIds: ['player-2'], amount: 1.005 },
-    { winnerId: 'player-1', loserIds: ['player-2'], amount: Number.MAX_VALUE },
+    {
+      winnerId: 'player-1',
+      loserIds: ['player-2', 'player-3', 'player-4'],
+      amount: 0.001,
+    },
+    {
+      winnerId: 'player-1',
+      loserIds: ['player-2', 'player-3', 'player-4'],
+      amount: 1.005,
+    },
+    {
+      winnerId: 'player-1',
+      loserIds: ['player-2', 'player-3', 'player-4'],
+      amount: Number.MAX_VALUE,
+    },
   ])(
     'rejects an invalid round without changing balances or advancing the dealer %#',
     (input) => {
@@ -132,7 +152,7 @@ describe('accounting invariants at the table boundary', () => {
     },
   );
   it('stores canonical cents and copies participant ids', () => {
-    const losers = ['player-2'];
+    const losers = ['player-2', 'player-3', 'player-4'];
     expect(
       useGameStore.getState().addRound({
         winnerId: 'player-1',
@@ -144,13 +164,13 @@ describe('accounting invariants at the table boundary', () => {
     losers.push('player-1');
     expect(useGameStore.getState().rounds[0]).toMatchObject({
       amount: 0.3,
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
     });
   });
   it('rejects cumulative integer overflow without losing the first valid round', () => {
     const input = {
       winnerId: 'player-1',
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
       gameType: 'rufspiel' as const,
     };
     expect(
@@ -166,7 +186,7 @@ describe('accounting invariants at the table boundary', () => {
   it('will not archive corrupt rounds or silently drop unknown players', () => {
     useGameStore.getState().addRound({
       winnerId: 'player-1',
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
       amount: 1,
       gameType: 'solo',
     });
@@ -179,7 +199,7 @@ describe('accounting invariants at the table boundary', () => {
   it('recomputes final balances from valid rounds instead of trusting a stale cache', () => {
     useGameStore.getState().addRound({
       winnerId: 'player-1',
-      loserIds: ['player-2'],
+      loserIds: ['player-2', 'player-3', 'player-4'],
       amount: 1,
       gameType: 'solo',
     });
@@ -189,7 +209,9 @@ describe('accounting invariants at the table boundary', () => {
     expect(useGameStore.getState().finishGameDay()).toBe(true);
     expect(useGameStore.getState().balances).toEqual([
       { playerId: 'player-1', amount: 1 },
-      { playerId: 'player-2', amount: -1 },
+      { playerId: 'player-2', amount: -0.34 },
+      { playerId: 'player-3', amount: -0.33 },
+      { playerId: 'player-4', amount: -0.33 },
     ]);
   });
   it('rejects duplicate player ids when creating a table', () => {

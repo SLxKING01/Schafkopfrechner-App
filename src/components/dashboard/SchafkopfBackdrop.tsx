@@ -1,4 +1,4 @@
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Svg, {
   Defs,
   Ellipse,
@@ -51,16 +51,22 @@ export function SchafkopfBackdrop() {
   return (
     <View
       pointerEvents="none"
-      accessible={false}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...(Platform.OS === 'web'
+        ? { 'aria-hidden': true }
+        : {
+            accessible: false,
+            accessibilityElementsHidden: true,
+            importantForAccessibility: 'no-hide-descendants' as const,
+          })}
       style={styles.layer}
     >
       <Svg
         width="100%"
         height="100%"
         viewBox={`0 0 ${width} ${height}`}
-        accessible={false}
+        {...(Platform.OS === 'web'
+          ? { 'aria-hidden': true }
+          : { accessible: false })}
       >
         <Defs>
           <RadialGradient id="dashboard-leaf-glow">

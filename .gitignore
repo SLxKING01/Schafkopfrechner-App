@@ -40,5 +40,12 @@ yarn-error.*
 /ios
 /android
 
+# Generated local verification output (cleanup-2026-10-31)
+/output/
+/.playwright-cli/
+/test-results/*.hbc
+/test-results/ios-*-smoke/
+/dist-*/
+
 # Supabase CLI cache
 supabase/.temp/

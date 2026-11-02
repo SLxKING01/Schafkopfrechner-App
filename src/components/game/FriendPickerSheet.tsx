@@ -171,37 +171,6 @@ export function FriendPickerSheet({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0, 0, 0, 0.56)',
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderColor: 'rgba(231, 198, 92, 0.18)',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderWidth: 1,
-    maxHeight: '82%',
-    paddingBottom: 28,
-    paddingHorizontal: authSpacing.xl,
-    paddingTop: authSpacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { height: -12, width: 0 },
-    shadowOpacity: 0.32,
-    shadowRadius: 24,
-  },
-  handle: {
-    alignSelf: 'center',
-    backgroundColor: 'rgba(245, 245, 245, 0.18)',
-    borderRadius: authRadius.pill,
-    height: 5,
-    marginBottom: authSpacing.md,
-    width: 48,
-  },
   header: {
     alignItems: 'center',
     flexDirection: 'row',

@@ -1,19 +1,31 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { GoldButton } from '../../components/auth/GoldButton';
 import { PlayerAccountsEditor } from '../../components/game/PlayerAccountsEditor';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { fingerprint } from '../../services/sync/syncGameState';
+import { reliableStorage } from '../../storage/reliableStorage';
 import { useGameStore } from '../../store/gameStore';
+import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { TableSettings } from '../../types/game';
+import { getStockBalanceCents } from '../../utils/accounting';
 
 type EditTableScreenProps = AppStackScreenProps<'EditTable'>;
 
@@ -37,63 +49,77 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
     () => normalizeTableSettings(currentTable?.settings),
     [currentTable?.settings],
   );
+  const [editingTableId] = useState(currentTable?.id);
+  const [saving, setSaving] = useState(false);
+  const savingLock = useRef(false);
+  const rounds = useGameStore((state) => state.rounds);
   const [settings, setSettings] = useState<TableSettings>(initialSettings);
-  const baseline = useRef({
-    tableId: currentTable?.id,
-    settings: fingerprint(initialSettings),
-  });
+  const [pricingChoice, setPricingChoice] = useState(false);
+  const initialSignature = useRef(fingerprint(initialSettings));
+  const applied = useRef<string | undefined>(undefined);
 
-  const applySettings = (scope: 'future' | 'all') => {
-    const latest = useGameStore.getState().currentTable;
-    if (
-      latest?.id !== baseline.current.tableId ||
-      fingerprint(latest?.settings) !== baseline.current.settings
-    ) {
+  const saveSettings = async (scope: 'future' | 'all') => {
+    if (savingLock.current) return;
+    savingLock.current = true;
+    setSaving(true);
+    try {
+      if (useGameStore.getState().currentTable?.id !== editingTableId)
+        throw new Error(
+          'Der aktive Tisch hat sich geändert. Bitte die Einstellungen erneut öffnen.',
+        );
+      const state = useGameStore.getState();
+      if (
+        applied.current
+          ? applied.current !==
+            fingerprint([state.currentTable?.settings, state.rounds])
+          : initialSignature.current !==
+            fingerprint(state.currentTable?.settings)
+      )
+        throw new Error(
+          'Tarife oder Spiele wurden inzwischen geändert. Bitte die Einstellungen schließen und erneut öffnen.',
+        );
+      if (!applied.current && !updateCurrentTableSettings(settings, scope))
+        throw new Error(
+          useGameStore.getState().roundError ??
+            'Stock und Ramsch müssen sich ausschließen. Bei gefülltem Stock ist ein Wechsel erst nach dessen Ausspielen oder Verteilen möglich.',
+        );
+      applied.current = fingerprint([
+        useGameStore.getState().currentTable?.settings,
+        useGameStore.getState().rounds,
+      ]);
+      await reliableStorage.retryWrites();
+      if (!(await reliableStorage.confirmWrite('schafkopfrechner-games')))
+        throw new Error(
+          'Die Einstellungen sind noch nicht auf dem Gerät gesichert. Bitte erneut speichern.',
+        );
+      navigation.goBack();
+    } catch (error) {
       Alert.alert(
-        'Tarife inzwischen geändert',
-        'Bitte die Einstellungen schließen und erneut öffnen, um den aktuellen Stand zu bearbeiten.',
+        'Einstellungen nicht gespeichert',
+        error instanceof Error ? error.message : 'Bitte erneut versuchen.',
       );
-      return;
+    } finally {
+      savingLock.current = false;
+      setSaving(false);
     }
-    const didUpdate = updateCurrentTableSettings(settings, scope);
-
-    if (!didUpdate) {
-      Alert.alert(
-        'Änderung nicht gespeichert',
-        'Der Tisch ist nicht mehr aktiv oder die bisherigen Spiele konnten mit diesen Tarifen nicht neu berechnet werden.',
-      );
-      return;
-    }
-
-    navigation.goBack();
   };
-
-  const saveSettings = () => {
-    const state = useGameStore.getState();
-    const previous = state.currentTable?.settings;
+  const requestSave = () => {
+    if (savingLock.current) return;
     const tariffSignature = (value: TableSettings) =>
-      JSON.stringify(
+      fingerprint(
         [value.games, value.bonusRules].map((entries) =>
           Object.entries(entries)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([id, entry]) => [id, entry.value, entry.mode]),
         ),
       );
-    const changed =
-      previous && tariffSignature(settings) !== tariffSignature(previous);
-    if (!changed || !state.rounds.length) {
-      applySettings('future');
-      return;
-    }
-    Alert.alert(
-      'Ab wann gelten die neuen Tarife?',
-      'Nur für neue Spiele oder auch rückwirkend für alle bisherigen Spiele dieses Tisches? Manuell eingetragene Beträge bleiben unverändert.',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Ab jetzt', onPress: () => applySettings('future') },
-        { text: 'Auch bisherige Spiele', onPress: () => applySettings('all') },
-      ],
-    );
+    if (
+      !applied.current &&
+      rounds.length &&
+      tariffSignature(initialSettings) !== tariffSignature(settings)
+    )
+      setPricingChoice(true);
+    else void saveSettings('future');
   };
 
   return (
@@ -114,10 +140,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
-          entering={FadeInDown.duration(360)}
-          style={styles.header}
-        >
+        <Animated.View entering={formEntering} style={styles.header}>
           <View style={styles.titleBlock}>
             <AppText style={styles.kicker}>Tisch bearbeiten</AppText>
             <AppText style={styles.title}>Regeln & Tarife</AppText>
@@ -138,11 +161,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           </Pressable>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(420).delay(80)}
-          style={styles.settingsCard}
-        >
-          <TableSettingsEditor settings={settings} onChange={setSettings} />
+        <Animated.View entering={formEntering} style={styles.settingsCard}>
+          <TableSettingsEditor
+            settings={settings}
+            stockBalanceCents={getStockBalanceCents(rounds)}
+            onChange={setSettings}
+          />
           <PlayerAccountsEditor />
         </Animated.View>
       </ScrollView>
@@ -163,7 +187,8 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         <Pressable
           accessibilityLabel="Regeln speichern"
           accessibilityRole="button"
-          onPress={saveSettings}
+          disabled={saving}
+          onPress={requestSave}
           style={({ pressed }) => [
             styles.floatingButton,
             styles.saveFloating,
@@ -173,11 +198,74 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           <Check color="#17150B" size={30} strokeWidth={3} />
         </Pressable>
       </View>
+      <Modal
+        transparent
+        visible={pricingChoice}
+        animationType="none"
+        onRequestClose={() => setPricingChoice(false)}
+      >
+        <SafeAreaView style={styles.pricingRoot}>
+          <ScrollView contentContainerStyle={styles.pricingScroll}>
+            <View style={styles.pricingCard} accessibilityViewIsModal>
+              <AppText accessibilityRole="header" style={styles.title}>
+                Ab wann gelten die neuen Tarife?
+              </AppText>
+              <AppText style={styles.subtitle}>
+                Nur für neue Spiele oder auch rückwirkend für alle bisherigen
+                Spiele dieses Tisches? Manuell eingetragene Beträge bleiben
+                unverändert.
+              </AppText>
+              <GoldButton
+                title="Ab jetzt"
+                onPress={() => {
+                  setPricingChoice(false);
+                  void saveSettings('future');
+                }}
+              />
+              <GoldButton
+                title="Auch bisherige Spiele"
+                onPress={() => {
+                  setPricingChoice(false);
+                  void saveSettings('all');
+                }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Tarifänderung abbrechen"
+                onPress={() => setPricingChoice(false)}
+                style={styles.pricingCancel}
+              >
+                <AppText style={styles.subtitle}>Abbrechen</AppText>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  pricingRoot: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)' },
+  pricingScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: authSpacing.xl,
+  },
+  pricingCard: {
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    backgroundColor: screenColors.backgroundMid,
+    borderRadius: authRadius.lg,
+    padding: authSpacing.lg,
+    gap: authSpacing.lg,
+  },
+  pricingCancel: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   content: {
     paddingBottom: 134,
     paddingHorizontal: authSpacing.xl,

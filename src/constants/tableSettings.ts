@@ -112,13 +112,13 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
   },
   {
     defaultEnabled: false,
-    defaultValue: 0.5,
+    defaultValue: 0.2,
     description:
       'Einsatz je Spieler: Alle vier zahlen ein. Die beiden Sauspiel-Gewinner erhalten bei Auszahlung je die Hälfte des Stocks.',
     id: 'stock',
     label: 'Stock',
     mode: 'price',
-    section: 'variant',
+    section: 'base',
   },
 ];
 
@@ -190,6 +190,7 @@ function createEntries<TId extends string>(
 
 export function createDefaultTableSettings(): TableSettings {
   return {
+    stockStakeConfigured: false,
     gameRules: Object.fromEntries(
       gameRuleDefinitions.map(({ id }) => [id, defaultGameRules(id)]),
     ),
@@ -264,6 +265,7 @@ export function normalizeTableSettings(
   settings?: Partial<TableSettings> | null,
 ) {
   return {
+    stockStakeConfigured: settings?.stockStakeConfigured ?? !!settings,
     ...(!settings || settings.gameRules
       ? {
           gameRules: Object.fromEntries(

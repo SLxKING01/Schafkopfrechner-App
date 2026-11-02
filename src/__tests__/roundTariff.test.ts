@@ -126,3 +126,16 @@ it('rejects duplicate winners, overlapping parties and missing winner representa
     ).toThrow();
   }
 });
+
+it('splits a tied Ramsch equally and keeps Durchmarsch restricted to one winner', () => {
+  expect(
+    calculatePartyAmount(20, 'ramsch', 2, 2, { durchmarsch: false }),
+  ).toEqual({
+    totalCents: 40,
+    winnerCents: 20,
+    loserCents: 20,
+  });
+  expect(() =>
+    calculatePartyAmount(20, 'ramsch', 2, 2, { durchmarsch: true }),
+  ).toThrow();
+});
