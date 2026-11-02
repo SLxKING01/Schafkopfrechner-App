@@ -263,7 +263,11 @@ it('does not rotate on individual adjustment entries', () => {
       ],
     }),
   ).toBe(true);
-  expect(state().currentTable).toEqual(before);
+  expect(state().currentTable).toEqual({
+    ...before,
+    roundHistory: expect.any(Array),
+  });
+  expect(state().currentTable!.roundHistory!.at(-1)!.action).toBe('created');
 });
 it('retains statuses, dealer and historic seats after restart and in the cloud snapshot contract', async () => {
   state().addRound(result());

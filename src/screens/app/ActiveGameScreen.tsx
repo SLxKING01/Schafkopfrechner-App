@@ -44,6 +44,9 @@ import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
 import { PlayerActionsMenu } from '../../components/game/PlayerActionsMenu';
 import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
+import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
+import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
+import { RoundUndoNotice } from '../../components/game/RoundUndoNotice';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
@@ -160,6 +163,35 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     history: 0,
   });
   const [menuVisible, setMenuVisible] = useState(false);
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [actionDockHeight, setActionDockHeight] = useState(0);
+  const [removedRound, setRemovedRound] = useState<{
+    tableId: string;
+    roundId: string;
+  } | null>(null);
+  const dismissUndo = useCallback(() => setRemovedRound(null), []);
+  useEffect(
+    () =>
+      useGameStore.subscribe((state, previous) => {
+        if (state.currentTable?.id !== previous.currentTable?.id)
+          setRemovedRound(null);
+      }),
+    [],
+  );
+  const restoreRound = useCallback(
+    (roundId: string) => {
+      const tableId = currentTable?.id;
+      if (!tableId || !useGameStore.getState().restoreRound(tableId, roundId))
+        return (
+          useGameStore.getState().roundError ??
+          'Das Spiel konnte nicht wiederhergestellt werden.'
+        );
+      setRemovedRound(null);
+      triggerSaveHaptic();
+      return undefined;
+    },
+    [currentTable?.id],
+  );
   const [seatOrderVisible, setSeatOrderVisible] = useState(false);
   const [playerActions, setPlayerActions] = useState<{
     tableId: string;
@@ -255,24 +287,38 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     return () => clearTimeout(timer);
   }, [route?.params?.roundId, rounds, editRound, navigation]);
   const renderHistoryRound: ListRenderItem<GameRound> = useCallback(
-    ({ item }) => (
-      <HistoryRoundRow
-        round={item}
-        stockPayoutCents={
-          item.stockAction === 'payout'
-            ? getStockBalanceCents(
-                rounds.slice(
-                  0,
-                  rounds.findIndex((round) => round.id === item.id),
-                ),
-              )
-            : 0
-        }
-        getPlayerName={getPlayerName}
-        onEdit={editRound}
-      />
-    ),
-    [getPlayerName, editRound, rounds],
+    ({ item }) =>
+      currentTable ? (
+        <RoundHistoryActions
+          table={currentTable}
+          players={players}
+          rounds={rounds}
+          round={item}
+          onEdit={
+            !item.stockAction ||
+            ['deposit', 'payout', 'double'].includes(item.stockAction)
+              ? () => editRound(item)
+              : undefined
+          }
+        >
+          <HistoryRoundRow
+            round={item}
+            stockPayoutCents={
+              item.stockAction === 'payout'
+                ? getStockBalanceCents(
+                    rounds.slice(
+                      0,
+                      rounds.findIndex((round) => round.id === item.id),
+                    ),
+                  )
+                : 0
+            }
+            getPlayerName={getPlayerName}
+            onEdit={editRound}
+          />
+        </RoundHistoryActions>
+      ) : null,
+    [getPlayerName, editRound, rounds, currentTable, players],
   );
 
   const keyExtractorRound = useCallback((round: GameRound) => round.id, []);
@@ -452,7 +498,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             pressed && styles.pressed,
           ]}
         >
-          <ArrowLeft color={screenColors.text} size={24} strokeWidth={2.7} />
+          <ArrowLeft color={screenColors.gold} size={20} strokeWidth={2.2} />
           <AppText style={styles.navPillText}>
             {leaving ? 'Speichert …' : 'Tische'}
           </AppText>
@@ -737,7 +783,33 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         />
       )}
 
+      {removedRound?.tableId === currentTable?.id &&
+      removedRound &&
+      !rounds.some((r) => r.id === removedRound.roundId) ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: actionDockHeight,
+            zIndex: 5,
+          }}
+        >
+          <RoundUndoNotice
+            key={`${removedRound.tableId}:${removedRound.roundId}`}
+            onDismiss={dismissUndo}
+            onUndo={() => {
+              const error = restoreRound(removedRound.roundId);
+              if (error) Alert.alert('Nicht wiederhergestellt', error);
+            }}
+          />
+        </View>
+      ) : null}
       <View
+        onLayout={(event) =>
+          setActionDockHeight(event.nativeEvent.layout.height)
+        }
         style={[
           styles.actionDock,
           { paddingBottom: Math.max(8, insets.bottom > 0 ? 4 : 12) },
@@ -814,6 +886,18 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Änderungsverlauf des Tisches"
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                setHistoryVisible(true);
+              }}
+            >
+              <History color={screenColors.gold} size={20} />
+              <AppText style={styles.menuText}>Änderungsverlauf</AppText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Spieleraktionen öffnen"
               style={styles.menuItem}
               onPress={() => {
@@ -879,6 +963,15 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         </View>
       </Modal>
 
+      {historyVisible && currentTable ? (
+        <RoundHistoryModal
+          table={currentTable}
+          rounds={rounds}
+          players={players}
+          onClose={() => setHistoryVisible(false)}
+          onRestore={restoreRound}
+        />
+      ) : null}
       {playerActions && playerActions.tableId === currentTable?.id ? (
         <PlayerActionsMenu
           key={`${playerActions.tableId}:${playerActions.playerId ?? 'all'}`}
@@ -942,12 +1035,16 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               title="Runde zurücknehmen"
               accessibilityLabel="Runde zurücknehmen bestätigen"
               onPress={() => {
-                if (!useGameStore.getState().undoLastRound())
+                const before = useGameStore.getState();
+                const roundId = before.rounds.at(-1)?.id;
+                if (!before.undoLastRound())
                   Alert.alert(
                     'Nicht möglich',
                     useGameStore.getState().roundError ??
                       'Die Runde konnte nicht zurückgenommen werden.',
                   );
+                else if (before.currentTable && roundId)
+                  setRemovedRound({ tableId: before.currentTable.id, roundId });
                 setUndoConfirmVisible(false);
                 setRoundSaved(false);
               }}
@@ -1753,8 +1850,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   navPill: { alignItems: 'center', flexDirection: 'row', minHeight: 44 },
-  backPill: { gap: 8 },
-  navPillText: { color: screenColors.text, fontSize: 18, fontWeight: '600' },
+  backPill: {
+    gap: authSpacing.sm,
+    paddingHorizontal: authSpacing.md,
+    paddingVertical: authSpacing.sm,
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: screenColors.border,
+    backgroundColor: screenColors.card,
+  },
+  navPillText: { color: screenColors.gold, fontSize: 16, fontWeight: '600' },
   tableHeader: { marginBottom: 16 },
   tableTitleBlock: {
     flex: 1,

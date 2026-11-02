@@ -7,7 +7,10 @@ import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { InterimPaymentsPanel } from '../../components/game/InterimPaymentsPanel';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
+import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
+import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { SettlementCard } from '../../components/game/SettlementCard';
+import { SettlementShare } from '../../components/game/SettlementShare';
 import {
   Money,
   StatAction,
@@ -40,6 +43,7 @@ function formatAmount(amount: number) {
 
 export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
+  const [historyVisible, setHistoryVisible] = useState(false);
   const currentTable = useGameStore((state) => state.currentTable);
   const currentPlayers = useGameStore((state) => state.players);
   const currentSettlements = useGameStore((state) => state.settlements);
@@ -146,6 +150,15 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
             : ''}
           {players.length} Spieler
         </AppText>
+        {!table.isActive ? (
+          <SettlementShare
+            table={table}
+            players={players}
+            balances={balances}
+            settlements={settlements}
+            completedAt={archived?.completedAt ?? null}
+          />
+        ) : null}
         <AppText accessibilityRole="header" style={styles.sectionTitle}>
           {table.isActive
             ? 'Bezahlen und weiterspielen'
@@ -257,81 +270,91 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         >
           Tischstatistik öffnen
         </StatAction>
+        <StatAction onPress={() => setHistoryVisible(true)}>
+          Änderungsverlauf des Tisches
+        </StatAction>
         <View style={styles.stack}>
           <AppText style={styles.sectionTitle}>
             Spielverlauf · {rounds.filter(isPlayedRound).length} Spiele
           </AppText>
           {[...rounds].reverse().map((round) => (
-            <MatchHistoryCard
+            <RoundHistoryActions
               key={round.id}
-              customAmounts={
-                isCustomBooking(round)
-                  ? round.customAmounts!.map((entry) => ({
-                      name: getPlayerName(entry.playerId),
-                      amount: entry.amount,
-                    }))
-                  : undefined
-              }
-              participation={
-                round.participantIds
-                  ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` � Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
-                  : undefined
-              }
-              stockMovement={
-                round.stockRulesVersion === 1 &&
-                (round.stockAction === 'double' ||
-                  round.stockAction === 'payout')
-                  ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
-                  : undefined
-              }
-              details={
-                isStockBooking(round) || isCustomBooking(round)
-                  ? undefined
-                  : round.declarerId
-                    ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
-                    : 'Ansager: unbekannt'
-              }
-              stockDeposit={round.stockAction === 'deposit'}
-              stockBooking={
-                round.stockAction === 'carryIn'
-                  ? 'Stock übernommen'
-                  : round.stockAction === 'carryOut'
-                    ? 'Stock übertragen'
-                    : round.stockAction === 'refund'
-                      ? 'Stock zurückgegeben'
-                      : undefined
-              }
-              amount={formatAmount(
-                round.amount +
+              table={table}
+              players={players}
+              rounds={rounds}
+              round={round}
+            >
+              <MatchHistoryCard
+                customAmounts={
+                  isCustomBooking(round)
+                    ? round.customAmounts!.map((entry) => ({
+                        name: getPlayerName(entry.playerId),
+                        amount: entry.amount,
+                      }))
+                    : undefined
+                }
+                participation={
+                  round.participantIds
+                    ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` � Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
+                    : undefined
+                }
+                stockMovement={
+                  round.stockRulesVersion === 1 &&
+                  (round.stockAction === 'double' ||
+                    round.stockAction === 'payout')
+                    ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
+                    : undefined
+                }
+                details={
+                  isStockBooking(round) || isCustomBooking(round)
+                    ? undefined
+                    : round.declarerId
+                      ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
+                      : 'Ansager: unbekannt'
+                }
+                stockDeposit={round.stockAction === 'deposit'}
+                stockBooking={
+                  round.stockAction === 'carryIn'
+                    ? 'Stock übernommen'
+                    : round.stockAction === 'carryOut'
+                      ? 'Stock übertragen'
+                      : round.stockAction === 'refund'
+                        ? 'Stock zurückgegeben'
+                        : undefined
+                }
+                amount={formatAmount(
+                  round.amount +
+                    (round.stockAction === 'payout'
+                      ? getStockBalanceCents(
+                          rounds.slice(
+                            0,
+                            rounds.findIndex((entry) => entry.id === round.id),
+                          ),
+                        ) / 100
+                      : 0),
+                )}
+                gameType={
+                  formatRoundGameType(round.gameType, round.suit) +
                   (round.stockAction === 'payout'
-                    ? getStockBalanceCents(
-                        rounds.slice(
-                          0,
-                          rounds.findIndex((entry) => entry.id === round.id),
-                        ),
-                      ) / 100
-                    : 0),
-              )}
-              gameType={
-                formatRoundGameType(round.gameType, round.suit) +
-                (round.stockAction === 'payout'
-                  ? ` + Stock ${formatAmount(
-                      getStockBalanceCents(
-                        rounds.slice(
-                          0,
-                          rounds.findIndex((entry) => entry.id === round.id),
-                        ),
-                      ) / 100,
-                    )}`
-                  : '')
-              }
-              losers={round.loserIds.map(getPlayerName).join(', ')}
-              winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
-              time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            />
+                    ? ` + Stock ${formatAmount(
+                        getStockBalanceCents(
+                          rounds.slice(
+                            0,
+                            rounds.findIndex((entry) => entry.id === round.id),
+                          ),
+                        ) / 100,
+                      )}`
+                    : '')
+                }
+                losers={round.loserIds.map(getPlayerName).join(', ')}
+                winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
+                time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              />
+            </RoundHistoryActions>
           ))}
         </View>
         <GoldButton
@@ -349,6 +372,14 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
           <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
         )}
       </ScrollView>
+      {historyVisible ? (
+        <RoundHistoryModal
+          table={table}
+          rounds={rounds}
+          players={players}
+          onClose={() => setHistoryVisible(false)}
+        />
+      ) : null}
     </AuthBackground>
   );
 }

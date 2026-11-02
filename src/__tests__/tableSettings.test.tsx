@@ -173,26 +173,72 @@ it('offers exclusive Stock/Ramsch/off choices and an independent first stake pro
         )!
         .props.onPress(),
     );
-  await press('Weiter-Regel Stock');
+  const stockToggle = () =>
+    view.root
+      .findAllByType(Switch)
+      .find(
+        (node: { props: { accessibilityLabel?: string } }) =>
+          node.props.accessibilityLabel === 'Stock aktivieren',
+      )!;
+  await act(async () => stockToggle().props.onValueChange(true));
   expect(observed.games.stock).toMatchObject({ enabled: true, value: 0.35 });
   expect(observed.games.ramsch.enabled).toBe(false);
   await press('Stock: Tarif um 0,10 € erhöhen');
   expect(observed.games.stock.value).toBe(0.45);
   expect(observed.games.rufspiel.value).toBe(0.35);
+  const beforeConflict = structuredClone(observed);
   await press('Weiter-Regel Ramsch');
+  expect(observed).toEqual(beforeConflict);
+  expect(JSON.stringify(view.toJSON())).toContain('Deaktiviere zuerst Stock');
+  await press('Verstanden');
+  const ramschToggle = () =>
+    view.root
+      .findAllByType(Switch)
+      .find(
+        (node: { props: { accessibilityLabel?: string } }) =>
+          node.props.accessibilityLabel === 'Ramsch aktivieren',
+      )!;
+  await act(async () => ramschToggle().props.onValueChange(true));
+  expect(observed).toEqual(beforeConflict);
+  await press('Verstanden');
+  await press('Weiter-Regel Beides aus');
+  await act(async () => ramschToggle().props.onValueChange(true));
   expect(observed.games.ramsch.enabled).toBe(true);
   expect(observed.games.stock.enabled).toBe(false);
+  await press('Weiter-Regel Stock');
+  expect(observed.games.stock.enabled).toBe(false);
+  expect(observed.games.ramsch.enabled).toBe(true);
+  expect(JSON.stringify(view.toJSON())).toContain('Deaktiviere zuerst Ramsch');
+  await press('Verstanden');
+  await act(async () => stockToggle().props.onValueChange(true));
+  expect(observed.games.stock.enabled).toBe(false);
+  expect(observed.games.ramsch.enabled).toBe(true);
+  await press('Verstanden');
+  await act(async () => ramschToggle().props.onValueChange(false));
+  expect(observed.games.ramsch.enabled).toBe(false);
+  await press('Weiter-Regel Ramsch');
   await press('Weiter-Regel Beides aus');
   expect(observed.games.stock.enabled).toBe(false);
   expect(observed.games.ramsch.enabled).toBe(false);
   await press('Weiter-Regel Stock');
   expect(observed.games.stock.value).toBe(0.45);
+  expect(observed.games.rufspiel.enabled).toBe(true);
   expect(
-    view.root.findAllByProps({ accessibilityLabel: 'Stock aktivieren' }),
-  ).toHaveLength(0);
+    view.root
+      .findAllByType(Switch)
+      .filter(
+        (node: { props: { accessibilityLabel?: string } }) =>
+          node.props.accessibilityLabel === 'Stock aktivieren',
+      ),
+  ).toHaveLength(1);
   expect(
-    view.root.findAllByProps({ accessibilityLabel: 'Ramsch aktivieren' }),
-  ).toHaveLength(0);
+    view.root
+      .findAllByType(Switch)
+      .filter(
+        (node: { props: { accessibilityLabel?: string } }) =>
+          node.props.accessibilityLabel === 'Ramsch aktivieren',
+      ),
+  ).toHaveLength(1);
   await act(async () => view.unmount());
 });
 it('explains a funded Stock mode-switch refusal while allowing changes to future stakes', async () => {

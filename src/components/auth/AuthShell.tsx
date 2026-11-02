@@ -6,9 +6,10 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { authColors } from '../../theme/colors';
+import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { AppText } from '../ui/AppText';
 import { AuthBackground } from './AuthBackground';
@@ -38,10 +39,7 @@ export function AuthShell({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View
-            entering={FadeInDown.duration(520)}
-            style={styles.head}
-          >
+          <Animated.View entering={formEntering} style={styles.head}>
             <AuthLogo />
             <AppText accessibilityRole="header" style={styles.title}>
               {title}
@@ -49,19 +47,13 @@ export function AuthShell({
             <AppText style={styles.subtitle}>{subtitle}</AppText>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.duration(560).delay(90)}
-            style={styles.cardShadow}
-          >
+          <Animated.View entering={formEntering} style={styles.cardShadow}>
             <BlurView intensity={22} tint="dark" style={styles.card}>
               {children}
             </BlurView>
           </Animated.View>
 
-          <Animated.View
-            entering={FadeInDown.duration(520).delay(160)}
-            style={styles.footer}
-          >
+          <Animated.View entering={formEntering} style={styles.footer}>
             {footer}
           </Animated.View>
         </ScrollView>

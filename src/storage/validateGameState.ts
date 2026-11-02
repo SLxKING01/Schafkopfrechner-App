@@ -14,6 +14,7 @@ import {
   toSafeCents,
 } from '../utils/accounting';
 import { outstandingBalances } from '../utils/interimPayments';
+import { roundHistoryFingerprint } from '../utils/roundHistory';
 import { isValidRoundMetadata } from '../utils/roundTariff';
 import { replayStockRules } from '../utils/stockRules';
 
@@ -49,8 +50,74 @@ function table(value: unknown): value is GameTable {
     text(value.name) &&
     typeof value.isActive === 'boolean' &&
     text(value.createdAt) &&
-    settings(value.settings)
+    settings(value.settings) &&
+    validRoundHistory(value.roundHistory, value.id)
   );
+}
+
+function validRoundHistory(value: unknown, tableId: string): boolean {
+  if (value === undefined) return true; // Older tables have no invented history.
+  if (!identified(value)) return false;
+  const latest = new Map<string, GameRound | undefined>();
+  return value.every((event, index) => {
+    if (
+      !text(event.roundId) ||
+      event.sequence !== index + 1 ||
+      !text(event.occurredAt) ||
+      !Number.isFinite(Date.parse(event.occurredAt)) ||
+      !record(event.actor) ||
+      !text(event.actor.name) ||
+      !(
+        event.actor.kind === 'local' ||
+        (event.actor.kind === 'account' && text(event.actor.id))
+      ) ||
+      !players(event.players) ||
+      (event.causeRoundId !== undefined && !text(event.causeRoundId)) ||
+      !['created', 'updated', 'deleted', 'restored'].includes(
+        String(event.action),
+      ) ||
+      (event.roundOrderIds !== undefined &&
+        (!Array.isArray(event.roundOrderIds) ||
+          !event.roundOrderIds.every(text) ||
+          new Set(event.roundOrderIds).size !== event.roundOrderIds.length ||
+          !event.roundOrderIds.includes(event.roundId)))
+    )
+      return false;
+    const snapshot = (r: unknown) =>
+      record(r) &&
+      r.id === event.roundId &&
+      r.tableId === tableId &&
+      text(r.createdAt) &&
+      settings(r.settingsSnapshot) &&
+      isValidRound(r as unknown as GameRound, event.players as Player[]) &&
+      isValidRoundMetadata(r as unknown as GameRound);
+    if (
+      event.action === 'created' || event.action === 'restored'
+        ? event.before !== undefined || !snapshot(event.after)
+        : event.action === 'deleted'
+          ? !snapshot(event.before) || event.after !== undefined
+          : !snapshot(event.before) || !snapshot(event.after)
+    )
+      return false;
+    if (
+      event.action === 'restored' &&
+      (!latest.has(event.roundId) || latest.get(event.roundId) !== undefined)
+    )
+      return false;
+    if (latest.has(event.roundId)) {
+      const previous = latest.get(event.roundId);
+      if (
+        previous
+          ? !event.before ||
+            roundHistoryFingerprint(previous) !==
+              roundHistoryFingerprint(event.before as GameRound)
+          : event.before !== undefined
+      )
+        return false;
+    }
+    latest.set(event.roundId, event.after as GameRound | undefined);
+    return true;
+  });
 }
 function settings(value: unknown): boolean {
   return (
@@ -146,6 +213,27 @@ function day(value: unknown): boolean {
     )
   )
     return false;
+  if (value.currentTable) {
+    const history = (value.currentTable as GameTable).roundHistory ?? [];
+    const latest = new Map(history.map((event) => [event.roundId, event]));
+    const currentById = new Map(
+      (value.rounds as unknown as GameRound[]).map((round) => [
+        round.id,
+        round,
+      ]),
+    );
+    for (const [id, event] of latest) {
+      const current = currentById.get(id);
+      if (
+        event.after
+          ? !current ||
+            roundHistoryFingerprint(event.after) !==
+              roundHistoryFingerprint(current)
+          : !!current
+      )
+        return false;
+    }
+  }
   try {
     const storedRounds = value.rounds as unknown as GameRound[];
     const replayed = replayStockRules(

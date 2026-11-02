@@ -54,6 +54,7 @@ import {
   mergeGameDayArchives,
 } from '../utils/gameDayArchive';
 import { outstandingBalances, paymentRevision } from '../utils/interimPayments';
+import { appendRoundHistory, restoredRoundOrder } from '../utils/roundHistory';
 import {
   calculatePartyAmount,
   calculateRoundTariff,
@@ -68,6 +69,7 @@ import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
 } from '../utils/tableOrder';
+import { useAuthStore } from './authStore';
 import { useMatchDayStore } from './matchDayStore';
 import { usePlayerStore } from './playerStore';
 
@@ -114,6 +116,7 @@ type GameStore = {
   roundError?: string;
   updateRound: (id: string, round: CreateRoundPayload) => boolean;
   undoLastRound: () => boolean;
+  restoreRound: (tableId: string, roundId: string) => boolean;
   recordInterimPayment: (
     tableId: string,
     revision: string,
@@ -134,6 +137,21 @@ type GameStore = {
   clearPersistedGame: () => Promise<void>;
   syncNow: () => Promise<void>;
 };
+
+function roundHistoryActor(): import('../types/game').RoundHistoryActor {
+  const user = useAuthStore.getState().user;
+  if (!user) return { kind: 'local', name: 'Lokale Erfassung' };
+  const label =
+    user.user_metadata?.username ?? user.user_metadata?.display_name;
+  return {
+    kind: 'account',
+    id: user.id,
+    name:
+      typeof label === 'string' && label.trim()
+        ? label.trim()
+        : 'Angemeldeter Nutzer',
+  };
+}
 
 function calculateMvpBalances(
   players: Player[],
@@ -879,7 +897,14 @@ export const useGameStore = create<GameStore>()(
           return {
             rounds: nextRounds,
             currentTable: {
-              ...state.currentTable,
+              ...appendRoundHistory(
+                state.currentTable,
+                state.rounds,
+                nextRounds,
+                state.players,
+                roundHistoryActor(),
+                created.id,
+              ),
               placedLegerPlayerIds: created.roundContext.completesDeal
                 ? []
                 : state.currentTable.placedLegerPlayerIds,
@@ -1042,13 +1067,128 @@ export const useGameStore = create<GameStore>()(
             nextRounds,
             state.currentTable?.interimPayments,
           );
-          set({ rounds: nextRounds, ...calculated, isOffline: false });
+          set({
+            rounds: nextRounds,
+            ...calculated,
+            currentTable: appendRoundHistory(
+              state.currentTable,
+              state.rounds,
+              nextRounds,
+              state.players,
+              roundHistoryActor(),
+              id,
+            ),
+            isOffline: false,
+          });
           return true;
         } catch (error) {
           set({
             roundError: error instanceof Error ? error.message : undefined,
           });
           return false;
+        }
+      },
+      restoreRound: (tableId, roundId) => {
+        set({ roundError: undefined });
+        const state = useGameStore.getState();
+        const table = state.currentTable;
+        const fail = (message: string) => {
+          set({ roundError: message });
+          return false;
+        };
+        if (!state.activeGame || !table?.isActive || table.id !== tableId)
+          return fail(
+            'Wiederherstellen ist nur am geöffneten, laufenden Tisch möglich.',
+          );
+        const event = table.roundHistory
+          ?.slice()
+          .reverse()
+          .find((e) => e.roundId === roundId);
+        if (
+          state.rounds.some((r) => r.id === roundId) ||
+          event?.action !== 'deleted' ||
+          !event.before
+        )
+          return fail(
+            'Das Spiel ist bereits vorhanden oder nicht mehr zur Wiederherstellung verfügbar.',
+          );
+        const restored: GameRound = JSON.parse(JSON.stringify(event.before));
+        if (
+          restored.stockAction === 'carryIn' ||
+          restored.stockAction === 'carryOut' ||
+          restored.stockAction === 'refund'
+        )
+          return fail(
+            'Überträge und Abschlussbuchungen können hier nicht wiederhergestellt werden.',
+          );
+        if (
+          !isValidRound(restored, state.players) ||
+          !isValidRoundMetadata(restored)
+        )
+          return fail(
+            'Die ursprünglichen Spieler oder Rundendaten sind nicht mehr vollständig vorhanden.',
+          );
+        try {
+          const order = restoredRoundOrder(table, state.rounds, roundId);
+          const byId = new Map(
+            [...state.rounds, restored].map((r) => [r.id, r]),
+          );
+          const nextRounds = replayStockRules(
+            order.map((id) => byId.get(id)!),
+            table,
+          );
+          const calculated = recalculateGameState(
+            state.players,
+            nextRounds,
+            table.interimPayments,
+          );
+          const completesDeal =
+            restored.roundContext?.completesDeal ??
+            (!isCustomBooking(restored) &&
+              !(
+                restored.stockAction === 'deposit' &&
+                restored.stockCompletesDeal === false
+              ));
+          const resumesLatest = order.at(-1) === roundId && completesDeal;
+          const historyTable = appendRoundHistory(
+            table,
+            state.rounds,
+            nextRounds,
+            state.players,
+            roundHistoryActor(),
+            roundId,
+          );
+          set({
+            rounds: nextRounds,
+            ...calculated,
+            currentTable: {
+              ...historyTable,
+              ...(resumesLatest
+                ? {
+                    dealerId:
+                      getNextDealerId(
+                        {
+                          ...table,
+                          dealerId:
+                            restored.roundContext?.dealerIdBefore ??
+                            table.dealerId,
+                        },
+                        state.players,
+                        state.rounds.length,
+                      ) ?? undefined,
+                    placedLegerPlayerIds: [],
+                  }
+                : {}),
+            },
+            isOffline: false,
+          });
+          return true;
+        } catch (error) {
+          return fail(
+            error instanceof Error
+              ? error.message
+              : 'Das Spiel konnte nicht wiederhergestellt werden.',
+          );
         }
       },
       undoLastRound: () => {
@@ -1072,13 +1212,26 @@ export const useGameStore = create<GameStore>()(
             nextRounds,
             state.currentTable?.interimPayments,
           );
+          const historyTable = appendRoundHistory(
+            state.currentTable,
+            state.rounds,
+            nextRounds,
+            state.players,
+            roundHistoryActor(),
+            last.id,
+          );
           const context = last.roundContext;
           if (
             context?.completesDeal === false ||
             (last.stockAction === 'deposit' &&
               last.stockCompletesDeal === false)
           ) {
-            set({ rounds: nextRounds, ...calculated, isOffline: false });
+            set({
+              rounds: nextRounds,
+              ...calculated,
+              currentTable: historyTable,
+              isOffline: false,
+            });
             return true;
           }
           const currentDealer = getCurrentDealerId(
@@ -1100,7 +1253,7 @@ export const useGameStore = create<GameStore>()(
             rounds: nextRounds,
             ...calculated,
             currentTable: {
-              ...state.currentTable,
+              ...historyTable,
               dealerId:
                 context && validIds.has(context.dealerIdBefore)
                   ? context.dealerIdBefore
@@ -1328,7 +1481,16 @@ export const useGameStore = create<GameStore>()(
               closingRounds,
               state.currentTable?.interimPayments,
             );
-            if (carryTable) recalculateGameState(state.players, carryRounds);
+            if (carryTable) {
+              recalculateGameState(state.players, carryRounds);
+              carryTable = appendRoundHistory(
+                carryTable,
+                [],
+                carryRounds,
+                state.players,
+                roundHistoryActor(),
+              );
+            }
           } catch {
             return state;
           }
@@ -1337,7 +1499,16 @@ export const useGameStore = create<GameStore>()(
             ...calculated,
             rounds: closingRounds,
             activeGame: false,
-            currentTable: { ...state.currentTable, isActive: false },
+            currentTable: {
+              ...appendRoundHistory(
+                state.currentTable,
+                state.rounds,
+                closingRounds,
+                state.players,
+                roundHistoryActor(),
+              ),
+              isActive: false,
+            },
           };
           didFinish = true;
           return {

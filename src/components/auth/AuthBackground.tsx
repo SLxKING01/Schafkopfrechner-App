@@ -5,7 +5,6 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
-import { AppText } from '../ui/AppText';
 
 type AuthBackgroundProps = {
   children: ReactNode;
@@ -30,15 +29,6 @@ export function AuthBackground({
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.vignette} pointerEvents="none" />
-      <View style={styles.patternLayer} pointerEvents="none" aria-hidden>
-        <AppText style={[styles.patternSuit, styles.patternTop]}>{'♥'}</AppText>
-        <AppText style={[styles.patternSuit, styles.patternMiddle]}>
-          {'♣'}
-        </AppText>
-        <AppText style={[styles.patternSuit, styles.patternBottom]}>
-          {'♦'}
-        </AppText>
-      </View>
       <BlurView
         pointerEvents="none"
         intensity={12}
@@ -63,31 +53,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
     borderColor: 'rgba(0, 0, 0, 0.25)',
     borderWidth: 18,
-  },
-  patternLayer: {
-    ...StyleSheet.absoluteFill,
-    overflow: 'hidden',
-  },
-  patternSuit: {
-    color: 'rgba(212, 175, 55, 0.055)',
-    fontSize: 150,
-    fontWeight: '700',
-    position: 'absolute',
-  },
-  patternTop: {
-    right: -22,
-    top: 66,
-    transform: [{ rotate: '11deg' }],
-  },
-  patternMiddle: {
-    left: -30,
-    top: 346,
-    transform: [{ rotate: '-17deg' }],
-  },
-  patternBottom: {
-    bottom: 62,
-    right: 18,
-    transform: [{ rotate: '-9deg' }],
   },
   blurWash: {
     ...StyleSheet.absoluteFill,

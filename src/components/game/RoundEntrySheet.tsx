@@ -576,11 +576,14 @@ export function RoundEntrySheet({
       players.length === 4
         ? 'Zwei Gewinner oder zwei Verlierer wählen. Die andere Partei wird automatisch ergänzt.'
         : 'Zwei Gewinner und zwei Verlierer wählen.';
-  else if (!stockDeposit && guided && !partnerGame && !draft.solo)
-    hint =
-      draft.gameType === 'ramsch'
-        ? `Bitte ${draft.options.durchmarsch ? 'Durchmarsch-Gewinner' : 'Ramsch-Verlierer'} wählen.`
-        : 'Bitte Alleinspieler wählen.';
+  else if (
+    !stockDeposit &&
+    guided &&
+    !partnerGame &&
+    draft.gameType !== 'ramsch' &&
+    !draft.solo
+  )
+    hint = 'Bitte Alleinspieler w?hlen.';
   else if (!editingRound && players.length !== 4)
     hint = 'Für Stock müssen vier Spieler am Tisch sein.';
   else if (stockPayout && stockBefore <= 0)
@@ -716,6 +719,21 @@ export function RoundEntrySheet({
             partner: own.find((id) => id !== draft.declarer) ?? '',
           }
         : {}),
+    });
+  }
+  function selectRamsch(id: string, won: boolean) {
+    const selected = won ? draft.winners : draft.losers;
+    if (selected.includes(id)) return;
+    const next = [...selected, id];
+    const own = next.length < players.length ? next : [id];
+    const others = players.map((p) => p.id).filter((p) => !own.includes(p));
+    patch({
+      winners: won ? own : others,
+      losers: won ? others : own,
+      solo: '',
+      declarer: '',
+      partner: '',
+      payStock: false,
     });
   }
   function selectSolo(id: string, won?: boolean) {
@@ -1101,7 +1119,8 @@ export function RoundEntrySheet({
                           </View>
                         ) : (
                           <>
-                            {draft.gameType !== 'ramsch' ? (
+                            {draft.gameType !== 'ramsch' &&
+                            (!sauspiel || !draft.declarer) ? (
                               <View style={styles.card}>
                                 <AppText style={styles.text}>Ansager</AppText>
                                 <View style={styles.roleRow}>
@@ -1230,7 +1249,7 @@ export function RoundEntrySheet({
                                       expandedPlayerLayout &&
                                         styles.expandedPlayerRow,
                                       index < players.length - 1 &&
-                                        styles.optionRow,
+                                        styles.playerSeparator,
                                     ]}
                                   >
                                     <Pressable
@@ -1286,23 +1305,39 @@ export function RoundEntrySheet({
                                       />
                                     </Pressable>
                                     <Pressable
-                                      accessible={guided && !partnerGame}
-                                      focusable={guided && !partnerGame}
+                                      accessible={
+                                        guided &&
+                                        !partnerGame &&
+                                        draft.gameType !== 'ramsch'
+                                      }
+                                      focusable={
+                                        guided &&
+                                        !partnerGame &&
+                                        draft.gameType !== 'ramsch'
+                                      }
                                       accessibilityRole={
-                                        guided && !partnerGame
+                                        guided &&
+                                        !partnerGame &&
+                                        draft.gameType !== 'ramsch'
                                           ? 'button'
                                           : undefined
                                       }
                                       accessibilityLabel={
-                                        guided && !partnerGame
-                                          ? `${draft.gameType === 'ramsch' ? (draft.options.durchmarsch ? 'Durchmarsch-Gewinner' : 'Ramsch-Verlierer') : 'Alleinspieler'} ${player.name}`
+                                        guided &&
+                                        !partnerGame &&
+                                        draft.gameType !== 'ramsch'
+                                          ? `Alleinspieler ${player.name}`
                                           : `Ergebnis für ${player.name}`
                                       }
                                       accessibilityState={{
                                         selected: draft.solo === player.id,
                                       }}
                                       onPress={() => {
-                                        if (guided && !partnerGame)
+                                        if (
+                                          guided &&
+                                          !partnerGame &&
+                                          draft.gameType !== 'ramsch'
+                                        )
                                           selectSolo(player.id);
                                       }}
                                       style={({ pressed }) => [
@@ -1362,7 +1397,9 @@ export function RoundEntrySheet({
                                             pressed && authInteraction.pressed,
                                           ]}
                                           onPress={() => {
-                                            if (guided && !partnerGame) {
+                                            if (draft.gameType === 'ramsch') {
+                                              selectRamsch(player.id, won);
+                                            } else if (guided && !partnerGame) {
                                               if (
                                                 draft.solo &&
                                                 draft.solo !== player.id &&
@@ -1459,71 +1496,102 @@ export function RoundEntrySheet({
                                 </View>
                               ) : null}
                               {draft.gameType === 'ramsch' ? (
-                                <View style={styles.card}>
-                                  <AppText style={styles.hint}>
+                                <>
+                                  <AppText
+                                    style={[styles.hint, styles.optionHint]}
+                                  >
                                     {draft.options.durchmarsch
                                       ? 'Ein Spieler gewinnt gegen drei.'
                                       : 'Höchste Augenzahl verliert gegen die anderen drei.'}
                                   </AppText>
                                   {rules.ramschDurchmarsch ? (
-                                    <View style={styles.row}>
-                                      <AppText style={styles.text}>
+                                    <View
+                                      style={[styles.row, styles.optionRow]}
+                                    >
+                                      <AppText
+                                        style={[
+                                          styles.text,
+                                          styles.optionLabel,
+                                        ]}
+                                      >
                                         Durchmarsch
                                       </AppText>
-                                      <Switch
-                                        accessibilityLabel="Durchmarsch"
-                                        value={
-                                          draft.options.durchmarsch ?? false
-                                        }
-                                        onValueChange={(durchmarsch) =>
-                                          patch({
-                                            options: {
-                                              ...draft.options,
-                                              durchmarsch,
-                                              jungfrauen: 0,
-                                            },
-                                            solo: '',
-                                            winners: [],
-                                            losers: [],
-                                          })
-                                        }
-                                      />
+                                      <View style={styles.switchColumn}>
+                                        <Switch
+                                          thumbColor={authColors.textPrimary}
+                                          trackColor={{
+                                            true: authColors.gold,
+                                            false: authColors.control,
+                                          }}
+                                          ios_backgroundColor={
+                                            authColors.control
+                                          }
+                                          accessibilityLabel="Durchmarsch"
+                                          value={
+                                            draft.options.durchmarsch ?? false
+                                          }
+                                          onValueChange={(durchmarsch) =>
+                                            patch({
+                                              options: {
+                                                ...draft.options,
+                                                durchmarsch,
+                                                jungfrauen: 0,
+                                              },
+                                              ...(durchmarsch
+                                                ? { winners: [], losers: [] }
+                                                : {}),
+                                            })
+                                          }
+                                        />
+                                      </View>
                                     </View>
                                   ) : null}
                                   {rules.ramschJungfrau &&
                                   !draft.options.durchmarsch
                                     ? count('jungfrauen', 'Jungfrauen', 2)
                                     : null}
-                                </View>
+                                </>
                               ) : null}
                               {sauspiel &&
                               !automaticStock &&
                               (settings.games.stock.enabled ||
                                 stockBefore > 0 ||
                                 editingRound?.stockAction === 'payout') ? (
-                                <View style={styles.card}>
-                                  <View style={styles.row}>
-                                    <AppText style={styles.text}>
+                                <View style={styles.optionSection}>
+                                  <View style={[styles.row, styles.optionRow]}>
+                                    <AppText
+                                      style={[styles.text, styles.optionLabel]}
+                                    >
                                       Stock auszahlen ·{' '}
                                       {formatOverviewMoney(stockBefore)}
                                     </AppText>
-                                    <Switch
-                                      accessibilityLabel="Stock auszahlen"
-                                      disabled={
-                                        stockBefore <= 0 ||
-                                        (!!draft.declarer && !draft.won) ||
-                                        draft.winners.length !== 2 ||
-                                        draft.losers.length !== 2
-                                      }
-                                      value={stockPayout}
-                                      onValueChange={(payStock) =>
-                                        patch({
-                                          payStock,
-                                        })
-                                      }
-                                    />
+                                    <View style={styles.switchColumn}>
+                                      <Switch
+                                        thumbColor={authColors.textPrimary}
+                                        trackColor={{
+                                          true: authColors.gold,
+                                          false: authColors.control,
+                                        }}
+                                        ios_backgroundColor={authColors.control}
+                                        accessibilityLabel="Stock auszahlen"
+                                        disabled={
+                                          stockBefore <= 0 ||
+                                          (!!draft.declarer && !draft.won) ||
+                                          draft.winners.length !== 2 ||
+                                          draft.losers.length !== 2
+                                        }
+                                        value={stockPayout}
+                                        onValueChange={(payStock) =>
+                                          patch({
+                                            payStock,
+                                          })
+                                        }
+                                      />
+                                    </View>
                                   </View>
-                                  <AppText style={styles.hint}>
+                                  <AppText
+                                    style={[styles.hint, styles.optionHint]}
+                                  >
                                     {stockPayout
                                       ? `${formatOverviewMoney(stockBefore / 2)} zusätzlich je Sauspiel-Gewinner.`
                                       : 'Nur bei gewonnener Spielerpartei, je zur Hälfte.'}
@@ -1533,11 +1601,15 @@ export function RoundEntrySheet({
                               {sauspiel &&
                               automaticStock &&
                               settings.games.stock.enabled ? (
-                                <View style={styles.card}>
-                                  <AppText style={styles.text}>
+                                <View style={styles.optionSection}>
+                                  <AppText
+                                    style={[styles.text, styles.optionLabel]}
+                                  >
                                     Stock · {formatOverviewMoney(stockBefore)}
                                   </AppText>
-                                  <AppText style={styles.hint}>
+                                  <AppText
+                                    style={[styles.hint, styles.optionHint]}
+                                  >
                                     {stockPayout
                                       ? `Wird automatisch an Ansager und Partner ausgezahlt. Stock danach: 0,00 €.`
                                       : stockDouble
@@ -1549,8 +1621,10 @@ export function RoundEntrySheet({
                                 </View>
                               ) : null}
                               {draft.manual ? (
-                                <View style={styles.card}>
-                                  <AppText style={styles.hint}>
+                                <View style={styles.optionSection}>
+                                  <AppText
+                                    style={[styles.hint, styles.optionHint]}
+                                  >
                                     Historischer manueller Gesamtgewinn, ohne
                                     zusätzliche Faktoren.
                                   </AppText>
@@ -1570,7 +1644,8 @@ export function RoundEntrySheet({
                                 </View>
                               ) : (
                                 <>
-                                  {rules.bonuses.laufende &&
+                                  {draft.gameType !== 'ramsch' &&
+                                  rules.bonuses.laufende &&
                                   settings.bonusRules.laufende.enabled
                                     ? count(
                                         'laufende',
@@ -1582,6 +1657,7 @@ export function RoundEntrySheet({
                                   {(['schneider', 'schwarz'] as const)
                                     .filter(
                                       (id) =>
+                                        draft.gameType !== 'ramsch' &&
                                         rules.bonuses[id] &&
                                         settings.bonusRules[id].enabled,
                                     )
@@ -1590,36 +1666,51 @@ export function RoundEntrySheet({
                                         key={id}
                                         style={[styles.row, styles.optionRow]}
                                       >
-                                        <AppText style={styles.text}>
+                                        <AppText
+                                          style={[
+                                            styles.text,
+                                            styles.optionLabel,
+                                          ]}
+                                        >
                                           {id === 'schneider'
                                             ? 'Schneider'
                                             : 'Schwarz'}
                                         </AppText>
-                                        <Switch
-                                          accessibilityLabel={
-                                            id === 'schneider'
-                                              ? 'Schneider'
-                                              : 'Schwarz'
-                                          }
-                                          disabled={
-                                            id === 'schneider' &&
-                                            draft.options.schwarz
-                                          }
-                                          value={
-                                            id === 'schneider'
-                                              ? draft.options.schneider ||
-                                                draft.options.schwarz
-                                              : draft.options.schwarz
-                                          }
-                                          onValueChange={(value) =>
-                                            patch({
-                                              options: {
-                                                ...draft.options,
-                                                [id]: value,
-                                              },
-                                            })
-                                          }
-                                        />
+                                        <View style={styles.switchColumn}>
+                                          <Switch
+                                            thumbColor={authColors.textPrimary}
+                                            trackColor={{
+                                              true: authColors.gold,
+                                              false: authColors.control,
+                                            }}
+                                            ios_backgroundColor={
+                                              authColors.control
+                                            }
+                                            accessibilityLabel={
+                                              id === 'schneider'
+                                                ? 'Schneider'
+                                                : 'Schwarz'
+                                            }
+                                            disabled={
+                                              id === 'schneider' &&
+                                              draft.options.schwarz
+                                            }
+                                            value={
+                                              id === 'schneider'
+                                                ? draft.options.schneider ||
+                                                  draft.options.schwarz
+                                                : draft.options.schwarz
+                                            }
+                                            onValueChange={(value) =>
+                                              patch({
+                                                options: {
+                                                  ...draft.options,
+                                                  [id]: value,
+                                                },
+                                              })
+                                            }
+                                          />
+                                        </View>
                                       </View>
                                     ))}
                                   {rules.bonuses.stoss ? (
@@ -1627,29 +1718,48 @@ export function RoundEntrySheet({
                                       <View
                                         style={[styles.row, styles.optionRow]}
                                       >
-                                        <AppText style={styles.text}>
+                                        <AppText
+                                          style={[
+                                            styles.text,
+                                            styles.optionLabel,
+                                          ]}
+                                        >
                                           Kontra
                                         </AppText>
-                                        <Switch
-                                          accessibilityLabel="Kontra"
-                                          value={draft.options.stoss > 0}
-                                          onValueChange={(value) =>
-                                            patch({
-                                              options: {
-                                                ...draft.options,
-                                                stoss: value ? 1 : 0,
-                                              },
-                                            })
-                                          }
-                                        />
+                                        <View style={styles.switchColumn}>
+                                          <Switch
+                                            thumbColor={authColors.textPrimary}
+                                            trackColor={{
+                                              true: authColors.gold,
+                                              false: authColors.control,
+                                            }}
+                                            ios_backgroundColor={
+                                              authColors.control
+                                            }
+                                            accessibilityLabel="Kontra"
+                                            value={draft.options.stoss > 0}
+                                            onValueChange={(value) =>
+                                              patch({
+                                                options: {
+                                                  ...draft.options,
+                                                  stoss: value ? 1 : 0,
+                                                },
+                                              })
+                                            }
+                                          />
+                                        </View>
                                       </View>
                                       {count('stoss', 'Re', 3, 1, 1)}
-                                      <AppText style={styles.hint}>
+                                      <AppText
+                                        style={[styles.hint, styles.optionHint]}
+                                      >
                                         Kontra ×2 · jede Re-Stufe nochmals ×2
                                       </AppText>
                                     </>
                                   ) : null}
-                                  <AppText style={styles.hint}>
+                                  <AppText
+                                    style={[styles.hint, styles.optionHint]}
+                                  >
                                     Gesamtfaktor: {tariff?.multiplier ?? 1}x ·{' '}
                                     {effectiveOptions.legerCount} Leger
                                   </AppText>
@@ -1723,55 +1833,53 @@ export function RoundEntrySheet({
                   </>
                 )}
               </View>
-              {!draft.choosing ? (
-                <View style={styles.footer}>
-                  <View accessibilityLiveRegion="polite">
-                    <AppText
-                      selectable
-                      accessibilityRole={saveError ? 'alert' : undefined}
-                      style={styles.hint}
-                    >
-                      {saving
-                        ? 'Wird auf dem Gerät gespeichert …'
-                        : saveError ||
-                          (committedId
-                            ? 'Noch nicht auf dem Gerät gesichert.'
-                            : hint || '')}
-                    </AppText>
-                  </View>
-                  <GoldButton
-                    title={
-                      committedId && saveError
-                        ? 'Erneut auf Gerät speichern'
-                        : title
-                    }
-                    accessibilityLabel={
-                      committedId && saveError
-                        ? 'Erneut auf Gerät speichern'
-                        : title
-                    }
-                    disabled={
-                      loadingDraft || saving || (!committedId && !valid)
-                    }
-                    loading={saving}
-                    onPress={save}
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Verwerfen"
-                    disabled={immutable}
-                    onPress={requestClose}
-                    style={({ pressed }) => [
-                      styles.discard,
-                      pressed && authInteraction.pressed,
-                      immutable && authInteraction.disabled,
-                    ]}
-                  >
-                    <AppText style={styles.hint}>Verwerfen</AppText>
-                  </Pressable>
-                </View>
-              ) : null}
             </EntryScrollView>
+            {!draft.choosing ? (
+              <View style={styles.footer}>
+                <View accessibilityLiveRegion="polite">
+                  <AppText
+                    selectable
+                    accessibilityRole={saveError ? 'alert' : undefined}
+                    style={styles.hint}
+                  >
+                    {saving
+                      ? 'Wird auf dem Gerät gespeichert …'
+                      : saveError ||
+                        (committedId
+                          ? 'Noch nicht auf dem Gerät gesichert.'
+                          : hint || '')}
+                  </AppText>
+                </View>
+                <GoldButton
+                  title={
+                    committedId && saveError
+                      ? 'Erneut auf Gerät speichern'
+                      : title
+                  }
+                  accessibilityLabel={
+                    committedId && saveError
+                      ? 'Erneut auf Gerät speichern'
+                      : title
+                  }
+                  disabled={loadingDraft || saving || (!committedId && !valid)}
+                  loading={saving}
+                  onPress={save}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Schließen"
+                  disabled={immutable}
+                  onPress={requestClose}
+                  style={({ pressed }) => [
+                    styles.discard,
+                    pressed && authInteraction.pressed,
+                    immutable && authInteraction.disabled,
+                  ]}
+                >
+                  <AppText style={styles.hint}>Schließen</AppText>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         </AuthBackground>
       </InteractionSheet>
@@ -1786,15 +1894,13 @@ export function RoundEntrySheet({
             style={styles.dialog}
             contentContainerStyle={styles.dialogContent}
           >
-            <AppText style={styles.title}>
-              {committedId
-                ? 'Eintrag noch ungesichert'
-                : 'Ungespeicherte Eingabe'}
+            <AppText accessibilityRole="header" style={styles.dialogTitle}>
+              {'Eingabe schließen?'}
             </AppText>
             <AppText style={styles.hint}>
               {committedId
-                ? 'Die Runde ist bereits eingetragen. Beim nächsten Öffnen kann die Gerätespeicherung ohne Doppeleintrag wiederholt werden.'
-                : 'Mit „Entwurf behalten“ wird diese Eingabe auf dem Gerät gesichert und auch nach einem Neustart wiederhergestellt, solange die Runde und der Tischkontext unverändert sind.'}
+                ? 'Die Runde ist noch nicht auf dem Gerät gesichert.'
+                : 'Nicht gespeicherte Eingaben gehen verloren.'}
             </AppText>
             {saveError ? (
               <AppText accessibilityRole="alert" style={styles.hint}>
@@ -1805,30 +1911,19 @@ export function RoundEntrySheet({
               title="Weiter bearbeiten"
               onPress={() => setCloseChoice(false)}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Entwurf behalten"
-              style={({ pressed }) => [
-                styles.control,
-                pressed && authInteraction.pressed,
-              ]}
-              onPress={() => leave(true)}
-            >
-              <AppText style={styles.gold}>
-                {committedId ? 'Ungesichert schließen' : 'Entwurf behalten'}
-              </AppText>
-            </Pressable>
             {!committedId ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Entwurf verwerfen"
                 style={({ pressed }) => [
-                  styles.control,
+                  styles.dialogDiscard,
                   pressed && authInteraction.pressed,
                 ]}
                 onPress={() => leave(false)}
               >
-                <AppText style={styles.text}>Entwurf verwerfen</AppText>
+                <AppText style={styles.dialogDiscardText}>
+                  Entwurf verwerfen
+                </AppText>
               </Pressable>
             ) : null}
           </ScrollView>
@@ -1947,7 +2042,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     flexBasis: '44%',
-    minHeight: 44,
+    minHeight: authControlSizes.touch,
     padding: authSpacing.sm,
     borderWidth: 1,
     borderColor: authColors.suitBorder,
@@ -1992,20 +2087,39 @@ const styles = StyleSheet.create({
   optionsPanel: {
     paddingHorizontal: authSpacing.lg,
     paddingVertical: authSpacing.sm,
-    gap: authSpacing.sm,
+    gap: 0,
     borderWidth: 1,
     borderColor: authColors.borderGold,
     borderRadius: authRadius.lg,
     borderCurve: 'continuous',
     backgroundColor: authColors.surfaceElevated,
   },
+  optionSection: {
+    paddingVertical: authSpacing.sm,
+  },
+  playerSeparator: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: authColors.listSeparator,
+  },
   optionRow: {
+    flexWrap: 'nowrap',
+    minHeight: authControlSizes.touch + 2 + authSpacing.sm * 2,
     paddingVertical: authSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: authColors.listSeparator,
   },
+  optionHint: {
+    paddingVertical: authSpacing.sm,
+  },
+  switchColumn: {
+    width: authControlSizes.stepper,
+    minHeight: authControlSizes.touch + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   optionLabel: {
     flex: 1,
+    minWidth: 0,
   },
   tableContext: {
     width: authControlSizes.stepper,
@@ -2098,6 +2212,9 @@ const styles = StyleSheet.create({
     minHeight: authControlSizes.field,
   },
   footer: {
+    flexShrink: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: authColors.borderSoft,
     gap: authSpacing.sm,
     paddingTop: authSpacing.md,
     paddingBottom: authSpacing.md,
@@ -2114,10 +2231,31 @@ const styles = StyleSheet.create({
     backgroundColor: authColors.overlay,
   },
   dialog: {
+    flexGrow: 0,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: authColors.borderSoft,
     backgroundColor: authColors.surface,
-    maxHeight: '100%',
+    maxHeight: '85%',
     borderRadius: authRadius.lg,
     borderCurve: 'continuous',
+  },
+  dialogTitle: {
+    color: authColors.textPrimary,
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  dialogDiscard: {
+    minHeight: authControlSizes.touch,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: authSpacing.sm,
+  },
+  dialogDiscardText: {
+    color: authColors.errorText,
+    fontWeight: '600',
   },
   dialogContent: {
     padding: authSpacing.lgPlus,

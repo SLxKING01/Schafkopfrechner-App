@@ -66,6 +66,7 @@ export type InterimPayment = {
 };
 
 export type GameTable = {
+  roundHistory?: RoundHistoryEvent[];
   interimPayments?: InterimPayment[];
   id: string;
   hashCode: string;
@@ -104,6 +105,25 @@ export type GameRound = {
   partnerId?: string;
   roundContext?: RoundContext;
   updatedAt?: string;
+};
+
+export type RoundHistoryActor =
+  | { kind: 'account'; id: string; name: string }
+  | { kind: 'local'; name: string };
+
+export type RoundHistoryEvent = {
+  id: string;
+  roundId: string;
+  sequence: number;
+  occurredAt: string;
+  action: 'created' | 'updated' | 'deleted' | 'restored';
+  actor: RoundHistoryActor;
+  players: { id: string; name: string }[];
+  before?: GameRound;
+  after?: GameRound;
+  causeRoundId?: string;
+  /** Order before deletion, including legacy rounds without creation events. */
+  roundOrderIds?: string[];
 };
 
 export type RoundTariffOptions = {

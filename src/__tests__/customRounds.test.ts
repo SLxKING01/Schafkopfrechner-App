@@ -69,7 +69,11 @@ it('books exact individual amounts and preserves dealer, stock, tariffs and knoc
   expect(s.addRound(payload())).toBe(true);
   const after = useGameStore.getState();
   expect(after.balances).toEqual(distribution);
-  expect(after.currentTable).toEqual(before);
+  expect(after.currentTable).toEqual({
+    ...before,
+    roundHistory: expect.any(Array),
+  });
+  expect(after.currentTable!.roundHistory!.at(-1)!.action).toBe('created');
   expect(after.rounds[0]).toMatchObject({
     winnerId: '',
     winnerIds: [],
@@ -108,7 +112,13 @@ it('edits the same entry with exact cents, undoes it and retains actual intermed
   s.togglePlayerLeger('c');
   const table = useGameStore.getState().currentTable;
   expect(s.undoLastRound()).toBe(true);
-  expect(useGameStore.getState().currentTable).toEqual(table);
+  expect(useGameStore.getState().currentTable).toEqual({
+    ...table,
+    roundHistory: expect.any(Array),
+  });
+  expect(
+    useGameStore.getState().currentTable!.roundHistory!.at(-1)!.action,
+  ).toBe('deleted');
   expect(useGameStore.getState().balances.every((b) => b.amount === 0)).toBe(
     true,
   );

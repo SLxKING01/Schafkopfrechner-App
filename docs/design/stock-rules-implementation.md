@@ -2,7 +2,13 @@
 
 ## Bedienung
 
-„Regeln & Tarife“ enthält die gemeinsame Auswahl „Stock“, „Ramsch“, „Beides aus“. Eine Auswahl schaltet die andere Spielart aus. Bei gefülltem Stock erklärt ein Wechselversuch die Sperre; die bisherige Einstellung und sämtliche Buchungen bleiben erhalten. Der Store prüft dieselbe Sperre nochmals beim Speichern.
+„Regeln & Tarife“ enthält die gemeinsame Auswahl „Stock“, „Ramsch“, „Beides aus“. Stock und Ramsch sind zusätzlich unter „Grundspiele“ jeweils mit Schalter und Tarif sichtbar; alle Einstiege verwenden denselben Zustand. Ist Stock oder Ramsch bereits aktiv, öffnet der Aktivierungsversuch der anderen Option eine Warnmeldung und lässt die Einstellungen unverändert. Für einen Wechsel muss zuerst die aktive Option deaktiviert werden (etwa über „Beides aus“). Rufspiel bleibt unabhängig aktivierbar. Bei gefülltem Stock erklärt ein Wechselversuch die finanzielle Sperre ebenfalls als Warnung; die bisherige Einstellung und sämtliche Buchungen bleiben erhalten. Der Store prüft die finanzielle Sperre nochmals beim Speichern.
+
+Nachtrag 01.11.2026: Die Warnung gilt für beide Richtungen und auch für den Ramsch-Schalter unter „Grundspiele“. Die Tarife von Stock und Ramsch werden nur unter „Grundspiele“ angezeigt. 24 gezielte Einstellungs-/Stockregeltests bestanden; TypeScript, scoped ESLint und Diff-Prüfung erfolgreich.
+
+Die Warnung erscheint inzwischen als kompakter, mittiger Dialog mit konkretem Titel („Ramsch ist bereits aktiv“ / „Stock ist bereits aktiv“) und kurzer Handlungsanweisung. „Verstanden“ schließt den Dialog ohne Einstellungsänderung. Safe Area, begrenzte Dialogbreite und ein bei Platzmangel scrollbarer Textbereich halten die Bestätigung erreichbar; Warnungen haben kein zusätzliches X am rechten Rand.
+
+Browserprüfung des neuen Dialogs bei 320 × 568: Titel und Text vollständig sichtbar, Bestätigung vollständig im Bildschirm und Schließen erfolgreich. Screenshot: `output/playwright/stock-ramsch-warning-320.png`. 24 gezielte Tests sowie TypeScript und scoped ESLint erfolgreich. Native Darstellung mit vergrößerter Systemschrift noch am Gerät prüfen.
 
 Bei neuen Konfigurationen entspricht der vorgeschlagene Stock-Einsatz dem dann eingestellten Rufspiel-Grundtarif. Er ist unabhängig änderbar und bleibt danach bei weiteren Tarif- oder Modusänderungen erhalten. Bereits vorhandene Einsätze und historische Tarif-Snapshots werden nicht überschrieben. Einsatzänderungen betreffen nur folgende Einzahlungen.
 

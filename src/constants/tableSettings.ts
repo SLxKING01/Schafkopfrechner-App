@@ -118,7 +118,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
     id: 'stock',
     label: 'Stock',
     mode: 'price',
-    section: 'variant',
+    section: 'base',
   },
 ];
 

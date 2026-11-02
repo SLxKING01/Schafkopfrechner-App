@@ -3,12 +3,14 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   bonusRuleDefinitions,
@@ -38,13 +40,13 @@ type TableSettingsEditorProps = {
 type InfoState = {
   description: string;
   label: string;
+  warning?: boolean;
 } | null;
 
 const sections = [
   {
     definitions: gameRuleDefinitions.filter(
-      (definition) =>
-        definition.section === 'base' && definition.id !== 'ramsch',
+      (definition) => definition.section === 'base',
     ),
     key: 'base',
     title: 'Grundspiele',
@@ -58,8 +60,7 @@ const sections = [
   },
   {
     definitions: gameRuleDefinitions.filter(
-      (definition) =>
-        definition.section === 'variant' && definition.id !== 'stock',
+      (definition) => definition.section === 'variant',
     ),
     key: 'variant',
     title: 'Weitere Spielvarianten',
@@ -90,15 +91,30 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
     [settings],
   );
   const [modeError, setModeError] = useState('');
+  const [info, setInfo] = useState<InfoState>(null);
   const mode = stockMode(safeSettings);
   const chooseMode = (nextMode: 'stock' | 'ramsch' | 'off') => {
     if (nextMode !== mode && stockBalanceCents > 0) {
-      setModeError(
-        'Der Stock ist noch gefüllt. Ein Wechsel ist erst bei 0,00 € möglich.',
-      );
+      const description =
+        'Der Stock ist noch gefüllt. Ein Wechsel ist erst bei 0,00 € möglich.';
+      setModeError(description);
+      setInfo({ label: 'Wechsel nicht möglich', description, warning: true });
       return;
     }
     setModeError('');
+    if (
+      (nextMode === 'stock' && safeSettings.games.ramsch.enabled) ||
+      (nextMode === 'ramsch' && safeSettings.games.stock.enabled)
+    ) {
+      const activeLabel = nextMode === 'stock' ? 'Ramsch' : 'Stock';
+      const nextLabel = nextMode === 'stock' ? 'Stock' : 'Ramsch';
+      setInfo({
+        label: `${activeLabel} ist bereits aktiv`,
+        description: `Deaktiviere zuerst ${activeLabel}, um ${nextLabel} zu aktivieren. Es kann nur eine Weiter-Regel aktiv sein.`,
+        warning: true,
+      });
+      return;
+    }
     onChange({
       ...safeSettings,
       stockStakeConfigured:
@@ -120,7 +136,6 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
       },
     });
   };
-  const [info, setInfo] = useState<InfoState>(null);
   const [expandedRules, setExpandedRules] = useState<TableGameTypeId | null>(
     null,
   );
@@ -240,24 +255,6 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
               {modeError}
             </AppText>
           ) : null}
-          {mode !== 'off' ? (
-            <SettingRow
-              hideToggle
-              definition={gameRuleDefinitions.find((d) => d.id === mode)!}
-              entry={safeSettings.games[mode]}
-              onInfo={() =>
-                setInfo({
-                  label: mode === 'stock' ? 'Stock' : 'Ramsch',
-                  description:
-                    mode === 'stock'
-                      ? 'Alle weiter: Die vier Teilnehmer zahlen ein. Sauspiel gewonnen: Ansager und Partner erhalten den Stock. Sauspiel verloren: Die beiden verdoppeln den Stock durch ihre Einzahlung.'
-                      : 'Wenn niemand spielt, wird Ramsch gespielt.',
-                })
-              }
-              onToggle={() => {}}
-              onValueChange={(value) => updateEntry('games', mode, { value })}
-            />
-          ) : null}
           {mode === 'stock' ? (
             <AppText style={styles.infoDescription}>
               Einsatz pro Spieler. Änderungen gelten nur für künftige
@@ -287,7 +284,9 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
                       })
                     }
                     onToggle={(enabled) =>
-                      updateEntry(section.type, definition.id, { enabled })
+                      definition.id === 'ramsch' || definition.id === 'stock'
+                        ? chooseMode(enabled ? definition.id : 'off')
+                        : updateEntry(section.type, definition.id, { enabled })
                     }
                     onValueChange={(value) =>
                       updateEntry(section.type, definition.id, {
@@ -457,39 +456,79 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
         transparent
         visible={info !== null}
       >
-        <View style={styles.modalRoot}>
+        <SafeAreaView
+          style={[styles.modalRoot, info?.warning && styles.warningRoot]}
+        >
           <Pressable
-            accessibilityRole="button"
+            accessible={false}
+            importantForAccessibility="no"
             onPress={() => setInfo(null)}
             style={styles.modalBackdrop}
           />
-          <View style={styles.infoSheet}>
-            <View style={styles.infoHeader}>
-              <View>
-                <AppText style={styles.infoKicker}>Regelinfo</AppText>
-                <AppText style={styles.infoTitle}>{info?.label}</AppText>
-              </View>
+          {info?.warning ? (
+            <View style={styles.warningDialog} accessibilityViewIsModal>
+              <ScrollView
+                style={styles.warningScroll}
+                contentContainerStyle={styles.warningContent}
+              >
+                <AppText accessibilityRole="header" style={styles.warningTitle}>
+                  {info.label}
+                </AppText>
+                <AppText
+                  accessibilityRole="alert"
+                  style={styles.warningDescription}
+                >
+                  {info.description}
+                </AppText>
+              </ScrollView>
               <Pressable
-                accessibilityLabel="Info schließen"
                 accessibilityRole="button"
+                accessibilityLabel="Verstanden"
                 onPress={() => setInfo(null)}
                 style={({ pressed }) => [
-                  styles.infoClose,
-                  pressed && styles.pressed,
+                  styles.warningConfirm,
+                  pressed && { opacity: 0.8 },
                 ]}
               >
-                <X
-                  color={authColors.goldHighlight}
-                  size={20}
-                  strokeWidth={2.5}
-                />
+                <AppText style={styles.warningConfirmText}>Verstanden</AppText>
               </Pressable>
             </View>
-            <AppText style={styles.infoDescription}>
-              {info?.description ?? ''}
-            </AppText>
-          </View>
-        </View>
+          ) : (
+            <View style={styles.infoSheet}>
+              <View style={styles.infoHeader}>
+                <View style={styles.infoHeading}>
+                  <AppText style={styles.infoKicker}>
+                    {info?.warning ? 'Warnung' : 'Regelinfo'}
+                  </AppText>
+                  <AppText style={styles.infoTitle}>{info?.label}</AppText>
+                </View>
+                <Pressable
+                  accessibilityLabel={
+                    info?.warning ? 'Warnung schließen' : 'Info schließen'
+                  }
+                  accessibilityRole="button"
+                  onPress={() => setInfo(null)}
+                  style={({ pressed }) => [
+                    styles.infoClose,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <X
+                    color={authColors.goldHighlight}
+                    size={20}
+                    strokeWidth={2.5}
+                  />
+                </Pressable>
+              </View>
+              <AppText
+                accessibilityRole={info?.warning ? 'alert' : undefined}
+                style={styles.infoDescription}
+              >
+                {info?.description ?? ''}
+              </AppText>
+            </View>
+          )}
+        </SafeAreaView>
       </Modal>
     </>
   );
@@ -737,6 +776,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: authSpacing.sm,
+  },
+  infoHeading: { flex: 1, minWidth: 0 },
+  warningRoot: { justifyContent: 'center', padding: authSpacing.xl },
+  warningDialog: {
+    width: '100%',
+    maxWidth: 360,
+    maxHeight: '90%',
+    alignSelf: 'center',
+    backgroundColor: '#142A20',
+    borderRadius: authRadius.lg,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: authColors.borderSoft,
+    padding: authSpacing.xl,
+    gap: authSpacing.xl,
+  },
+  warningScroll: { flexGrow: 0, flexShrink: 1 },
+  warningContent: { gap: authSpacing.md },
+  warningTitle: {
+    color: authColors.textPrimary,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  warningDescription: {
+    color: authColors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  warningConfirm: {
+    minHeight: 48,
+    flexShrink: 0,
+    padding: authSpacing.md,
+    borderRadius: authRadius.sm,
+    backgroundColor: authColors.goldHighlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  warningConfirmText: {
+    color: authColors.onGold,
+    fontSize: 16,
+    fontWeight: '600',
   },
   infoKicker: {
     color: authColors.goldHighlight,

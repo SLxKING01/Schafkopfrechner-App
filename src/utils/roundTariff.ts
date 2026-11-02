@@ -149,7 +149,7 @@ export function calculatePartyAmount(
     options &&
     (options.durchmarsch
       ? winners !== 1 || losers !== 3
-      : winners !== 3 || losers !== 1)
+      : !((winners === 3 && losers === 1) || (winners === 2 && losers === 2)))
   )
     throw new Error(
       options.durchmarsch
@@ -165,7 +165,11 @@ export function calculatePartyAmount(
   if (
     partnerGame
       ? winners !== 2 || losers !== 2
-      : !((winners === 1 && losers === 3) || (winners === 3 && losers === 1))
+      : !(
+          (winners === 1 && losers === 3) ||
+          (winners === 3 && losers === 1) ||
+          (gameType === 'ramsch' && winners === 2 && losers === 2)
+        )
   )
     throw new Error(
       partnerGame

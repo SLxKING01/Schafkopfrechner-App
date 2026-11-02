@@ -353,7 +353,9 @@ it('edits Kontra and Re on an older round with disabled Stoss and keeps the orig
     ui.view.root
       .findByType(ScrollView)
       .findAllByProps({ accessibilityLabel: 'Korrektur speichern' }).length,
-  ).toBeGreaterThan(0);
+  ).toBe(0);
+  expect(ui.button('Korrektur speichern')).toBeDefined();
+  expect(ui.button('Schließen')).toBeDefined();
   const kontra = ui.view.root
     .findAllByProps({ accessibilityLabel: 'Kontra' })
     .find(
@@ -461,84 +463,6 @@ it('corrects an older game type using its original tariffs and immutable Leger c
   ).toBe(0.5);
   await act(async () => ui.view.unmount());
 });
-it.each([false, true])(
-  'keeps and explicitly discards a draft consistently, correction=%s',
-  async (editing) => {
-    const original = editing ? addPartnerRound() : null;
-    const ui = await mount(original);
-    if (!editing) {
-      await ui.press('Spieltyp Rufspiel');
-    }
-    await ui.press('A verloren');
-    await ui.press('B verloren');
-    await ui.press('Rundeneingabe schließen');
-    expect(ui.onClose).not.toHaveBeenCalled();
-    await ui.press('Entwurf behalten');
-    expect(ui.onClose).toHaveBeenCalledTimes(1);
-    await act(async () => ui.view.unmount());
-    const reopened = await mount(original);
-    expect(
-      reopened.button('A verloren').props.accessibilityState.selected,
-    ).toBe(true);
-    await reopened.press('Rundeneingabe schließen');
-    await reopened.press('Entwurf verwerfen');
-    await act(async () => reopened.view.unmount());
-    const blank = await mount(original);
-    expect(
-      blank.button(editing ? 'A gewonnen' : 'Spieltyp Rufspiel'),
-    ).toBeTruthy();
-    if (editing)
-      expect(blank.button('A gewonnen').props.accessibilityState.selected).toBe(
-        true,
-      );
-    expect(useGameStore.getState().rounds).toHaveLength(editing ? 1 : 0);
-    await act(async () => blank.view.unmount());
-  },
-);
-it('retains a draft on disk and keeps the dialog open when writing fails', async () => {
-  const ui = await mount();
-  await ui.press('Spieltyp Rufspiel');
-  await ui.press('A verloren');
-  await ui.press('Rundeneingabe schließen');
-  const originalWrite = jest
-    .mocked(AsyncStorage.setItem)
-    .getMockImplementation()!;
-  const write = jest
-    .spyOn(AsyncStorage, 'setItem')
-    .mockRejectedValueOnce(new Error('disk full'));
-  await ui.press('Entwurf behalten');
-  expect(ui.onClose).not.toHaveBeenCalled();
-  expect(JSON.stringify(ui.view.toJSON())).toContain(
-    'Der Entwurf konnte nicht',
-  );
-  write.mockImplementation(originalWrite);
-  await ui.press('Entwurf behalten');
-  const key = `schafkopfrechner-round-draft-v1:guest:${ui.props.table!.id}:new`;
-  expect(JSON.parse((await AsyncStorage.getItem(key))!).draft.losers).toContain(
-    'a',
-  );
-  await act(async () => ui.view.unmount());
-  const reopened = await mount();
-  expect(reopened.button('A verloren').props.accessibilityState.selected).toBe(
-    true,
-  );
-  await reopened.press('Rundeneingabe schließen');
-  await reopened.press('Entwurf verwerfen');
-  expect(await AsyncStorage.getItem(key)).toBeNull();
-  await act(async () => reopened.view.unmount());
-});
-it('does not restore a new-round draft after another round changes its context', async () => {
-  const ui = await mount();
-  await ui.press('Spieltyp Rufspiel');
-  await ui.press('A verloren');
-  await ui.press('Rundeneingabe schließen');
-  await ui.press('Entwurf behalten');
-  await act(async () => ui.view.unmount());
-  addPartnerRound();
-  const reopened = await mount();
-  expect(reopened.button('Spieltyp Rufspiel')).toBeTruthy();
-  await act(async () => reopened.view.unmount());
-});
 it('does not confirm a failed disk write and retries the same round without a duplicate', async () => {
   const ui = await mount();
   await ui.press('Spieltyp Solo');
@@ -623,10 +547,11 @@ it.each(['Solo', 'Wenz'])(
 it('explicitly records caller and partner for a lost Sauspiel and retains them through archiving', async () => {
   const ui = await mount(null, players, 'c');
   await ui.press('Spieltyp Rufspiel');
-  expect(ui.button('Ansager C').props.accessibilityState.selected).toBe(true);
-  await ui.press('Partner D');
+  expect(ui.button('Ansager C')).toBeUndefined();
+  expect(ui.button('Partner D')).toBeUndefined();
+  await ui.press('C verloren');
   expect(ui.button('Runde speichern').props.disabled).toBe(true);
-  await ui.press('Ansager verloren');
+  await ui.press('D verloren');
   await ui.press('Runde speichern');
   expect(useGameStore.getState().rounds[0]).toMatchObject({
     declarerId: 'c',
@@ -649,31 +574,6 @@ it('cancels an untouched preselected entry without creating or altering games', 
   expect(useGameStore.getState().rounds).toEqual([]);
   expect(useGameStore.getState().currentTable).toEqual(before);
   await act(async () => ui.view.unmount());
-});
-it('keeps retained quick-entry drafts separate for different tapped callers', async () => {
-  const first = await mount(null, players, 'a');
-  await first.press('Spieltyp Solo');
-  await first.press('Ansager verloren');
-  await first.press('Rundeneingabe schließen');
-  await first.press('Entwurf behalten');
-  await act(async () => first.view.unmount());
-  const second = await mount(null, players, 'b');
-  await second.press('Spieltyp Solo');
-  expect(second.button('Ansager B').props.accessibilityState.selected).toBe(
-    true,
-  );
-  expect(
-    second.button('Ansager verloren').props.accessibilityState.selected,
-  ).toBe(false);
-  await act(async () => second.view.unmount());
-  const restored = await mount(null, players, 'a');
-  expect(restored.button('Ansager A').props.accessibilityState.selected).toBe(
-    true,
-  );
-  expect(
-    restored.button('Ansager verloren').props.accessibilityState.selected,
-  ).toBe(true);
-  await act(async () => restored.view.unmount());
 });
 it('keeps legacy unknown callers unknown when correcting only the tariff', async () => {
   useGameStore.getState().addRound({
@@ -750,7 +650,13 @@ it('offers own bookkeeping without enabled tariffs, rejects an unequal sum and s
     ],
   });
   expect(round.declarerId).toBeUndefined();
-  expect(useGameStore.getState().currentTable).toEqual(before);
+  expect(useGameStore.getState().currentTable).toEqual({
+    ...before,
+    roundHistory: expect.any(Array),
+  });
+  expect(
+    useGameStore.getState().currentTable!.roundHistory!.at(-1),
+  ).toMatchObject({ action: 'created', roundId: round.id });
   await act(async () => ui.view.unmount());
   const edit = await mount(round);
   expect(edit.button('B Minus').props.accessibilityState.selected).toBe(true);
@@ -763,29 +669,6 @@ it('offers own bookkeeping without enabled tariffs, rejects an unequal sum and s
     5, -2.99, -2.01, 0,
   ]);
   await act(async () => edit.view.unmount());
-});
-it('restores an own-game draft from storage and discards it without a booking', async () => {
-  const ui = await mount();
-  await ui.press('Spieltyp Eigenes Spiel');
-  await setOwnAmount(ui, 'A', '4,50');
-  await ui.press('B Minus');
-  await setOwnAmount(ui, 'B', '4,50');
-  await ui.press('Rundeneingabe schließen');
-  await ui.press('Entwurf behalten');
-  await act(async () => ui.view.unmount());
-  const restored = await mount();
-  expect(restored.button('B Minus').props.accessibilityState.selected).toBe(
-    true,
-  );
-  expect(
-    restored.view.root
-      .findAllByProps({ accessibilityLabel: 'Betrag für A' })
-      .some((n: { props: { value?: string } }) => n.props.value === '4,50'),
-  ).toBe(true);
-  await restored.press('Rundeneingabe schließen');
-  await restored.press('Entwurf verwerfen');
-  expect(useGameStore.getState().rounds).toHaveLength(0);
-  await act(async () => restored.view.unmount());
 });
 it('keeps own-game invalid fields editable without changing any balance', async () => {
   const ui = await mount();
@@ -809,8 +692,8 @@ it('limits caller, partner and knocking choices to the four participating player
   expect(ui.button('Ansager B')).toBeTruthy();
   await ui.press('Ansager B');
   expect(ui.button('Partner A')).toBeUndefined();
-  await ui.press('Partner C');
-  await ui.press('Ansager gewonnen');
+  await ui.press('B gewonnen');
+  await ui.press('C gewonnen');
   expect(ui.button('Runde speichern').props.disabled).toBe(false);
   await ui.press('Runde speichern');
   expect(useGameStore.getState().rounds[0].participantIds).not.toContain('a');
@@ -834,4 +717,49 @@ it('keeps an open entry from silently recording a changed roster', async () => {
   );
   expect(ui.onSaved).not.toHaveBeenCalled();
   await act(async () => ui.view.unmount());
+});
+
+it('allows Ramsch result changes and saves equal-point loser pairs without solo bonuses', async () => {
+  const settings = structuredClone(
+    useGameStore.getState().currentTable!.settings,
+  );
+  settings.games.ramsch.enabled = true;
+  useGameStore.getState().updateCurrentTableSettings(settings);
+  const ui = await mount();
+  await ui.press('Spieltyp Ramsch');
+  await ui.press('A verloren');
+  expect(ui.button('A verloren').props.accessibilityState.selected).toBe(true);
+  await ui.press('A gewonnen');
+  expect(ui.button('A gewonnen').props.accessibilityState.selected).toBe(true);
+  await ui.press('A verloren');
+  await ui.press('B verloren');
+  expect(ui.button('C gewonnen').props.accessibilityState.selected).toBe(true);
+  expect(ui.button('D gewonnen').props.accessibilityState.selected).toBe(true);
+  expect(ui.button('Runde speichern').props.disabled).toBe(false);
+  await ui.press('Runde speichern');
+  expect(useGameStore.getState().rounds[0]).toMatchObject({
+    gameType: 'ramsch',
+    winnerIds: ['c', 'd'],
+    loserIds: ['a', 'b'],
+  });
+  await act(async () => ui.view.unmount());
+});
+
+it('offers only continuing or discarding an unsaved entry', async () => {
+  const ui = await mount();
+  await ui.press('Spieltyp Rufspiel');
+  await ui.press('A verloren');
+  await ui.press('Rundeneingabe schließen');
+  expect(ui.button('Entwurf behalten')).toBeUndefined();
+  await ui.press('Weiter bearbeiten');
+  expect(ui.onClose).not.toHaveBeenCalled();
+  expect(ui.button('A verloren').props.accessibilityState.selected).toBe(true);
+  await ui.press('Rundeneingabe schließen');
+  await ui.press('Entwurf verwerfen');
+  expect(ui.onClose).toHaveBeenCalledTimes(1);
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await act(async () => ui.view.unmount());
+  const reopened = await mount();
+  expect(reopened.button('Spieltyp Rufspiel')).toBeTruthy();
+  await act(async () => reopened.view.unmount());
 });

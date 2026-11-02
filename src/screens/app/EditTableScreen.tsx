@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
@@ -11,6 +11,7 @@ import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useGameStore } from '../../store/gameStore';
+import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { TableSettings } from '../../types/game';
 import { getStockBalanceCents } from '../../utils/accounting';
@@ -88,10 +89,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
-          entering={FadeInDown.duration(360)}
-          style={styles.header}
-        >
+        <Animated.View entering={formEntering} style={styles.header}>
           <View style={styles.titleBlock}>
             <AppText style={styles.kicker}>Tisch bearbeiten</AppText>
             <AppText style={styles.title}>Regeln & Tarife</AppText>
@@ -112,10 +110,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           </Pressable>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInDown.duration(420).delay(80)}
-          style={styles.settingsCard}
-        >
+        <Animated.View entering={formEntering} style={styles.settingsCard}>
           <TableSettingsEditor
             settings={settings}
             stockBalanceCents={getStockBalanceCents(rounds)}

@@ -92,6 +92,60 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it('restores a removed round from the inline undo notice without opening an editor or duplicating the entry', async () => {
+  const store = useGameStore.getState();
+  expect(
+    store.addRound({
+      gameType: 'rufspiel',
+      winnerId: 'a',
+      winnerIds: ['a', 'b'],
+      loserIds: ['c', 'd'],
+      declarerId: 'a',
+      partnerId: 'b',
+      amount: 0.4,
+      tariffOptions: { ...emptyTariffOptions },
+    }),
+  ).toBe(true);
+  const original = useGameStore.getState().rounds[0];
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const press = async (label: string) =>
+    act(async () =>
+      view.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find(
+          (n: { props: { onPress?: unknown } }) =>
+            typeof n.props.onPress === 'function',
+        )!
+        .props.onPress(),
+    );
+  await press('Tischmenü öffnen');
+  await press('Letzte Runde zurücknehmen');
+  await press('Runde zurücknehmen bestätigen');
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await press('Gelöschtes Spiel rückgängig machen');
+  expect(useGameStore.getState().rounds).toEqual([original]);
+  expect(
+    useGameStore.getState().currentTable!.roundHistory!.at(-1)!.action,
+  ).toBe('restored');
+  expect(
+    view.root.findAllByProps({
+      accessibilityLabel: 'Gelöschtes Spiel rückgängig machen',
+    }),
+  ).toHaveLength(0);
+  expect(
+    view.root.findAllByProps({ accessibilityLabel: 'Runde speichern' }),
+  ).toHaveLength(0);
+  await act(async () => view.unmount());
+});
+
 it('opens the round selected in statistics directly in the existing editor', async () => {
   useGameStore.getState().addRound({
     gameType: 'rufspiel',
@@ -362,7 +416,7 @@ it('records Ramsch with a Jungfrau and restricts its bonus controls', async () =
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Schneider' }),
   ).toHaveLength(0);
-  await act(async () => button('Ramsch-Verlierer Andi').props.onPress());
+  await act(async () => button('Andi verloren').props.onPress());
   await act(async () => button('Jungfrauen erhöhen').props.onPress());
   await act(async () => button('Runde speichern').props.onPress());
   expect(useGameStore.getState().rounds[0]).toMatchObject({
@@ -1120,9 +1174,9 @@ it('automatically doubles stock for a lost calling party and shows the movement 
     );
   await press('Spiel eintragen');
   await press('Spieltyp Rufspiel');
+  await press('Berkay verloren');
+  await press('Flo verloren');
   await press('Ansager Berkay');
-  await press('Partner Flo');
-  await press('Ansager verloren');
   expect(
     view.root.findAllByProps({ accessibilityLabel: 'Stock auszahlen' }),
   ).toHaveLength(0);
