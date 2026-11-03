@@ -10,9 +10,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import type { FriendProfile } from '../../types/profile';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
-import { AnimalAvatar } from './AnimalAvatar';
 
 type FriendPickerSheetProps = {
   friends: FriendProfile[];
@@ -65,7 +65,8 @@ export function FriendPickerSheet({
           <View>
             <AppText style={styles.title}>Freunde hinzufügen</AppText>
             <AppText style={styles.subtitle}>
-              Wähle Freunde für diesen Tisch aus.
+              Lege Spielerplätze an. Kontozugriff entsteht erst durch eine
+              angenommene Tischeinladung unter Regeln & Tarife.
             </AppText>
           </View>
           <Pressable
@@ -125,11 +126,14 @@ export function FriendPickerSheet({
                 ]}
               >
                 <View>
-                  <AnimalAvatar
-                    accentColor={item.accentColor}
-                    animalId={item.avatarId}
-                    highlighted={isSelected}
-                    size={50}
+                  <ProfileAvatar
+                    size={48}
+                    profile={{
+                      avatarKind: item.avatarKind ?? 'animal',
+                      animalId: item.avatarId,
+                      accentId: item.accentId ?? 'forestGreen',
+                      photoPath: item.photoPath ?? null,
+                    }}
                   />
                   {item.isOnline ? <View style={styles.onlineDot} /> : null}
                 </View>

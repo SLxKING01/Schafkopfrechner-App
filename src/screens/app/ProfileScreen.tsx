@@ -1,5 +1,5 @@
-import type BottomSheet from '@gorhom/bottom-sheet';
-import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Bell,
   Brush,
@@ -21,14 +21,14 @@ import {
   TableProperties,
   User,
   UserRoundCog,
+  Users,
   Volume2,
   WalletCards,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { useRef, useState } from 'react';
+import { useCallback } from 'react';
 import {
   Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -37,17 +37,17 @@ import {
 } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
-import { AnimalAvatar } from '../../components/game/AnimalAvatar';
-import { AvatarPickerSheet } from '../../components/profile/AvatarPickerSheet';
+import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
+import { useOwnProfile } from '../../hooks/useOwnProfile';
+import type { AppStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
-import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
+import { refreshOwnProfile } from '../../store/profileStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
-import type { AnimalAvatarId, ProfileAccentId } from '../../types/profile';
 
 type SettingRow = {
   icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
@@ -64,52 +64,20 @@ type SettingsSectionProps = {
 };
 
 export function ProfileScreen() {
-  const avatarSheetRef = useRef<BottomSheet>(null);
-  const [isAvatarSheetVisible, setIsAvatarSheetVisible] = useState(false);
-  const avatarId = useProfileAppearanceStore((state) => state.avatarId);
-  const accentId = useProfileAppearanceStore((state) => state.accentId);
-  const setAvatarId = useProfileAppearanceStore((state) => state.setAvatarId);
-  const setAccentId = useProfileAppearanceStore((state) => state.setAccentId);
+  const navigation =
+    useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
-  const accentColor = PROFILE_ACCENTS[accentId];
-  const username =
-    typeof user?.user_metadata.username === 'string'
-      ? user.user_metadata.username
-      : 'Simon';
+  const { profile, displayName: username, loading, error } = useOwnProfile();
+  const accentColor = PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'];
   const email = user?.email ?? 'Nicht gesetzt';
-
-  function openAvatarSheet() {
-    setIsAvatarSheetVisible(true);
-
-    requestAnimationFrame(() => {
-      avatarSheetRef.current?.snapToIndex(0);
-    });
-  }
-
-  function closeAvatarSheet() {
-    avatarSheetRef.current?.close();
-  }
-
-  function handleAvatarSheetClosed() {
-    setIsAvatarSheetVisible(false);
-  }
-
-  function triggerSelectionHaptic() {
-    if (Platform.OS !== 'web') {
-      void Haptics.selectionAsync();
-    }
-  }
-
-  function handleSelectAvatar(nextAvatarId: AnimalAvatarId) {
-    setAvatarId(nextAvatarId);
-    triggerSelectionHaptic();
-  }
-
-  function handleSelectAccent(nextAccentId: ProfileAccentId) {
-    setAccentId(nextAccentId);
-    triggerSelectionHaptic();
-  }
+  const userId = user?.id;
+  const openAvatarSheet = () => navigation.navigate('EditProfile');
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) void refreshOwnProfile(userId);
+    }, [userId]),
+  );
 
   async function handleLogout() {
     const { error } = await signOut();
@@ -128,22 +96,28 @@ export function ProfileScreen() {
 
   const accountRows: SettingRow[] = [
     {
-      icon: UserRoundCog,
-      title: 'Profil bearbeiten',
-      subtitle: 'Name, Bio und öffentliche Angaben',
-      onPress: () => showPrepared('Profil bearbeiten'),
+      icon: Users,
+      title: 'Freunde',
+      subtitle: 'Freundescodes, Anfragen und blockierte Kontakte',
+      onPress: () => navigation.navigate('Friends'),
     },
     {
-      icon: User,
-      title: 'Avatar ändern',
-      subtitle: 'Aktueller Look bleibt lokal gespeichert',
+      icon: UserRoundCog,
+      title: 'Profil bearbeiten',
+      subtitle: 'Anzeigename, Bild und private Angaben',
       onPress: openAvatarSheet,
     },
     {
       icon: User,
-      title: 'Benutzername',
+      title: 'Avatar ändern',
+      subtitle: 'Foto, Tieravatar und Akzentfarbe',
+      onPress: openAvatarSheet,
+    },
+    {
+      icon: User,
+      title: 'Anzeigename',
       subtitle: username,
-      onPress: () => showPrepared('Benutzername'),
+      onPress: openAvatarSheet,
     },
     {
       icon: Mail,
@@ -196,7 +170,7 @@ export function ProfileScreen() {
   const designRows: SettingRow[] = [
     {
       icon: Palette,
-      title: 'Accent Color',
+      title: 'Akzentfarbe',
       subtitle: 'Aktuell ausgewählte Profilfarbe',
       onPress: openAvatarSheet,
     },
@@ -325,12 +299,7 @@ export function ProfileScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <AnimalAvatar
-              accentColor={accentColor}
-              animalId={avatarId}
-              highlighted
-              size={64}
-            />
+            <ProfileAvatar profile={profile} size={64} />
           </Pressable>
           <View style={styles.profileCopy}>
             <Text numberOfLines={1} style={styles.name}>
@@ -342,6 +311,12 @@ export function ProfileScreen() {
           </View>
         </View>
 
+        {loading && !profile ? <AppText>Profil wird geladen …</AppText> : null}
+        {error ? (
+          <AppText accessibilityRole="alert" selectable>
+            Profil konnte nicht aktualisiert werden. {error}
+          </AppText>
+        ) : null}
         <SettingsSection title="Account" rows={accountRows} />
         <SettingsSection title="Spiel" rows={gameRows} />
         <SettingsSection title="Design" rows={designRows} />
@@ -358,18 +333,6 @@ export function ProfileScreen() {
           <AppText style={styles.logoutText}>Logout</AppText>
         </Pressable>
       </ScrollView>
-
-      {isAvatarSheetVisible ? (
-        <AvatarPickerSheet
-          accentId={accentId}
-          avatarId={avatarId}
-          sheetRef={avatarSheetRef}
-          onClose={closeAvatarSheet}
-          onDismiss={handleAvatarSheetClosed}
-          onSelectAccent={handleSelectAccent}
-          onSelectAvatar={handleSelectAvatar}
-        />
-      ) : null}
     </AuthBackground>
   );
 }

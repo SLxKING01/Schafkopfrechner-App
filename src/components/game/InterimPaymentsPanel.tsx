@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { reliableStorage } from '../../storage/reliableStorage';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors, authSpacing } from '../../theme';
 import type {
@@ -16,6 +17,7 @@ import {
   outstandingBalances,
   paymentRevision,
 } from '../../utils/interimPayments';
+import { tableAccess } from '../../utils/tableAccess';
 import { GoldButton } from '../auth/GoldButton';
 import { AppText } from '../ui/AppText';
 
@@ -34,6 +36,8 @@ export function InterimPaymentsPanel({
   plan,
   stockCents,
 }: Props) {
+  const actorId = useAuthStore((state) => state.user?.id);
+  const { canManage } = tableAccess(table, actorId);
   const [selected, setSelected] = useState<{
     payment: Settlement;
     revision: string;
@@ -91,6 +95,18 @@ export function InterimPaymentsPanel({
     cents !== null &&
     cents > 0 &&
     cents <= toSafeCents(selected.payment.amount)!;
+  if (!canManage)
+    return (
+      <View style={s.stack}>
+        <AppText style={s.note}>Zahlungen verwaltet der Ersteller.</AppText>
+        {candidates.map((payment) => (
+          <AppText key={payment.id}>
+            {name(payment.fromPlayerId)} → {name(payment.toPlayerId)}:{' '}
+            {money(payment.amount)}
+          </AppText>
+        ))}
+      </View>
+    );
   return (
     <View style={s.stack}>
       <AppText style={s.note}>

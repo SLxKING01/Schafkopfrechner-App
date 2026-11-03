@@ -21,11 +21,13 @@ import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { fingerprint } from '../../services/sync/syncGameState';
 import { reliableStorage } from '../../storage/reliableStorage';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { TableSettings } from '../../types/game';
 import { getStockBalanceCents } from '../../utils/accounting';
+import { tableAccess } from '../../utils/tableAccess';
 
 type EditTableScreenProps = AppStackScreenProps<'EditTable'>;
 
@@ -42,6 +44,8 @@ const screenColors = {
 
 export function EditTableScreen({ navigation }: EditTableScreenProps) {
   const currentTable = useGameStore((state) => state.currentTable);
+  const actorId = useAuthStore((state) => state.user?.id);
+  const { canManage } = tableAccess(currentTable, actorId);
   const updateCurrentTableSettings = useGameStore(
     (state) => state.updateCurrentTableSettings,
   );
@@ -162,11 +166,32 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         </Animated.View>
 
         <Animated.View entering={formEntering} style={styles.settingsCard}>
-          <TableSettingsEditor
-            settings={settings}
-            stockBalanceCents={getStockBalanceCents(rounds)}
-            onChange={setSettings}
-          />
+          {!canManage ? (
+            <AppText>Regeln können nur vom Ersteller geändert werden.</AppText>
+          ) : null}
+          <View
+            pointerEvents={canManage ? 'auto' : 'none'}
+            accessibilityElementsHidden={!canManage}
+          >
+            <TableSettingsEditor
+              settings={settings}
+              stockBalanceCents={getStockBalanceCents(rounds)}
+              onChange={setSettings}
+            />
+          </View>
+          {canManage && actorId && currentTable && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                navigation.navigate('TableInvitations', {
+                  tableId: currentTable.id,
+                })
+              }
+              style={{ minHeight: 44, justifyContent: 'center' }}
+            >
+              <AppText>Freunde zu diesem Tisch einladen</AppText>
+            </Pressable>
+          )}
           <PlayerAccountsEditor />
         </Animated.View>
       </ScrollView>
@@ -187,7 +212,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         <Pressable
           accessibilityLabel="Regeln speichern"
           accessibilityRole="button"
-          disabled={saving}
+          disabled={saving || !canManage}
           onPress={requestSave}
           style={({ pressed }) => [
             styles.floatingButton,

@@ -36,6 +36,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#07110B"
         }
+      ],
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wähle ein Foto für dein Profil aus. Andere Profilangaben bleiben auch ohne Foto nutzbar.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "extra": {

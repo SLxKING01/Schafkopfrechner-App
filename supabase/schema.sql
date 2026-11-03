@@ -30,7 +30,7 @@ begin
       where target.version = p_expected_version
     returning target.version, target.updated_at;
   if not found then
-    raise exception 'Synchronisierungskonflikt: Cloud-Daten wurden inzwischen geaendert.' using errcode = '40001';
+    raise exception 'Synchronisierungskonflikt: Cloud-Daten wurden inzwischen geaendert.' using errcode = 'PT409';
   end if;
 end;
 $$;

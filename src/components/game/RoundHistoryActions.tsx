@@ -15,6 +15,7 @@ type Props = {
   rounds: GameRound[];
   round: GameRound;
   onEdit?: () => void;
+  onDelete?: () => void;
   children: ReactNode;
 };
 
@@ -24,6 +25,7 @@ export function RoundHistoryActions({
   rounds,
   round,
   onEdit,
+  onDelete,
   children,
 }: Props) {
   const [mode, setMode] = useState<'menu' | 'history' | null>(null);
@@ -35,6 +37,7 @@ export function RoundHistoryActions({
         accessibilityLabel={`Aktionen für Eintrag ${number} öffnen`}
         accessibilityHint="Spiel bearbeiten oder Änderungsverlauf ansehen"
         onPress={() => setMode('menu')}
+        onLongPress={() => setMode('menu')}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
         <View style={styles.card}>{children}</View>
@@ -63,7 +66,9 @@ export function RoundHistoryActions({
               />
               <View style={styles.menu} accessibilityViewIsModal>
                 <AppText style={styles.title}>
-                  {formatRoundGameType(round.gameType, round.suit)}
+                  {round.misdealPlayerId
+                    ? 'Vergeber'
+                    : formatRoundGameType(round.gameType, round.suit)}
                 </AppText>
                 {onEdit ? (
                   <Pressable
@@ -88,11 +93,20 @@ export function RoundHistoryActions({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Spielaktionen schließen"
+                  accessibilityLabel={
+                    onDelete
+                      ? 'Spiel l\u00f6schen'
+                      : 'Spielaktionen schlie\u00dfen'
+                  }
                   style={styles.item}
-                  onPress={() => setMode(null)}
+                  onPress={() => {
+                    setMode(null);
+                    onDelete?.();
+                  }}
                 >
-                  <AppText style={styles.note}>Schließen</AppText>
+                  <AppText style={onDelete ? styles.danger : styles.note}>
+                    {onDelete ? 'Spiel l\u00f6schen' : 'Schlie\u00dfen'}
+                  </AppText>
                 </Pressable>
               </View>
             </SafeAreaView>
@@ -131,5 +145,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   gold: { color: authColors.goldHighlight },
+  danger: { color: authColors.errorText },
   note: { color: authColors.textSecondary },
 });

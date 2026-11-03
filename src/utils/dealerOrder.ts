@@ -1,4 +1,4 @@
-import type { GameTable, Player } from '../types/game';
+import type { GameRound, GameTable, Player } from '../types/game';
 
 export const activePlayers = (players: Player[]) =>
   players.filter((p) => !p.isPaused);
@@ -56,4 +56,15 @@ export function participationRevision(
     players.map((p) => [p.id, !!p.isPaused]),
     roundCount,
   ]);
+}
+
+export function hasPendingMisdeal(
+  table: GameTable | null,
+  rounds: GameRound[],
+  playerId: string,
+) {
+  const latest = table?.misdeals?.findLast(
+    (event) => event.playerId === playerId,
+  );
+  return !!latest && !rounds.some(({ id }) => id === latest.penaltyRoundId);
 }

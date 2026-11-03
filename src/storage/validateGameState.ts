@@ -73,6 +73,25 @@ function validRoundHistory(value: unknown, tableId: string): boolean {
       ) ||
       !players(event.players) ||
       (event.causeRoundId !== undefined && !text(event.causeRoundId)) ||
+      (event.undoOfEventId !== undefined &&
+        (!text(event.undoOfEventId) ||
+          !value
+            .slice(0, index)
+            .some(
+              (prior) =>
+                prior.id === event.undoOfEventId &&
+                prior.roundId === event.roundId,
+            ))) ||
+      [event.turnBefore, event.turnAfter].some(
+        (turn) =>
+          turn !== undefined &&
+          (!record(turn) ||
+            !text(turn.signature) ||
+            (turn.dealerId !== undefined && !text(turn.dealerId)) ||
+            !Array.isArray(turn.legerPlayerIds) ||
+            !turn.legerPlayerIds.every(text) ||
+            typeof turn.turboRamsch !== 'boolean'),
+      ) ||
       !['created', 'updated', 'deleted', 'restored'].includes(
         String(event.action),
       ) ||
@@ -122,6 +141,8 @@ function validRoundHistory(value: unknown, tableId: string): boolean {
 function settings(value: unknown): boolean {
   return (
     record(value) &&
+    (value.misdealPenaltyEnabled === undefined ||
+      typeof value.misdealPenaltyEnabled === 'boolean') &&
     (value.stockStakeConfigured === undefined ||
       typeof value.stockStakeConfigured === 'boolean') &&
     (value.gameRules === undefined ||
@@ -351,8 +372,7 @@ export function validGameSnapshot(value: unknown): boolean {
         (a) =>
           record(a) &&
           table(a.table) &&
-          a.table.isActive === false &&
-          day({ ...a, currentTable: a.table, activeGame: false }),
+          day({ ...a, currentTable: a.table, activeGame: a.table.isActive }),
       ))
   )
     return false;
@@ -436,6 +456,29 @@ export function validCloudSnapshot(value: unknown): boolean {
   return true;
 }
 export function validateStoredValue(key: string, value: unknown): boolean {
+  if (
+    key.startsWith('shared-conflict-backup:') ||
+    key.startsWith('shared-before-open:')
+  )
+    return value === null || validGameSnapshot(value);
+  if (
+    key.startsWith('shared-account-cache:') ||
+    key.startsWith('shared-removed-access:')
+  )
+    return (
+      record(value) &&
+      (value.current === null || validGameSnapshot(value.current)) &&
+      Array.isArray(value.archived) &&
+      value.archived.every(
+        (entry) =>
+          record(entry) &&
+          validGameSnapshot({
+            ...entry,
+            currentTable: entry.table,
+            activeGame: false,
+          }),
+      )
+    );
   if (key === 'schafkopfrechner-table-visibility')
     return (
       record(value) &&

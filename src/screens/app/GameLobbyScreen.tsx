@@ -228,7 +228,7 @@ export function GameLobbyScreen() {
         id: day.table.id,
         name: day.table.name,
         players: day.players.map((player) => player.name).join(' · '),
-        lastPlayed: `${day.rounds.filter((round) => !isStockBooking(round)).length} Spiele · ${openPayments > 0 ? `${openPayments} Zahlungen offen` : 'Abgerechnet'}`,
+        lastPlayed: `${day.rounds.filter((round) => !isStockBooking(round)).length} Spiele · ${day.table.isActive ? 'Läuft' : openPayments > 0 ? `${openPayments} Zahlungen offen` : 'Abgerechnet'}`,
         suit: 'schelle',
         isCurrent: false,
         hasOpenPayments: openPayments > 0,
@@ -313,6 +313,10 @@ export function GameLobbyScreen() {
 
   const openTable = useCallback(
     (table: TablePreview) => {
+      if (useGameStore.getState().resumeTable(table.id)) {
+        navigation.navigate('ActiveGame');
+        return;
+      }
       const remote = remoteTables.find(
         (candidate) => candidate.id === table.id,
       );
@@ -505,6 +509,17 @@ export function GameLobbyScreen() {
         }
       />
       <SharedTableConflictNotice />
+      {userId ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('TableInvitations')}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <AppText style={{ color: screenColors.gold }}>
+            Tischeinladungen ansehen
+          </AppText>
+        </Pressable>
+      ) : null}
 
       <View style={styles.sectionHeader}>
         <AppText style={styles.sectionTitle}>Deine Tische</AppText>
@@ -575,7 +590,7 @@ export function GameLobbyScreen() {
         />
       )}
 
-      {!(activeGame && currentTable) ? (
+      {visibility.hydrated ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Neuen Tisch erstellen"
@@ -1215,7 +1230,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: screenColors.gold,
     borderRadius: 27,
-    bottom: 116,
+    bottom: 132,
     height: 54,
     justifyContent: 'center',
     position: 'absolute',

@@ -13,7 +13,7 @@ begin
   begin
     perform public.save_game_state('{"schemaVersion":1}'::jsonb, 1);
     raise exception 'Stale write was accepted';
-  exception when serialization_failure then null;
+  exception when sqlstate 'PT409' or serialization_failure then null;
   end;
   if (select payload->'games'->0->>'id' from public.game_states where owner_id = auth.uid()) <> 'round-test'
     then raise exception 'Round-trip failed'; end if;

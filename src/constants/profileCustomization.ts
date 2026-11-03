@@ -66,3 +66,22 @@ export const FRIEND_PREVIEWS: FriendProfile[] = [
     username: 'Anna',
   },
 ];
+
+export const ANIMAL_AVATAR_LABELS: Record<AnimalAvatarId, string> = {
+  fox: 'Fuchs',
+  bear: 'Bär',
+  owl: 'Eule',
+  wolf: 'Wolf',
+  deer: 'Hirsch',
+  raccoon: 'Waschbär',
+  rabbit: 'Hase',
+  boar: 'Wildschwein',
+};
+export const PROFILE_ACCENT_LABELS: Record<ProfileAccentId, string> = {
+  darkGreen: 'Dunkelgrün',
+  amber: 'Gold',
+  warmRed: 'Warmrot',
+  mutedBlue: 'Blaugrau',
+  bronze: 'Bronze',
+  forestGreen: 'Waldgrün',
+};

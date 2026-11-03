@@ -10,6 +10,7 @@ import {
 import { usePlayerAccounts } from '../../hooks/usePlayerAccounts';
 import { authColors } from '../../theme/colors';
 import type { FriendProfile } from '../../types/profile';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 
@@ -60,6 +61,15 @@ export function AccountPicker({
                 }}
                 style={styles.row}
               >
+                <ProfileAvatar
+                  size={36}
+                  profile={{
+                    avatarKind: account.avatarKind ?? 'none',
+                    animalId: account.avatarId,
+                    accentId: account.accentId ?? 'forestGreen',
+                    photoPath: account.photoPath ?? null,
+                  }}
+                />
                 <AppText>{account.username}</AppText>
               </Pressable>
             ))}
@@ -93,5 +103,11 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   list: { flexShrink: 1 },
-  row: { paddingVertical: 16, minHeight: 48 },
+  row: {
+    paddingVertical: 16,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
 });

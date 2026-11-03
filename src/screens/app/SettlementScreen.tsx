@@ -20,6 +20,7 @@ import {
 } from '../../components/statistics/StatisticsPanels';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authSpacing } from '../../theme/spacing';
@@ -34,6 +35,7 @@ import {
 import { formatRoundGameType } from '../../utils/cardSuits';
 import { outstandingBalances } from '../../utils/interimPayments';
 import { createStatisticsTable } from '../../utils/statistics';
+import { tableAccess } from '../../utils/tableAccess';
 
 type SettlementScreenProps = AppStackScreenProps<'Settlement'>;
 
@@ -45,6 +47,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const currentTable = useGameStore((state) => state.currentTable);
+  const actorId = useAuthStore((state) => state.user?.id);
   const currentPlayers = useGameStore((state) => state.players);
   const currentSettlements = useGameStore((state) => state.settlements);
   const currentRounds = useGameStore((state) => state.rounds);
@@ -196,12 +199,15 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                     from={getPlayerName(settlement.fromPlayerId)}
                     isPaid={settlement.isPaid}
                     to={getPlayerName(settlement.toPlayerId)}
-                    onMarkPaid={() =>
-                      markSettlementPaid(
-                        settlement.id,
-                        !settlement.isPaid,
-                        table.id,
-                      )
+                    onMarkPaid={
+                      tableAccess(table, actorId).canManage
+                        ? () =>
+                            markSettlementPaid(
+                              settlement.id,
+                              !settlement.isPaid,
+                              table.id,
+                            )
+                        : undefined
                     }
                   />
                 ))
@@ -286,6 +292,11 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
               round={round}
             >
               <MatchHistoryCard
+                misdealPlayer={
+                  round.misdealPlayerId
+                    ? getPlayerName(round.misdealPlayerId)
+                    : undefined
+                }
                 customAmounts={
                   isCustomBooking(round)
                     ? round.customAmounts!.map((entry) => ({

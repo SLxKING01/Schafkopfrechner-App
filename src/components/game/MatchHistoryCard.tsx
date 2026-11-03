@@ -5,6 +5,8 @@ import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import { AppText } from '../ui/AppText';
 
+export const historyColumnWidths = { number: 24, game: 104, amount: 64 };
+
 type MatchHistoryCardProps = {
   roundNumber?: number;
   displayGameType?: string;
@@ -18,6 +20,7 @@ type MatchHistoryCardProps = {
   stockDeposit?: boolean;
   stockBooking?: string;
   details?: string;
+  misdealPlayer?: string;
   customAmounts?: { name: string; amount: number }[];
   compact?: boolean;
   onPress?: () => void;
@@ -37,6 +40,7 @@ export function MatchHistoryCard({
   stockDeposit,
   stockBooking,
   details,
+  misdealPlayer,
   customAmounts,
   compact = false,
   onPress,
@@ -46,7 +50,7 @@ export function MatchHistoryCard({
     roundNumber !== undefined ? (
       <AppText style={styles.numberColumn}>{roundNumber}</AppText>
     ) : null;
-  if (compact && customAmounts) {
+  if (compact && customAmounts && misdealPlayer === undefined) {
     const label = `Eigenes Spiel, ${customAmounts.map((p) => `${p.name}: ${p.amount.toFixed(2).replace('.', ',')} Euro`).join(', ')}, ${time}`;
     const content = (
       <>
@@ -94,23 +98,29 @@ export function MatchHistoryCard({
     );
     return row;
   }
-  if (compact) {
+  if (compact || misdealPlayer !== undefined) {
     const booking = !!stockBooking || !!stockDeposit;
     const heading =
-      stockBooking ??
+      (misdealPlayer !== undefined ? 'Vergeber' : stockBooking) ??
       (stockDeposit ? 'Alle weiter' : (displayGameType ?? gameType));
-    const label = `${gameType}, ${stockBooking ?? (stockDeposit ? 'Stock eingezahlt' : `Gewinner ${winner}, gegen ${losers}`)}, ${amount}, ${time}${details ? `, ${details}` : ''}${stockMovement ? `, ${stockMovement}` : ''}`;
+    const label =
+      misdealPlayer !== undefined
+        ? `Vergeber, ${misdealPlayer}, minus ${amount}, ${time}`
+        : `${gameType}, ${stockBooking ?? (stockDeposit ? 'Stock eingezahlt' : `Gewinner ${winner}, gegen ${losers}`)}, ${amount}, ${time}${details ? `, ${details}` : ''}${stockMovement ? `, ${stockMovement}` : ''}`;
     const content = (
       <>
         <View style={styles.entryHeading}>
           {numberCell}
           <View style={styles.headingCopy}>
-            <AppText style={styles.entryTitle}>{heading}</AppText>
+            <AppText numberOfLines={1} style={styles.entryTitle}>
+              {heading}
+            </AppText>
             <AppText style={styles.entryTime}>{time}</AppText>
           </View>
           <View style={styles.resultCopy}>
-            <AppText style={styles.entryResult}>
-              {booking ? (stockDeposit ? 'Vier Spieler' : losers) : winner}
+            <AppText numberOfLines={1} style={styles.entryResult}>
+              {misdealPlayer ??
+                (booking ? (stockDeposit ? 'Vier Spieler' : losers) : winner)}
             </AppText>
             {!booking && details ? (
               <AppText numberOfLines={1} style={styles.entryNote}>
@@ -119,9 +129,13 @@ export function MatchHistoryCard({
             ) : null}
           </View>
           <AppText
-            style={[styles.entryAmount, booking && styles.bookingAmount]}
+            style={[
+              styles.entryAmount,
+              booking && styles.bookingAmount,
+              misdealPlayer !== undefined && styles.penaltyAmount,
+            ]}
           >
-            {booking ? '' : '+'}
+            {misdealPlayer !== undefined ? '\u2212' : booking ? '' : '+'}
             {amount}
           </AppText>
         </View>
@@ -197,7 +211,7 @@ export function MatchHistoryCard({
 
 const styles = StyleSheet.create({
   numberColumn: {
-    width: 32,
+    width: historyColumnWidths.number,
     color: authColors.textSecondary,
     fontSize: authTypography.caption,
     fontVariant: ['tabular-nums'],
@@ -243,7 +257,7 @@ const styles = StyleSheet.create({
     gap: authSpacing.sm,
     minHeight: 40,
   },
-  headingCopy: { width: 64, minWidth: 0 },
+  headingCopy: { width: historyColumnWidths.game, minWidth: 0 },
   entryTitle: {
     color: authColors.textPrimary,
     fontSize: authTypography.caption,
@@ -251,13 +265,14 @@ const styles = StyleSheet.create({
   },
   entryTime: { color: authColors.textSecondary, fontSize: 10, marginTop: 2 },
   entryAmount: {
-    width: 64,
+    width: historyColumnWidths.amount,
     textAlign: 'right',
     color: authColors.accentGreen,
     fontSize: authTypography.caption,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
+  penaltyAmount: { color: authColors.errorText },
   bookingAmount: { color: authColors.goldHighlight },
   resultCopy: { flex: 1, minWidth: 0, gap: 2 },
   entryResult: {

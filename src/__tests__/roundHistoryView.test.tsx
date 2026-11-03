@@ -210,7 +210,10 @@ it('offers restoration only on the latest deletion and explains a failed attempt
       )!
       .props.onPress(),
   );
-  expect(restore).toHaveBeenCalledWith(round.id);
+  expect(restore).toHaveBeenCalledWith(
+    round.id,
+    deleted.roundHistory!.at(-1)!.id,
+  );
   expect(readText(view)).toContain('Der Stock passt nicht');
   const restored = appendRoundHistory(deleted, [], [changed], players, {
     kind: 'local',

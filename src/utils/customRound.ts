@@ -5,6 +5,14 @@ export type CustomRoundDraft = Record<
   string,
   { amount: string; negative: boolean }
 >;
+
+export function parseCustomAmountCents(amount: string) {
+  const value = amount.trim();
+  return /^\d+(?:[,.]\d{1,2})?$/.test(value)
+    ? toSafeCents(Number(value.replace(',', '.')))
+    : null;
+}
+
 export function initialCustomRoundDraft(
   round: GameRound | null,
   players: Player[],
@@ -31,10 +39,7 @@ export function summarizeCustomRound(
   let positiveCents = 0n;
   for (const player of players) {
     const entry = draft[player.id] ?? { amount: '0,00', negative: false };
-    const value = entry.amount.trim();
-    const cents = /^\d+(?:[,.]\d{1,2})?$/.test(value)
-      ? toSafeCents(Number(value.replace(',', '.')))
-      : null;
+    const cents = parseCustomAmountCents(entry.amount);
     if (cents === null)
       return {
         amounts,

@@ -265,6 +265,7 @@ export function normalizeTableSettings(
   settings?: Partial<TableSettings> | null,
 ) {
   return {
+    ...(settings?.misdealPenaltyEnabled ? { misdealPenaltyEnabled: true } : {}),
     stockStakeConfigured: settings?.stockStakeConfigured ?? !!settings,
     ...(!settings || settings.gameRules
       ? {

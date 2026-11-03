@@ -4,14 +4,20 @@ import { useEffect } from 'react';
 
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { AppLoadingScreen } from '../components/AppLoadingScreen';
+import { ProfileSetupPrompt } from '../components/profile/ProfileSetupPrompt';
 import { useCloudSync } from '../hooks/useCloudSync';
+import { useFriendsSession } from '../hooks/useFriendsSession';
+import { useProfileSession } from '../hooks/useOwnProfile';
 import { useRestoreGame } from '../hooks/useRestoreGame';
 import { useStoresHydrated } from '../hooks/useStoresHydrated';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
+import { EditProfileScreen } from '../screens/app/EditProfileScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
+import { FriendsScreen } from '../screens/app/FriendsScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
 import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
+import { TableInvitationsScreen } from '../screens/app/TableInvitationsScreen';
 import { TableStatisticsScreen } from '../screens/app/TableStatisticsScreen';
 import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -109,6 +115,21 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <AppStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="Friends"
+        component={FriendsScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="TableInvitations"
+        component={TableInvitationsScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
         name="CreateTable"
         component={CreateTableScreen}
         options={{ headerShown: false }}
@@ -148,6 +169,8 @@ function AppStackNavigator() {
 }
 
 export function RootNavigator() {
+  useFriendsSession();
+  useProfileSession();
   const sharedCacheOwner = useGameStore(
     (state) => state.currentTable?.shared?.userId,
   );
@@ -199,6 +222,7 @@ export function RootNavigator() {
           />
         </Stack.Navigator>
       </NavigationContainer>
+      {isAuthenticated ? <ProfileSetupPrompt key={userId} /> : null}
     </AppErrorBoundary>
   );
 }

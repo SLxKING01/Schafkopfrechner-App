@@ -8,7 +8,10 @@ import {
 } from '../../theme';
 import type { Player } from '../../types/game';
 import type { CustomRoundDraft } from '../../utils/customRound';
-import { summarizeCustomRound } from '../../utils/customRound';
+import {
+  parseCustomAmountCents,
+  summarizeCustomRound,
+} from '../../utils/customRound';
 import { formatOverviewMoney } from '../../utils/gameOverview';
 import { AppText } from '../ui/AppText';
 
@@ -65,6 +68,16 @@ export function CustomAmountsEditor({
                 keyboardType="decimal-pad"
                 value={entry.amount}
                 editable={!disabled}
+                onBlur={() => {
+                  const cents = parseCustomAmountCents(entry.amount);
+                  if (cents === null) return;
+                  const euros = Math.floor(cents / 100);
+                  const fraction = String(cents % 100).padStart(2, '0');
+                  const amount = `${euros},${fraction}`;
+                  if (amount !== entry.amount) {
+                    onChange({ ...entries, [player.id]: { ...entry, amount } });
+                  }
+                }}
                 onChangeText={(amount) =>
                   onChange({ ...entries, [player.id]: { ...entry, amount } })
                 }

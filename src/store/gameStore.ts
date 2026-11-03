@@ -45,6 +45,7 @@ import {
 import {
   activePlayers,
   getCurrentDealerId,
+  hasPendingMisdeal,
   getNextDealerId,
   participationRevision,
   roundPlayers,
@@ -52,21 +53,28 @@ import {
 import { normalizeGameOptions } from '../utils/formatGameOptions';
 import {
   archiveFinishedGameDay,
+  saveTableBeforeSwitch,
   mergeGameDayArchives,
 } from '../utils/gameDayArchive';
 import { outstandingBalances, paymentRevision } from '../utils/interimPayments';
 import { repriceRounds } from '../utils/repriceRounds';
-import { appendRoundHistory, restoredRoundOrder } from '../utils/roundHistory';
+import {
+  appendRoundHistory,
+  restoredRoundOrder,
+  roundHistoryFingerprint,
+} from '../utils/roundHistory';
 import {
   calculatePartyAmount,
   calculateRoundTariff,
   isValidRoundMetadata,
 } from '../utils/roundTariff';
+import { rewindUnchangedTurn, withRoundUndoContext } from '../utils/roundUndo';
 import {
   exclusiveStockMode,
   replayStockRules,
   stockMode,
 } from '../utils/stockRules';
+import { tableAccess } from '../utils/tableAccess';
 import {
   areTableOrderIdsEqual,
   sanitizeTableOrderIds,
@@ -74,6 +82,7 @@ import {
 import { useAuthStore } from './authStore';
 import { useMatchDayStore } from './matchDayStore';
 import { usePlayerStore } from './playerStore';
+import { useProfileStore } from './profileStore';
 
 type GameStore = {
   games: Game[];
@@ -103,6 +112,7 @@ type GameStore = {
     players: Player[],
     settings?: TableSettings,
   ) => boolean;
+  resumeTable: (tableId: string) => boolean;
   setPlayerOrder: (playerIds: string[]) => boolean;
   setPlayerAccount: (playerId: string, userId?: string) => boolean;
   setPlayerPaused: (
@@ -110,6 +120,7 @@ type GameStore = {
     playerId: string,
     paused: boolean,
   ) => boolean;
+  recordMisdeal: (tableId: string, playerId: string) => boolean;
   setDealer: (tableId: string, playerId: string) => boolean;
   setTurboRamsch: (enabled: boolean) => void;
   togglePlayerLeger: (playerId: string) => void;
@@ -118,8 +129,18 @@ type GameStore = {
   addRound: (round: CreateRoundPayload) => boolean;
   roundError?: string;
   updateRound: (id: string, round: CreateRoundPayload) => boolean;
-  undoLastRound: () => boolean;
-  restoreRound: (tableId: string, roundId: string) => boolean;
+  undoLastRound: (
+    expectedRoundId?: string,
+    expectedEventId?: string,
+    expectedFingerprint?: string,
+    allowEarlierRound?: boolean,
+  ) => boolean;
+  restoreRound: (
+    tableId: string,
+    roundId: string,
+    expectedEventId?: string,
+  ) => boolean;
+  revertRoundChange: (tableId: string, eventId: string) => boolean;
   recordInterimPayment: (
     tableId: string,
     revision: string,
@@ -144,11 +165,188 @@ type GameStore = {
   syncNow: () => Promise<void>;
 };
 
+function hasTablePermission(manage = false, tableId?: string) {
+  const state = useGameStore.getState();
+  const table =
+    !tableId || state.currentTable?.id === tableId
+      ? state.currentTable
+      : state.archivedGameDays.find((day) => day.table.id === tableId)?.table;
+  const access = tableAccess(table, useAuthStore.getState().user?.id);
+  return manage ? access.canManage : access.canWrite;
+}
+
+/** Build a validated round without changing the store or persisting speculative data. */
+export function planRoundAddition(
+  state: GameStore,
+  round: CreateRoundPayload,
+  roundId?: string,
+): Partial<GameStore> | null {
+  if (round.gameType === 'custom' && round.customAmounts === undefined)
+    return null;
+  if (
+    round.stockAction &&
+    !['deposit', 'payout', 'double'].includes(round.stockAction)
+  )
+    return null;
+  if (
+    !state.currentTable ||
+    !state.currentTable.isActive ||
+    !state.activeGame ||
+    !isValidRound(round, state.players)
+  ) {
+    return null;
+  }
+
+  if (
+    !exclusiveStockMode(state.currentTable.settings) ||
+    (round.gameType === 'ramsch' &&
+      !state.currentTable.settings.games.ramsch.enabled)
+  )
+    return null;
+  const participants = roundPlayers(
+    state.currentTable,
+    state.players,
+    state.rounds.length,
+  );
+  if (
+    (round.stockAction === 'payout' || round.stockAction === 'double') &&
+    getStockBalanceCents(state.rounds) === 0
+  )
+    return null;
+  const monetary = isCustomBooking(round);
+  if (
+    round.participationRevision !== undefined &&
+    round.participationRevision !==
+      participationRevision(
+        state.currentTable,
+        state.players,
+        state.rounds.length,
+      )
+  )
+    return null;
+  if (!monetary) {
+    const expected = participants
+      .map((p) => p.id)
+      .sort()
+      .join('|');
+    const actual = (
+      round.stockAction === 'deposit'
+        ? round.loserIds
+        : [...roundWinnerIds(round), ...round.loserIds]
+    )
+      .slice()
+      .sort()
+      .join('|');
+    if (participants.length !== 4 || actual !== expected) return null;
+  }
+  if (round.tariffOptions) {
+    try {
+      const options = round.tariffOptions;
+      const expectedLeger =
+        state.currentTable.settings.bonusRules.leger.enabled &&
+        getGameRules(state.currentTable.settings, round.gameType).bonuses.leger
+          ? Math.min(4, state.currentTable.placedLegerPlayerIds?.length ?? 0)
+          : 0;
+      if (
+        options.legerCount !== expectedLeger ||
+        options.turboRamsch !== (state.currentTable.turboRamschEnabled ?? false)
+      )
+        return null;
+      const tariff = calculateRoundTariff(
+        state.currentTable.settings,
+        round.gameType,
+        options,
+      );
+      const party = calculatePartyAmount(
+        tariff.totalCents,
+        round.gameType,
+        roundWinnerIds(round).length,
+        round.loserIds.length,
+        state.currentTable.settings.gameRules ||
+          options.durchmarsch !== undefined ||
+          options.jungfrauen !== undefined
+          ? options
+          : undefined,
+      );
+      if (toSafeCents(round.amount) !== party.totalCents) return null;
+    } catch {
+      return null;
+    }
+  }
+  const created = createGameRound(state.currentTable.id, {
+    ...round,
+    ...(!monetary ? { participantIds: participants.map((p) => p.id) } : {}),
+    amount: toSafeCents(round.amount)! / 100,
+    settingsSnapshot: state.currentTable.settings,
+  });
+  if (roundId) created.id = roundId;
+  created.stockRulesVersion = 1;
+  if (!isValidRoundMetadata(created)) return null;
+  created.seatOrderIds = state.players.map((p) => p.id);
+  created.roundContext = {
+    completesDeal: !isCustomBooking(created) && round.stockAction !== 'deposit',
+    dealerIdBefore:
+      getCurrentDealerId(
+        state.currentTable,
+        state.players,
+        state.rounds.length,
+      ) ?? state.players[0].id,
+    legerPlayerIds: [...(state.currentTable.placedLegerPlayerIds ?? [])],
+    turboRamsch: state.currentTable.turboRamschEnabled ?? false,
+  };
+  let nextRounds: GameRound[];
+  let nextGameState;
+  try {
+    nextRounds = replayStockRules(
+      [...state.rounds, created],
+      state.currentTable,
+    );
+    nextGameState = recalculateGameState(
+      state.players,
+      nextRounds,
+      state.currentTable?.interimPayments,
+    );
+  } catch {
+    return null;
+  }
+
+  return withRoundUndoContext(state, {
+    rounds: nextRounds,
+    currentTable: {
+      ...appendRoundHistory(
+        state.currentTable,
+        state.rounds,
+        nextRounds,
+        state.players,
+        roundHistoryActor(),
+        created.id,
+      ),
+      placedLegerPlayerIds: created.roundContext.completesDeal
+        ? []
+        : state.currentTable.placedLegerPlayerIds,
+      dealerId: created.roundContext.completesDeal
+        ? (getNextDealerId(
+            state.currentTable,
+            state.players,
+            state.rounds.length,
+          ) ?? undefined)
+        : created.roundContext.dealerIdBefore,
+    },
+    ...nextGameState,
+    isOffline: false,
+  });
+}
+
 function roundHistoryActor(): import('../types/game').RoundHistoryActor {
   const user = useAuthStore.getState().user;
   if (!user) return { kind: 'local', name: 'Lokale Erfassung' };
+  const profileState = useProfileStore.getState();
   const label =
-    user.user_metadata?.username ?? user.user_metadata?.display_name;
+    (profileState.ownerId === user.id
+      ? profileState.profile?.displayName
+      : undefined) ??
+    user.user_metadata?.display_name ??
+    user.user_metadata?.username;
   return {
     kind: 'account',
     id: user.id,
@@ -228,7 +426,7 @@ function normalizeGameTable(table: GameTable | null): GameTable | null {
 
 export const useGameStore = create<GameStore>()(
   persist(
-    (set) => ({
+    (set): GameStore => ({
       games: [],
       archivedGameDays: [],
       currentTable: null,
@@ -464,20 +662,16 @@ export const useGameStore = create<GameStore>()(
           return false;
         }
 
-        if (
-          useGameStore.getState().activeGame &&
-          useGameStore.getState().currentTable
-        )
-          return false;
         set((state) => ({
-          archivedGameDays: archiveFinishedGameDay(
+          archivedGameDays: saveTableBeforeSwitch(
             state.archivedGameDays,
             state,
           ),
           currentTable: createGameTable({
-            existingHashCodes: state.currentTable?.hashCode
-              ? [state.currentTable.hashCode]
-              : [],
+            existingHashCodes: [
+              state.currentTable,
+              ...state.archivedGameDays.map(({ table }) => table),
+            ].flatMap((table) => (table?.hashCode ? [table.hashCode] : [])),
             name: tableName,
             players: uniquePlayers,
             settings,
@@ -492,7 +686,28 @@ export const useGameStore = create<GameStore>()(
 
         return true;
       },
+      resumeTable: (tableId) => {
+        const state = useGameStore.getState();
+        const saved = state.archivedGameDays.find(
+          ({ table }) => table.id === tableId && table.isActive,
+        );
+        if (!saved) return false;
+        set({
+          archivedGameDays: saveTableBeforeSwitch(
+            state.archivedGameDays.filter(({ table }) => table.id !== tableId),
+            state,
+          ),
+          currentTable: saved.table,
+          players: saved.players,
+          rounds: saved.rounds,
+          balances: saved.balances,
+          settlements: saved.settlements,
+          activeGame: true,
+        });
+        return true;
+      },
       togglePlayerLeger: (playerId) => {
+        if (!hasTablePermission(false)) return;
         set((state) => {
           if (
             !state.currentTable ||
@@ -519,6 +734,7 @@ export const useGameStore = create<GameStore>()(
         });
       },
       setTurboRamsch: (enabled) => {
+        if (!hasTablePermission(false)) return;
         set((state) =>
           state.currentTable && state.currentTable.isActive && state.activeGame
             ? {
@@ -531,6 +747,7 @@ export const useGameStore = create<GameStore>()(
         );
       },
       setPlayerPaused: (tableId, playerId, paused) => {
+        if (!hasTablePermission(true, tableId)) return false;
         let changed = false;
         set((state) => {
           if (
@@ -571,7 +788,77 @@ export const useGameStore = create<GameStore>()(
         });
         return changed;
       },
+      recordMisdeal: (tableId, playerId) => {
+        if (!hasTablePermission(true, tableId)) return false;
+        const state = useGameStore.getState();
+        const table = state.currentTable;
+        if (
+          !table?.isActive ||
+          !state.activeGame ||
+          table.id !== tableId ||
+          !table.settings.misdealPenaltyEnabled ||
+          getCurrentDealerId(table, state.players, state.rounds.length) !==
+            playerId
+        )
+          return false;
+
+        const id = crypto.randomUUID();
+        const event = {
+          id,
+          playerId,
+          occurredAt: new Date().toISOString(),
+          actor: roundHistoryActor(),
+        };
+        if (!hasPendingMisdeal(table, state.rounds, playerId)) {
+          set({
+            currentTable: {
+              ...table,
+              misdeals: [...(table.misdeals ?? []), event],
+            },
+          });
+          return true;
+        }
+
+        const recipients = activePlayers(state.players).filter(
+          (p) => p.id !== playerId,
+        );
+        const tariff = toSafeCents(table.settings.games.solo.value);
+        if (!tariff || !recipients.length) return false;
+        const amount = (tariff * recipients.length) / 100;
+        const patch = planRoundAddition(
+          state,
+          {
+            gameType: 'custom',
+            misdealPlayerId: playerId,
+            amount,
+            winnerId: '',
+            winnerIds: [],
+            loserIds: [],
+            customAmounts: [
+              { playerId, amount: -amount },
+              ...recipients.map(({ id }) => ({
+                playerId: id,
+                amount: tariff / 100,
+              })),
+            ],
+          },
+          id,
+        );
+        if (!patch?.currentTable) return false;
+        set({
+          ...patch,
+          currentTable: {
+            ...patch.currentTable,
+            misdeals: [
+              ...(table.misdeals ?? []),
+              { ...event, penaltyRoundId: id },
+            ],
+          },
+        });
+        return true;
+      },
       setDealer: (tableId, playerId) => {
+        if (!hasTablePermission(true, tableId)) return false;
         let didUpdate = false;
         set((state) => {
           if (
@@ -608,6 +895,9 @@ export const useGameStore = create<GameStore>()(
         return didUpdate;
       },
       setPlayerAccount: (playerId, userId) => {
+        if (!hasTablePermission(true)) return false;
+        // Foreign accounts are linked only by the server after invitation acceptance.
+        if (userId && userId !== useAuthStore.getState().user?.id) return false;
         const state = useGameStore.getState();
         if (
           !state.activeGame ||
@@ -631,6 +921,7 @@ export const useGameStore = create<GameStore>()(
         return true;
       },
       setPlayerOrder: (playerIds) => {
+        if (!hasTablePermission(true)) return false;
         let didUpdate = false;
         set((state) => {
           if (
@@ -662,6 +953,7 @@ export const useGameStore = create<GameStore>()(
         return didUpdate;
       },
       addPlayer: (name) => {
+        if (!hasTablePermission(true)) return false;
         const playerName = name.trim();
 
         if (!playerName) {
@@ -723,6 +1015,7 @@ export const useGameStore = create<GameStore>()(
         return didAdd;
       },
       removePlayer: (id) => {
+        if (!hasTablePermission(true)) return;
         set((state) => {
           if (
             state.currentTable &&
@@ -779,6 +1072,7 @@ export const useGameStore = create<GameStore>()(
         });
       },
       addRound: (round) => {
+        if (!hasTablePermission(false)) return false;
         set({ roundError: undefined });
         if (round.gameType === 'custom' && round.customAmounts === undefined)
           return false;
@@ -789,173 +1083,22 @@ export const useGameStore = create<GameStore>()(
           return false;
         let didAdd = false;
 
-        set((state) => {
-          if (
-            !state.currentTable ||
-            !state.currentTable.isActive ||
-            !state.activeGame ||
-            !isValidRound(round, state.players)
-          ) {
-            return state;
-          }
-
-          if (
-            !exclusiveStockMode(state.currentTable.settings) ||
-            (round.gameType === 'ramsch' &&
-              !state.currentTable.settings.games.ramsch.enabled)
-          )
-            return state;
-          const participants = roundPlayers(
-            state.currentTable,
-            state.players,
-            state.rounds.length,
-          );
-          if (
-            (round.stockAction === 'payout' ||
-              round.stockAction === 'double') &&
-            getStockBalanceCents(state.rounds) === 0
-          )
-            return state;
-          const monetary = isCustomBooking(round);
-          if (
-            round.participationRevision !== undefined &&
-            round.participationRevision !==
-              participationRevision(
-                state.currentTable,
-                state.players,
-                state.rounds.length,
-              )
-          )
-            return state;
-          if (!monetary) {
-            const expected = participants
-              .map((p) => p.id)
-              .sort()
-              .join('|');
-            const actual = (
-              round.stockAction === 'deposit'
-                ? round.loserIds
-                : [...roundWinnerIds(round), ...round.loserIds]
-            )
-              .slice()
-              .sort()
-              .join('|');
-            if (participants.length !== 4 || actual !== expected) return state;
-          }
-          if (round.tariffOptions) {
-            try {
-              const options = round.tariffOptions;
-              const expectedLeger =
-                state.currentTable.settings.bonusRules.leger.enabled &&
-                getGameRules(state.currentTable.settings, round.gameType)
-                  .bonuses.leger
-                  ? Math.min(
-                      4,
-                      state.currentTable.placedLegerPlayerIds?.length ?? 0,
-                    )
-                  : 0;
-              if (
-                options.legerCount !== expectedLeger ||
-                options.turboRamsch !==
-                  (state.currentTable.turboRamschEnabled ?? false)
-              )
-                return state;
-              const tariff = calculateRoundTariff(
-                state.currentTable.settings,
-                round.gameType,
-                options,
-              );
-              const party = calculatePartyAmount(
-                tariff.totalCents,
-                round.gameType,
-                roundWinnerIds(round).length,
-                round.loserIds.length,
-                state.currentTable.settings.gameRules ||
-                  options.durchmarsch !== undefined ||
-                  options.jungfrauen !== undefined
-                  ? options
-                  : undefined,
-              );
-              if (toSafeCents(round.amount) !== party.totalCents) return state;
-            } catch {
-              return state;
-            }
-          }
-          const created = createGameRound(state.currentTable.id, {
-            ...round,
-            ...(!monetary
-              ? { participantIds: participants.map((p) => p.id) }
-              : {}),
-            amount: toSafeCents(round.amount)! / 100,
-            settingsSnapshot: state.currentTable.settings,
-          });
-          created.stockRulesVersion = 1;
-          if (!isValidRoundMetadata(created)) return state;
-          created.seatOrderIds = state.players.map((p) => p.id);
-          created.roundContext = {
-            completesDeal:
-              !isCustomBooking(created) && round.stockAction !== 'deposit',
-            dealerIdBefore:
-              getCurrentDealerId(
-                state.currentTable,
-                state.players,
-                state.rounds.length,
-              ) ?? state.players[0].id,
-            legerPlayerIds: [
-              ...(state.currentTable.placedLegerPlayerIds ?? []),
-            ],
-            turboRamsch: state.currentTable.turboRamschEnabled ?? false,
-          };
-          let nextRounds: GameRound[];
-          let nextGameState;
-          try {
-            nextRounds = replayStockRules(
-              [...state.rounds, created],
-              state.currentTable,
-            );
-            nextGameState = recalculateGameState(
-              state.players,
-              nextRounds,
-              state.currentTable?.interimPayments,
-            );
-          } catch {
-            return state;
-          }
+        const patch = planRoundAddition(useGameStore.getState(), round);
+        if (patch) {
+          set(patch);
           didAdd = true;
-
-          return {
-            rounds: nextRounds,
-            currentTable: {
-              ...appendRoundHistory(
-                state.currentTable,
-                state.rounds,
-                nextRounds,
-                state.players,
-                roundHistoryActor(),
-                created.id,
-              ),
-              placedLegerPlayerIds: created.roundContext.completesDeal
-                ? []
-                : state.currentTable.placedLegerPlayerIds,
-              dealerId: created.roundContext.completesDeal
-                ? (getNextDealerId(
-                    state.currentTable,
-                    state.players,
-                    state.rounds.length,
-                  ) ?? undefined)
-                : created.roundContext.dealerIdBefore,
-            },
-            ...nextGameState,
-            isOffline: false,
-          };
-        });
+        }
 
         return didAdd;
       },
       updateRound: (id, payload) => {
+        if (!hasTablePermission(false)) return false;
         set({ roundError: undefined });
         const state = useGameStore.getState();
         if (
+          state.rounds.some(
+            (round) => round.id === id && round.misdealPlayerId,
+          ) ||
           !state.activeGame ||
           !state.currentTable?.isActive ||
           !isValidRound(payload, state.players)
@@ -1103,19 +1246,21 @@ export const useGameStore = create<GameStore>()(
             nextRounds,
             state.currentTable?.interimPayments,
           );
-          set({
-            rounds: nextRounds,
-            ...calculated,
-            currentTable: appendRoundHistory(
-              state.currentTable,
-              state.rounds,
-              nextRounds,
-              state.players,
-              roundHistoryActor(),
-              id,
-            ),
-            isOffline: false,
-          });
+          set(
+            withRoundUndoContext(state, {
+              rounds: nextRounds,
+              ...calculated,
+              currentTable: appendRoundHistory(
+                state.currentTable,
+                state.rounds,
+                nextRounds,
+                state.players,
+                roundHistoryActor(),
+                id,
+              ),
+              isOffline: false,
+            }),
+          );
           return true;
         } catch (error) {
           set({
@@ -1124,7 +1269,8 @@ export const useGameStore = create<GameStore>()(
           return false;
         }
       },
-      restoreRound: (tableId, roundId) => {
+      restoreRound: (tableId, roundId, expectedEventId) => {
+        if (!hasTablePermission(false, tableId)) return false;
         set({ roundError: undefined });
         const state = useGameStore.getState();
         const table = state.currentTable;
@@ -1143,7 +1289,8 @@ export const useGameStore = create<GameStore>()(
         if (
           state.rounds.some((r) => r.id === roundId) ||
           event?.action !== 'deleted' ||
-          !event.before
+          !event.before ||
+          (expectedEventId !== undefined && event.id !== expectedEventId)
         )
           return fail(
             'Das Spiel ist bereits vorhanden oder nicht mehr zur Wiederherstellung verfügbar.',
@@ -1178,14 +1325,6 @@ export const useGameStore = create<GameStore>()(
             nextRounds,
             table.interimPayments,
           );
-          const completesDeal =
-            restored.roundContext?.completesDeal ??
-            (!isCustomBooking(restored) &&
-              !(
-                restored.stockAction === 'deposit' &&
-                restored.stockCompletesDeal === false
-              ));
-          const resumesLatest = order.at(-1) === roundId && completesDeal;
           const historyTable = appendRoundHistory(
             table,
             state.rounds,
@@ -1193,31 +1332,19 @@ export const useGameStore = create<GameStore>()(
             state.players,
             roundHistoryActor(),
             roundId,
+            event.id,
           );
-          set({
-            rounds: nextRounds,
-            ...calculated,
-            currentTable: {
-              ...historyTable,
-              ...(resumesLatest
-                ? {
-                    dealerId:
-                      getNextDealerId(
-                        {
-                          ...table,
-                          dealerId:
-                            restored.roundContext?.dealerIdBefore ??
-                            table.dealerId,
-                        },
-                        state.players,
-                        state.rounds.length,
-                      ) ?? undefined,
-                    placedLegerPlayerIds: [],
-                  }
-                : {}),
-            },
-            isOffline: false,
-          });
+          set(
+            withRoundUndoContext(state, {
+              rounds: nextRounds,
+              ...calculated,
+              currentTable: {
+                ...historyTable,
+                ...rewindUnchangedTurn(state, event),
+              },
+              isOffline: false,
+            }),
+          );
           return true;
         } catch (error) {
           return fail(
@@ -1227,100 +1354,199 @@ export const useGameStore = create<GameStore>()(
           );
         }
       },
-      undoLastRound: () => {
+      undoLastRound: (
+        expectedRoundId,
+        expectedEventId,
+        expectedFingerprint,
+        allowEarlierRound = false,
+      ) => {
+        if (!hasTablePermission(false)) return false;
         set({ roundError: undefined });
         const state = useGameStore.getState();
+        const table = state.currentTable;
+        const latest = state.rounds.at(-1);
+        const target = allowEarlierRound
+          ? state.rounds.find(({ id }) => id === expectedRoundId)
+          : latest;
+        if (
+          expectedRoundId !== undefined &&
+          (!target ||
+            target.id !== expectedRoundId ||
+            (expectedFingerprint !== undefined &&
+              roundHistoryFingerprint(target) !== expectedFingerprint) ||
+            (expectedEventId !== undefined &&
+              table?.roundHistory?.filter((e) => e.roundId === target.id).at(-1)
+                ?.id !== expectedEventId))
+        ) {
+          set({
+            roundError:
+              'Die letzte Runde wurde inzwischen geändert. Bitte den aktuellen Stand prüfen und die Rücknahme erneut öffnen.',
+          });
+          return false;
+        }
         if (
           !state.activeGame ||
-          !state.currentTable?.isActive ||
-          !state.rounds.length
+          !table?.isActive ||
+          !target ||
+          ['carryIn', 'carryOut', 'refund'].includes(target.stockAction ?? '')
         )
           return false;
-        const last = state.rounds[state.rounds.length - 1];
-        if (last.stockAction === 'carryIn') return false;
         try {
           const nextRounds = replayStockRules(
-            state.rounds.slice(0, -1),
-            state.currentTable,
+            state.rounds.filter(({ id }) => id !== target.id),
+            table,
           );
           const calculated = recalculateGameState(
             state.players,
             nextRounds,
-            state.currentTable?.interimPayments,
+            table.interimPayments,
           );
+          const creation = table.roundHistory
+            ?.slice()
+            .reverse()
+            .find(
+              (e) =>
+                e.roundId === target.id &&
+                (e.action === 'created' || e.action === 'restored'),
+            );
           const historyTable = appendRoundHistory(
-            state.currentTable,
+            table,
             state.rounds,
             nextRounds,
             state.players,
             roundHistoryActor(),
-            last.id,
+            target.id,
           );
-          const context = last.roundContext;
-          if (
-            context?.completesDeal === false ||
-            (last.stockAction === 'deposit' &&
-              last.stockCompletesDeal === false)
-          ) {
-            set({
+          set(
+            withRoundUndoContext(state, {
               rounds: nextRounds,
               ...calculated,
-              currentTable: historyTable,
+              currentTable: {
+                ...historyTable,
+                ...(target === latest
+                  ? rewindUnchangedTurn(state, creation)
+                  : {}),
+              },
               isOffline: false,
-            });
-            return true;
-          }
-          const currentDealer = getCurrentDealerId(
-            state.currentTable,
-            state.players,
-            state.rounds.length,
+            }),
           );
-          const index = state.players.findIndex(
-            (player) => player.id === currentDealer,
-          );
-          const previousDealer =
-            state.players[
-              (index - 1 + state.players.length) % state.players.length
-            ]?.id;
-          const validIds = new Set(
-            activePlayers(state.players).map((player) => player.id),
-          );
-          set({
-            rounds: nextRounds,
-            ...calculated,
-            currentTable: {
-              ...historyTable,
-              dealerId:
-                context && validIds.has(context.dealerIdBefore)
-                  ? context.dealerIdBefore
-                  : (getCurrentDealerId(
-                      {
-                        ...state.currentTable,
-                        dealerId: context?.dealerIdBefore ?? previousDealer,
-                      },
-                      state.players,
-                      nextRounds.length,
-                    ) ?? undefined),
-              ...(context
-                ? {
-                    placedLegerPlayerIds: context.legerPlayerIds.filter((id) =>
-                      validIds.has(id),
-                    ),
-                    turboRamschEnabled: context.turboRamsch,
-                  }
-                : {}),
-            },
-            isOffline: false,
-          });
           return true;
         } catch (error) {
           set({
-            roundError: error instanceof Error ? error.message : undefined,
+            roundError:
+              error instanceof Error
+                ? error.message
+                : 'Die Runde konnte nicht zurückgenommen werden.',
           });
           return false;
         }
       },
+      revertRoundChange: (tableId, eventId) => {
+        set({ roundError: undefined });
+        const state = useGameStore.getState();
+        const table = state.currentTable;
+        const fail = (message: string) => {
+          set({ roundError: message });
+          return false;
+        };
+        if (!hasTablePermission(false, tableId))
+          return fail(
+            'Du hast kein Schreibrecht mehr. Der Tisch bleibt unverändert.',
+          );
+        if (!state.activeGame || !table?.isActive || table.id !== tableId)
+          return fail(
+            'Rückgängig ist nur am geöffneten, laufenden Tisch möglich.',
+          );
+        const event = table.roundHistory?.find((e) => e.id === eventId);
+        if (
+          !event ||
+          event.causeRoundId ||
+          table.roundHistory?.filter((e) => e.roundId === event.roundId).at(-1)
+            ?.id !== eventId
+        )
+          return fail(
+            'Dieses Spiel wurde inzwischen geändert. Bitte den aktuellen Änderungsverlauf prüfen.',
+          );
+        if (event.action === 'deleted')
+          return state.restoreRound(tableId, event.roundId, event.id);
+        const current = state.rounds.find(
+          (round) => round.id === event.roundId,
+        );
+        if (
+          !current ||
+          !event.after ||
+          roundHistoryFingerprint(current) !==
+            roundHistoryFingerprint(event.after)
+        )
+          return fail(
+            'Dieses Spiel wurde inzwischen geändert oder gelöscht. Bitte den aktuellen Stand prüfen.',
+          );
+        if (
+          ['carryIn', 'carryOut', 'refund'].includes(current.stockAction ?? '')
+        )
+          return fail(
+            'Überträge und Abschlussbuchungen können hier nicht zurückgenommen werden.',
+          );
+        try {
+          const original =
+            event.action === 'updated' ? event.before : undefined;
+          if (
+            original &&
+            (!isValidRound(original, state.players) ||
+              !isValidRoundMetadata(original))
+          )
+            return fail(
+              'Die ursprünglichen Spieler oder Rundendaten sind nicht vollständig vorhanden.',
+            );
+          if (event.action === 'updated' && !original)
+            return fail('Die ursprüngliche Fassung ist nicht verfügbar.');
+          const planned = original
+            ? state.rounds.map((round) =>
+                round.id === event.roundId
+                  ? ({
+                      ...JSON.parse(JSON.stringify(original)),
+                      updatedAt: new Date().toISOString(),
+                    } as GameRound)
+                  : round,
+              )
+            : state.rounds.filter((round) => round.id !== event.roundId);
+          const nextRounds = replayStockRules(planned, table);
+          const calculated = recalculateGameState(
+            state.players,
+            nextRounds,
+            table.interimPayments,
+          );
+          const historyTable = appendRoundHistory(
+            table,
+            state.rounds,
+            nextRounds,
+            state.players,
+            roundHistoryActor(),
+            event.roundId,
+            event.id,
+          );
+          set(
+            withRoundUndoContext(state, {
+              rounds: nextRounds,
+              ...calculated,
+              currentTable: {
+                ...historyTable,
+                ...rewindUnchangedTurn(state, event),
+              },
+              isOffline: false,
+            }),
+          );
+          return true;
+        } catch (error) {
+          return fail(
+            error instanceof Error
+              ? error.message
+              : 'Die Änderung konnte nicht zurückgenommen werden.',
+          );
+        }
+      },
       recordInterimPayment: (tableId, revision, payment) => {
+        if (!hasTablePermission(true, tableId)) return false;
         let saved = false;
         set((state) => {
           const table = state.currentTable;
@@ -1387,6 +1613,7 @@ export const useGameStore = create<GameStore>()(
         return saved;
       },
       settleInterimPayments: (tableId, revision) => {
+        if (!hasTablePermission(true, tableId)) return false;
         let saved = false;
         set((state) => {
           const table = state.currentTable;
@@ -1431,6 +1658,7 @@ export const useGameStore = create<GameStore>()(
         return saved;
       },
       voidInterimPayment: (tableId, id) => {
+        if (!hasTablePermission(true, tableId)) return false;
         let saved = false;
         set((state) => {
           const table = state.currentTable;
@@ -1463,6 +1691,7 @@ export const useGameStore = create<GameStore>()(
         return saved;
       },
       finishGameDay: (stockResolution) => {
+        if (!hasTablePermission(true)) return false;
         let didFinish = false;
         set((state) => {
           if (
@@ -1568,6 +1797,7 @@ export const useGameStore = create<GameStore>()(
         return didFinish;
       },
       markSettlementPaid: (id, isPaid = true, tableId) => {
+        if (!hasTablePermission(true, tableId)) return;
         set((state) => {
           const targetId = tableId ?? state.currentTable?.id;
           if (!targetId) return state;
@@ -1620,6 +1850,7 @@ export const useGameStore = create<GameStore>()(
         });
       },
       updateCurrentTableSettings: (settings, scope = 'future') => {
+        if (!hasTablePermission(true)) return false;
         set({ roundError: undefined });
         let didUpdate = false;
 

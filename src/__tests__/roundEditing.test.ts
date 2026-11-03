@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { createDefaultTableSettings } from '../constants/tableSettings';
 import { reliableStorage } from '../storage/reliableStorage';
+import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 import { emptyTariffOptions } from '../utils/roundTariff';
@@ -116,7 +117,7 @@ it.each(
     expect(useGameStore.getState().rounds[0]).toEqual(original);
   },
 );
-it('restores the consumed dealer/Leger/Turbo snapshot after restart even after seat reordering', async () => {
+it('preserves later seat, Leger and Turbo changes when undoing after restart', async () => {
   const store = useGameStore.getState();
   store.togglePlayerLeger('a');
   store.setTurboRamsch(true);
@@ -146,9 +147,9 @@ it('restores the consumed dealer/Leger/Turbo snapshot after restart even after s
   expect(state.rounds).toHaveLength(0);
   expect(state.balances.every((b) => b.amount === 0)).toBe(true);
   expect(state.currentTable).toMatchObject({
-    dealerId: 'a',
-    placedLegerPlayerIds: ['a'],
-    turboRamschEnabled: true,
+    dealerId: 'b',
+    placedLegerPlayerIds: ['d'],
+    turboRamschEnabled: false,
   });
   expect(state.players.map((p) => p.id)).toEqual(['a', 'd', 'c', 'b']);
 });
@@ -255,10 +256,15 @@ it('reprices Stock deposits and their payout together with the games', () => {
   ).toEqual([1.5, 1.5, -1.5, -1.5]);
 });
 
-it('links a guest to an account without changing past games or balances', () => {
+it('links only the own account without changing past games or balances', () => {
+  const previousUser = useAuthStore.getState().user;
+  useAuthStore.setState({ user: { id: 'account-b' } as never });
   expect(useGameStore.getState().addRound(payload())).toBe(true);
   const rounds = useGameStore.getState().rounds;
   const balances = useGameStore.getState().balances;
+  expect(useGameStore.getState().setPlayerAccount('b', 'foreign-account')).toBe(
+    false,
+  );
   expect(useGameStore.getState().setPlayerAccount('b', 'account-b')).toBe(true);
   expect(
     useGameStore.getState().players.find((player) => player.id === 'b')?.userId,
@@ -270,6 +276,7 @@ it('links a guest to an account without changing past games or balances', () => 
   expect(useGameStore.getState().balances).toBe(balances);
   expect(useGameStore.getState().setPlayerAccount('b')).toBe(true);
   expect(useGameStore.getState().rounds).toBe(rounds);
+  useAuthStore.setState({ user: previousUser });
 });
 
 it('rejects contradictory declarer outcomes and persists the corrected result', () => {

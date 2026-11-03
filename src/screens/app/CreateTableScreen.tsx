@@ -21,9 +21,9 @@ import {
 import Animated from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
-import { AccountPicker } from '../../components/game/AccountPicker';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { FriendChip } from '../../components/game/FriendChip';
+import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppText } from '../../components/ui/AppText';
 import {
@@ -31,12 +31,12 @@ import {
   PROFILE_ACCENTS,
 } from '../../constants/profileCustomization';
 import { createDefaultTableSettings } from '../../constants/tableSettings';
-import { usePlayerAccounts } from '../../hooks/usePlayerAccounts';
+import { useFriendProfiles } from '../../hooks/useFriendProfiles';
+import { useOwnProfile } from '../../hooks/useOwnProfile';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
-import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
 import { formEntering, selectionEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
@@ -72,19 +72,21 @@ const maxPlayers = 5;
 export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
   const playerInputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const user = useAuthStore((state) => state.user);
-  const accentId = useProfileAppearanceStore((state) => state.accentId);
-  const avatarId = useProfileAppearanceStore((state) => state.avatarId);
+  const { profile, displayName } = useOwnProfile();
   const currentUserProfile = useMemo<FriendProfile>(
     () => ({
-      accentColor: PROFILE_ACCENTS[accentId],
-      avatarId,
+      accentColor: PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'],
+      avatarId: profile?.animalId ?? 'fox',
+      avatarKind: profile?.avatarKind ?? 'none',
+      accentId: profile?.accentId ?? 'forestGreen',
+      photoPath: profile?.photoPath,
       id: user?.id ?? 'current-user',
       isOnline: true,
-      username: getCurrentUserName(user),
+      username: displayName,
     }),
-    [accentId, avatarId, user],
+    [profile, displayName, user?.id],
   );
-  const { accounts } = usePlayerAccounts();
+  const { accounts, error: friendsError } = useFriendProfiles();
   const selectableProfiles = useMemo(
     () => [
       currentUserProfile,
@@ -163,41 +165,45 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     playerInputRef.current?.focus();
   }
 
-  const toggleFriend = useCallback((friend: FriendProfile) => {
-    setPlayers((currentPlayers) => {
-      const existingFriendPlayer = currentPlayers.find(
-        (player) => player.friendId === friend.id,
-      );
-
-      if (existingFriendPlayer) {
-        return currentPlayers.filter(
-          (player) => player.id !== existingFriendPlayer.id,
+  const toggleFriend = useCallback(
+    (friend: FriendProfile) => {
+      setPlayers((currentPlayers) => {
+        const existingFriendPlayer = currentPlayers.find(
+          (player) => player.friendId === friend.id,
         );
-      }
 
-      const existsByName = currentPlayers.some(
-        (player) =>
-          player.name.trim().toLowerCase() ===
-          friend.username.trim().toLowerCase(),
-      );
+        if (existingFriendPlayer) {
+          return currentPlayers.filter(
+            (player) => player.id !== existingFriendPlayer.id,
+          );
+        }
 
-      if (existsByName || currentPlayers.length >= maxPlayers) {
-        return currentPlayers;
-      }
+        const existsByName = currentPlayers.some(
+          (player) =>
+            player.name.trim().toLowerCase() ===
+            friend.username.trim().toLowerCase(),
+        );
 
-      return [
-        ...currentPlayers,
-        {
-          ...createLocalPlayer(friend.username),
-          accentColor: friend.accentColor,
-          animalId: friend.avatarId,
-          friendId: friend.id,
-          userId: friend.id,
-          isLocal: false,
-        },
-      ];
-    });
-  }, []);
+        if (existsByName || currentPlayers.length >= maxPlayers) {
+          return currentPlayers;
+        }
+
+        return [
+          ...currentPlayers,
+          {
+            ...createLocalPlayer(friend.username),
+            accentColor: friend.accentColor,
+            animalId: friend.avatarId,
+            friendId: friend.id,
+            ...(friend.id === user?.id
+              ? { userId: friend.id, isLocal: false }
+              : {}),
+          },
+        ];
+      });
+    },
+    [user?.id],
+  );
 
   function removePlayer(id: string) {
     setPlayers((currentPlayers) =>
@@ -369,10 +375,10 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               <View style={styles.friendsHeader}>
                 <View style={styles.friendsCopyBlock}>
                   <AppText style={styles.friendsTitle}>
-                    Mitspieler mit Konto
+                    Spielerplätze aus Freunden
                   </AppText>
                   <AppText style={styles.friendsCopy}>
-                    Diese Spieler sehen den Tisch automatisch auf ihrem Handy.
+                    Kontozugriff kannst du später per Tischeinladung anbieten.
                   </AppText>
                 </View>
                 <Pressable
@@ -484,13 +490,16 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
         </View>
       </KeyboardAvoidingView>
 
-      <AccountPicker
+      {!!friendsError && (
+        <AppText accessibilityRole="alert">{friendsError}</AppText>
+      )}
+      <FriendPickerSheet
         visible={friendPickerVisible}
         onClose={() => setFriendPickerVisible(false)}
-        onSelect={toggleFriend}
-        excludedIds={players.flatMap((player) =>
-          player.userId ? [player.userId] : [],
-        )}
+        onToggleFriend={toggleFriend}
+        friends={selectableProfiles}
+        selectedFriendIds={selectedFriendIds}
+        maxPlayersReached={hasReachedMaxPlayers}
       />
     </AuthBackground>
   );
@@ -537,20 +546,6 @@ function createProfilePlayer(profile: FriendProfile): TablePlayer {
     animalId: profile.avatarId,
     friendId: profile.id,
   };
-}
-
-function getCurrentUserName(
-  user: ReturnType<typeof useAuthStore.getState>['user'],
-) {
-  if (typeof user?.user_metadata.username === 'string') {
-    return user.user_metadata.username;
-  }
-
-  if (user?.email) {
-    return user.email.split('@')[0];
-  }
-
-  return 'Simon';
 }
 
 function getManualPlayerAnimal(index: number): AnimalAvatarId {

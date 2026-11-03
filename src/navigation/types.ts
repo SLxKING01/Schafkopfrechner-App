@@ -11,6 +11,9 @@ export type AuthStackParamList = {
 };
 
 export type AppStackParamList = {
+  TableInvitations: { tableId?: string } | undefined;
+  Friends: undefined;
+  EditProfile: undefined;
   AppTabs: NavigatorScreenParams<AppTabParamList> | undefined;
   CreateTable: undefined;
   EditTable: undefined;

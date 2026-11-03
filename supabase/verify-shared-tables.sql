@@ -30,7 +30,7 @@ begin
   begin
     perform public.sk_live_command('save',current_setting('sk_test.table_id')::uuid,result->'payload',1);
     raise exception 'Stale write accepted';
-  exception when serialization_failure then null; end;
+  exception when sqlstate 'PT409' or serialization_failure then null; end;
 end $$;
 select set_config('request.jwt.claim.sub',current_setting('sk_test.actor_c'),true);
 do $$

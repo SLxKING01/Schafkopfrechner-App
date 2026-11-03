@@ -48,6 +48,17 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       return;
     }
 
+    if (
+      [...username.trim()].length < 2 ||
+      [...username.trim()].length > 40 ||
+      /[\u0000-\u001f\u007f-\u009f]/.test(username)
+    ) {
+      Alert.alert(
+        'Anzeigename prüfen',
+        'Bitte 2 bis 40 Zeichen ohne Zeilenumbrüche eingeben.',
+      );
+      return;
+    }
     if (password !== confirmPassword) {
       Alert.alert(
         'Passwörter stimmen nicht überein',
@@ -87,7 +98,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   return (
     <AuthShell
       title="Neuen Account erstellen"
-      subtitle="Speichere Spielstände, Statistiken und Abrechnungen."
+      subtitle="Speichere Spielstände, Statistiken und Abrechnungen. Dein Profil kannst du anschließend freiwillig ergänzen."
       footer={
         <Pressable
           accessibilityRole="button"
@@ -108,7 +119,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
           autoComplete="username"
           editable={!isSubmitting}
           icon={User}
-          placeholder="Benutzername"
+          placeholder="Anzeigename"
           textContentType="username"
           value={username}
           onChangeText={setUsername}

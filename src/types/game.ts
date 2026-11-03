@@ -35,6 +35,7 @@ export type TableSettingEntry = {
 };
 
 export type TableSettings = {
+  misdealPenaltyEnabled?: boolean;
   stockStakeConfigured?: boolean;
   gameRules?: Partial<Record<TableGameTypeId, GameRuleOptions>>;
   games: Record<TableGameTypeId, TableSettingEntry>;
@@ -66,7 +67,16 @@ export type InterimPayment = {
 };
 
 export type GameTable = {
+  misdeals?: {
+    id: string;
+    playerId: string;
+    occurredAt: string;
+    actor: RoundHistoryActor;
+    penaltyRoundId?: string;
+  }[];
   shared?: {
+    role?: 'read' | 'write';
+    members?: { userId: string; role: 'read' | 'write' }[];
     userId: string;
     code?: string;
     ownerId?: string;
@@ -90,6 +100,7 @@ export type GameTable = {
 };
 
 export type GameRound = {
+  misdealPlayerId?: string;
   stockRulesVersion?: 1;
   stockBeforeCents?: number;
   stockAfterCents?: number;
@@ -121,6 +132,9 @@ export type RoundHistoryActor =
   | { kind: 'local'; name: string };
 
 export type RoundHistoryEvent = {
+  undoOfEventId?: string;
+  turnBefore?: RoundTurnState;
+  turnAfter?: RoundTurnState;
   id: string;
   roundId: string;
   sequence: number;
@@ -133,6 +147,13 @@ export type RoundHistoryEvent = {
   causeRoundId?: string;
   /** Order before deletion, including legacy rounds without creation events. */
   roundOrderIds?: string[];
+};
+
+export type RoundTurnState = {
+  signature: string;
+  dealerId?: string;
+  legerPlayerIds: string[];
+  turboRamsch: boolean;
 };
 
 export type RoundTariffOptions = {
@@ -183,6 +204,7 @@ export type CreateTablePayload = {
 };
 
 export type CreateRoundPayload = {
+  misdealPlayerId?: string;
   declarerWon?: boolean;
   participantIds?: string[];
   participationRevision?: string;

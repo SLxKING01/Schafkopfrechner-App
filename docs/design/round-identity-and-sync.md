@@ -1,7 +1,9 @@
 # Issue #9: Spielidentität und gemeinsame Speicherung
 
-Implementierung im lokalen Main-Arbeitsstand. Keine produktive Datenbankänderung,
-kein Commit und kein Push im Rahmen dieser Umsetzung.
+Stand 02.11.2026: Die ursprüngliche Implementierung ist mit `3102c28` auf Main
+integriert. Die ergänzenden Korrekturen liegen im Arbeitsstand auf `master`.
+Die fehlenden gemeinsamen Tabellen, das ID-Register und die Rollenprüfung sind
+auf dem konfigurierten Supabase-Projekt `jujvkphobubxmylekkvd` eingerichtet und geprüft.
 
 ## Verhalten
 
@@ -30,7 +32,7 @@ kein Commit und kein Push im Rahmen dieser Umsetzung.
 
 ## Datenbankmigration
 
-`20261102111436_round_identity_guard.sql` ergänzt ein privates ID-Register mit
+`20261102124835_round_identity_guard.sql` ergänzt ein privates ID-Register mit
 global eindeutigem Primärschlüssel. Tisch, ursprünglicher Erfassungszeitpunkt,
 authentifizierter registrierender Account und serverseitiger Registrierungszeitpunkt
 werden festgehalten. Registrierung ist nicht mit der ursprünglichen Erfassung auf
@@ -54,22 +56,49 @@ zentral zugeordnet werden. Lokal vorliegende Dateien ohne IDs bleiben durch die
 bestehende Speicherprüfung gesichert/gesperrt; sie werden nicht auf jedem Gerät
 unabhängig mit Zufalls-IDs versehen oder ungeprüft hochgeladen.
 
-## Validierung und noch ausstehende Freigabe
+## Validierung und Live-Abnahme
 
 - Jest prüft unabhängige Accounts, Reihenfolge bei abweichenden Geräteuhren,
   verlorene Upload-Bestätigung, Compare-and-Swap-Rennen, konkurrierende Korrekturen,
   Stock-Neuberechnung und neue Eingaben während des Uploads.
 - `supabase/verify-round-identities.sql` prüft IDs, Wiederholung, Löschung und
   Wiederherstellung, unveränderliche Erfassungszeit und private Zugriffsrechte.
-- Alle drei Migrationen und beide SQL-Prüfskripte werden in isoliertem PostgreSQL
+- Sämtliche Migrationen und die SQL-Prüfskripte werden in isoliertem PostgreSQL
   über PGlite ausgeführt. Der lokale Prüflauf prüft zusätzlich die zentrale Migration
   eines ID-losen Altspiels und den Erhalt vorhandener IDs. Supabase-Realtime-
   Publication-Anweisungen werden dort ausgelassen; dies ist kein Realtime-E2E-Test.
 
-Vor produktiver Aktivierung: Migration gegen den tatsächlichen Datenbestand
-vorprüfen und anwenden; anschließend mit zwei echten Accounts/Geräten parallele
-Offline-Eingabe, Wiederverbindung, Korrekturkonflikt, Stock und Rechteentzug prüfen.
-Die SQL-Sicherungstabellen bleiben für eine mögliche manuelle Wiederherstellung
-erhalten. Das Issue sollte bis zur Datenbankaktivierung und dieser Abnahme offen
-bleiben. Fachliche Doppelmeldungen derselben realen Runde haben unterschiedliche
-IDs und werden hier nicht automatisch zusammengeführt (Folgeissue #15).
+- Der tatsächliche Datenbestand enthielt nur die Kontosicherung, entgegen einer
+  früheren Dokumentationsaussage noch keine gemeinsamen Tabellen. Der bestehende
+  Kontosicherungsstand blieb während Migration und Live-Prüfung bytegleich
+  (zusätzlich per Hash geprüft). Die lokale Migrationshistorie entspricht jetzt
+  der tatsächlich auf Supabase angewendeten Historie.
+- Die Kontosuche verwendet die vorhandenen Auth-Accounts statt nicht vorhandener
+  Profil-/Freundschaftstabellen. Ohne Suchtext wird das eigene Konto angeboten;
+  mit mindestens zwei Zeichen werden Anzeigenamen gesucht. Keine E-Mail-Ausgabe.
+- Konfliktsicherungen und Kontowechsel-Sicherungen werden jetzt von der realen
+  lokalen Speicherprüfung akzeptiert. Zuvor wurden sie trotz korrekter Daten
+  abgewiesen; reine RPC-Mocks hatten dies nicht aufgedeckt.
+- Ein tatsächlicher HTTP-Durchlauf deckte auf, dass PostgREST 14.5 bei künstlich
+  ausgelöstem SQLSTATE `40001` intern endlos wiederholt. Die Migration
+  `*_explicit_version_conflicts.sql` stellt erwartete Versionskonflikte der beiden
+  Speicher-RPCs auf `PT409` um. Der Tischclient liest bei HTTP 409 neu und rebasiert
+  begrenzt, statt denselben alten Stand erneut zu senden. Alte `40001`-Antworten
+  werden während des Übergangs weiterhin erkannt.
+- `scripts/verify-shared-live.cjs` wurde mit drei getrennten, tatsächlich angemeldeten
+  temporären Auth-Clients ausgeführt: Leser/Schreiber/Ersteller, fremder Account,
+  Realtime-Zustellung, veralteter paralleler Schreibzugriff, Zusammenführung nach
+  erneutem Lesen, identische Wiederholung, Löschen/Wiederherstellen derselben ID
+  und Rechteentzug während eines ausstehenden Schreibstands bestanden.
+- Alle temporären Auth-Konten, Sitzungen, Rundeneinträge und der Testtisch wurden
+  entfernt; die lokale temporäre Kennwortdatei ebenfalls. Keine E-Mails versendet.
+- SQL-Identitätsprüfungen einschließlich fehlender/doppelter IDs, ursprünglicher
+  Erfassungszeit, tischübergreifender Wiederverwendung und Audit-Erhalt wurden
+  zusätzlich direkt auf Supabase in zurückgerollten Transaktionen ausgeführt.
+- Dieser Durchlauf prüft reale Auth-, HTTP-, Realtime- und Datenbankverträge.
+  Er ersetzt keinen manuellen Funkloch-/Tastaturtest auf zwei physischen Handys.
+  Stock-Neuberechnung und lokale In-Flight-Rebases sind automatisiert abgedeckt.
+
+Fachliche Doppelmeldungen derselben echten Runde mit verschiedenen IDs bleiben
+Gegenstand von #15. GitHub-Issues wurden im Rahmen dieser Arbeit nicht geändert;
+der Arbeitsstand muss noch integriert werden.

@@ -51,3 +51,17 @@ export function mergeGameDayArchives(
     ...local.filter(({ table }) => !incomingIds.has(table.id)),
   ];
 }
+
+export function saveTableBeforeSwitch(
+  archived: ArchivedGameDay[],
+  state: GameDayState,
+): ArchivedGameDay[] {
+  if (!state.activeGame || !state.currentTable) {
+    return archiveFinishedGameDay(archived, state);
+  }
+  const { currentTable, players, rounds, balances, settlements } = state;
+  return [
+    { table: currentTable, players, rounds, balances, settlements, completedAt: null },
+    ...archived.filter(({ table }) => table.id !== currentTable.id),
+  ];
+}

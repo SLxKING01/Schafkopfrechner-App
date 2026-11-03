@@ -3,7 +3,9 @@ import { act } from 'react';
 import { ScrollView } from 'react-native';
 
 import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
+import * as sharedTables from '../services/shared/sharedTables';
 import { reliableStorage } from '../storage/reliableStorage';
+import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
 import type { GameRound } from '../types/game';
 import { formatRoundGameType } from '../utils/cardSuits';
@@ -67,6 +69,7 @@ const players = ['a', 'b', 'c', 'd'].map((id) => ({
 }));
 let sequence = 0;
 beforeEach(async () => {
+  useAuthStore.setState({ user: null });
   await reliableStorage.flush();
   useGameStore.setState({
     currentTable: null,
@@ -780,4 +783,81 @@ it('offers only continuing or discarding an unsaved entry', async () => {
   const reopened = await mount();
   expect(reopened.button('Spieltyp Rufspiel')).toBeTruthy();
   await act(async () => reopened.view.unmount());
+});
+
+function sharedEditorSetup() {
+  const round = addPartnerRound();
+  const remote = {
+    id: useGameStore.getState().currentTable!.id,
+    version: 2,
+    updatedAt: new Date().toISOString(),
+    payload: sharedTables.sharedSnapshot()!,
+  };
+  useAuthStore.setState({ user: { id: 'editor' } as never });
+  useGameStore.setState({
+    rounds: [],
+    currentTable: {
+      ...useGameStore.getState().currentTable!,
+      roundHistory: [],
+      shared: {
+        userId: 'editor',
+        ownerId: 'editor',
+        version: 1,
+        baseline: '',
+        updatedAt: '',
+        role: 'write',
+      },
+    },
+  });
+  return { round, remote };
+}
+it('opens an existing entry and returns to the unchanged draft before explicit parallel-save approval', async () => {
+  const { round, remote } = sharedEditorSetup();
+  const save = jest.spyOn(sharedTables, 'saveSharedRound').mockResolvedValue({
+    review: {
+      remote,
+      rounds: [{ round, actorName: 'Simon' }],
+    },
+  });
+  const ui = await mount();
+  await ui.press('Spieltyp Wenz');
+  await ui.press('Alleinspieler A');
+  await ui.press('Ansager gewonnen');
+  await ui.press('Runde speichern');
+  expect(ui.onSaved).not.toHaveBeenCalled();
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  const before = save.mock.calls[0][1];
+  await ui.press('Eintrag ansehen');
+  expect(JSON.stringify(ui.view.toJSON())).toContain('Änderungsverlauf');
+  await ui.press('Änderungsverlauf schließen');
+  await ui.press('Als weiteres Spiel speichern');
+  expect(save.mock.calls[1][1]).toEqual(before);
+  expect(save.mock.calls[1][2]).toBe(save.mock.calls[0][2]);
+  expect(save.mock.calls[1][3]).toContain(round.id);
+  await ui.press('Zur eigenen Eingabe');
+  expect(ui.button('Runde speichern').props.disabled).toBe(false);
+  await act(async () => ui.view.unmount());
+});
+it('persists an offline shared draft and operation identity across closing and reopening', async () => {
+  sharedEditorSetup();
+  const save = jest
+    .spyOn(sharedTables, 'saveSharedRound')
+    .mockRejectedValue(Error('Offline'));
+  const ui = await mount();
+  await ui.press('Spieltyp Wenz');
+  await ui.press('Alleinspieler A');
+  await ui.press('Ansager gewonnen');
+  await ui.press('Runde speichern');
+  const first = save.mock.calls[0];
+  expect(ui.onSaved).not.toHaveBeenCalled();
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  await ui.press('Schließen');
+  await ui.press('Entwurf behalten');
+  await act(async () => ui.view.unmount());
+  const restored = await mount();
+  await restored.press('Runde speichern');
+  expect(save.mock.calls[1][1]).toEqual(first[1]);
+  expect(save.mock.calls[1][2]).toEqual(first[2]);
+  expect(save.mock.calls[1][3]).toEqual(first[3]);
+  await act(async () => restored.view.unmount());
 });

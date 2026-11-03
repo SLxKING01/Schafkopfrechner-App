@@ -45,6 +45,7 @@ export function appendRoundHistory(
   players: Player[],
   actor: RoundHistoryActor,
   causeRoundId?: string,
+  undoOfEventId?: string,
 ): GameTable {
   const history = [...(table.roundHistory ?? [])];
   const old = new Map(before.map((r) => [r.id, r]));
@@ -77,6 +78,7 @@ export function appendRoundHistory(
       ...(current ? { after: current } : {}),
       ...(!current ? { roundOrderIds: before.map((r) => r.id) } : {}),
       ...(causeRoundId && causeRoundId !== id ? { causeRoundId } : {}),
+      ...(undoOfEventId && causeRoundId === id ? { undoOfEventId } : {}),
     };
     history.push(JSON.parse(JSON.stringify(event)) as RoundHistoryEvent);
   }

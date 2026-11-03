@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
-import { Alert, Platform, StyleSheet } from 'react-native';
+import { Alert, Platform, StyleSheet, Text } from 'react-native';
 import { G } from 'react-native-svg';
 
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
@@ -71,6 +71,7 @@ jest.mock('react-native-reanimated', () =>
 );
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: jest.requireActual('react-native').View,
+  SafeAreaInsetsContext: jest.requireActual('react').createContext(null),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@gorhom/bottom-sheet', () => ({
@@ -240,6 +241,43 @@ it('keeps dragging separate from entry, knocking and player actions, preserving 
   await act(async () => ui.view.unmount());
 });
 
+it('disables a still-open entry when write access is revoked and keeps the draft', async () => {
+  const ui = await mountPlayerActions();
+  await ui.press('Berkay, 0,00 €, Geber');
+  await ui.press('Spieltyp Rufspiel');
+  expect(ui.view.root.findByType(RoundEntrySheet).props.visible).toBe(true);
+  await act(async () => {
+    useAuthStore.setState({ user: { id: 'reader' } as never });
+    const table = useGameStore.getState().currentTable!;
+    useGameStore.setState({
+      currentTable: {
+        ...table,
+        shared: {
+          userId: 'reader',
+          ownerId: 'owner',
+          role: 'read',
+          version: 1,
+          baseline: '{}',
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    });
+  });
+  expect(ui.button('Runde speichern').props.disabled).toBe(true);
+  expect(ui.view.root.findByType(RoundEntrySheet).props.initialDeclarerId).toBe(
+    'a',
+  );
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  expect(
+    ui.view.root.findAllByProps({
+      accessibilityLabel: 'Spieltag abschliessen',
+    }),
+  ).toHaveLength(0);
+  expect(ui.button('Sitzreihenfolge ändern').props.disabled).toBe(true);
+  await act(async () => ui.view.unmount());
+  useAuthStore.setState({ user: null });
+});
+
 it('restores a removed round from the inline undo notice without opening an editor or duplicating the entry', async () => {
   const store = useGameStore.getState();
   expect(
@@ -387,7 +425,78 @@ it('opens the saved configuration by tapping the compact history row and updates
     useGameStore.getState().balances.find(({ playerId }) => playerId === 'a')
       ?.amount,
   ).toBe(rounds[0].amount / 2);
+  await act(async () =>
+    button('Spieländerung rückgängig machen').props.onPress(),
+  );
+  expect(useGameStore.getState().rounds[0]).toMatchObject(original);
+  expect(useGameStore.getState().rounds).toHaveLength(1);
   await act(async () => view.unmount());
+});
+
+it('offers undo after a new player entry and only retries persistence after an undo write failure', async () => {
+  const ui = await mountPlayerActions();
+  await ui.press('Berkay, 0,00 €, Geber');
+  await ui.press('Spieltyp Solo');
+  await ui.press('Runde speichern');
+  expect(useGameStore.getState().rounds).toHaveLength(1);
+  const confirmation = jest
+    .spyOn(reliableStorage, 'confirmWrite')
+    .mockResolvedValueOnce(false)
+    .mockResolvedValue(true);
+  await ui.press('Spieleingabe rückgängig machen');
+  expect(useGameStore.getState().rounds).toHaveLength(0);
+  const history = structuredClone(
+    useGameStore.getState().currentTable!.roundHistory,
+  );
+  expect(
+    ui.view.root
+      .findAllByType(Text)
+      .map((node: { props: { children?: unknown } }) => node.props.children)
+      .flat()
+      .filter((value: unknown) => typeof value === 'string')
+      .join(' '),
+  ).toContain('Rücknahme noch nicht auf dem Gerät gespeichert');
+  await ui.press('Spieleingabe rückgängig machen');
+  expect(useGameStore.getState().currentTable!.roundHistory).toEqual(history);
+  expect(
+    ui.view.root.findAllByProps({
+      accessibilityLabel: 'Spieleingabe rückgängig machen',
+    }),
+  ).toHaveLength(0);
+  confirmation.mockRestore();
+  await act(async () => ui.view.unmount());
+});
+
+it('does not delete a newer round through an already open confirmation', async () => {
+  const ui = await mountPlayerActions();
+  const input = {
+    gameType: 'solo' as const,
+    winnerId: 'a',
+    winnerIds: ['a'],
+    loserIds: ['b', 'c', 'd'],
+    amount: 1.5,
+    tariffOptions: { ...emptyTariffOptions },
+  };
+  await act(async () => {
+    expect(useGameStore.getState().addRound(input)).toBe(true);
+  });
+  await ui.press('Tischmenü öffnen');
+  await ui.press('Letzte Runde zurücknehmen');
+  await act(async () => {
+    expect(useGameStore.getState().addRound(input)).toBe(true);
+  });
+  const before = structuredClone(useGameStore.getState().rounds);
+  await ui.press('Runde zurücknehmen bestätigen');
+  expect(useGameStore.getState().rounds).toEqual(before);
+  expect(
+    ui.view.root
+      .findAllByType(Text)
+      .map((node: { props: { children?: unknown } }) => node.props.children)
+      .flat()
+      .filter((value: unknown) => typeof value === 'string')
+      .join(' '),
+  ).toContain('Die letzte Runde wurde inzwischen geändert');
+  await act(async () => ui.view.unmount());
 });
 
 it('hides routine local and cloud save information but keeps cloud errors visible', async () => {

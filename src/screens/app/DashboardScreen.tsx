@@ -10,6 +10,7 @@ import { SchafkopfBackdrop } from '../../components/dashboard/SchafkopfBackdrop'
 import { AppText } from '../../components/ui/AppText';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
+import { useOwnProfile } from '../../hooks/useOwnProfile';
 import { useAuthStore } from '../../store/authStore';
 import {
   authColors as c,
@@ -31,10 +32,7 @@ export function DashboardScreen() {
     () => dashboardPersonal(tables, user?.id),
     [tables, user?.id],
   );
-  const username =
-    [user?.user_metadata?.username, user?.user_metadata?.display_name]
-      .find((name): name is string => typeof name === 'string' && !!name.trim())
-      ?.trim() ?? (user ? 'Spieler' : 'Gast');
+  const { displayName: username } = useOwnProfile();
   const known = !!user?.id || !tables.length;
   const payments = overview.payments;
   const unpaid = useMemo(() => {

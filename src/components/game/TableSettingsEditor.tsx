@@ -188,6 +188,18 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
     <>
       <View style={styles.root}>
         <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>
+            Strafe bei zweimaligem Vergeben
+          </AppText>
+          <Switch
+            accessibilityLabel="Strafe bei zweimaligem Vergeben"
+            value={safeSettings.misdealPenaltyEnabled ?? false}
+            onValueChange={(misdealPenaltyEnabled) =>
+              onChange({ ...safeSettings, misdealPenaltyEnabled })
+            }
+          />
+        </View>
+        <View style={styles.section}>
           <AppText style={styles.sectionTitle}>Wenn alle weiter sagen</AppText>
           <View
             style={{

@@ -4,8 +4,9 @@ import { supabase } from '../../lib/supabase';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { validGameSnapshot } from '../../storage/validateGameState';
 import { useAuthStore } from '../../store/authStore';
-import { useGameStore } from '../../store/gameStore';
+import { planRoundAddition, useGameStore } from '../../store/gameStore';
 import type {
+  CreateRoundPayload,
   GameRound,
   GameTable,
   Player,
@@ -25,6 +26,8 @@ export type SharedSnapshot = {
   activeGame: boolean;
 };
 export type SharedTableRemote = {
+  role?: 'read' | 'write';
+  members?: { userId: string; role: 'read' | 'write' }[];
   id: string;
   payload: SharedSnapshot;
   code?: string;
@@ -126,6 +129,8 @@ function isCurrent(id: string, actor: string) {
 }
 function binding(remote: Remote, actor: string) {
   return {
+    role: remote.role ?? 'read',
+    members: remote.members ?? [],
     userId: actor,
     code: remote.code,
     ownerId: remote.ownerId,
@@ -175,8 +180,20 @@ function apply(remote: Remote, actor: string, joining = false) {
     archivedGameDays: archived,
   });
 }
-export async function publishSharedTable() {
+export async function publishSharedTable(expected?: {
+  actor: string;
+  tableId: string;
+}) {
   if (running) await running;
+  if (expected) {
+    if (!isCurrent(expected.tableId, expected.actor))
+      throw new Error(
+        'Konto oder Tisch hat sich geändert. Bitte erneut öffnen.',
+      );
+    const meta = useGameStore.getState().currentTable?.shared;
+    if (meta?.ownerId === expected.actor && meta.userId === expected.actor)
+      return meta.code;
+  }
   return publishSharedTableInternal();
 }
 async function publishSharedTableInternal() {
@@ -247,6 +264,31 @@ export async function openSharedTable(tableId: string) {
   apply(remote, actor, true);
   useSharedTableStatus.setState({ error: null, conflict: null });
 }
+
+export async function setSharedTableRole(
+  targetUserId: string,
+  role: 'read' | 'write',
+) {
+  await syncSharedTable();
+  const actor = userId();
+  const table = useGameStore.getState().currentTable;
+  if (
+    !table?.shared ||
+    table.shared.userId !== actor ||
+    table.shared.ownerId !== actor
+  )
+    throw new Error('Nur der Ersteller kann Zugriffsrechte ändern.');
+  if (fingerprint(sharedSnapshot()) !== table.shared.baseline)
+    throw new Error(
+      'Bitte zuerst die ausstehenden Tischänderungen synchronisieren.',
+    );
+  const remote = await command('set_role', {
+    p_table_id: table.id,
+    p_version: table.shared.version,
+    p_payload: { userId: targetUserId, role },
+  });
+  if (isCurrent(table.id, actor)) setBinding(remote, actor);
+}
 let refreshing: Promise<void> | null = null;
 export function refreshSharedTables(): Promise<void> {
   if (refreshing) return refreshing;
@@ -308,7 +350,7 @@ async function discoverSharedTables() {
     const observedBinding = observedState.currentTable?.shared;
     const { data, error } = await supabase
       .from('sk_live_tables')
-      .select('id,payload,version,updated_at,owner_id')
+      .select('id,payload,version,updated_at,owner_id,sk_live_members(role)')
       .order('updated_at', { ascending: false })
       .abortSignal(controller.signal);
     if (error) throw error;
@@ -321,9 +363,33 @@ async function discoverSharedTables() {
         version: row.version,
         updatedAt: row.updated_at,
         ownerId: row.owner_id,
+        role: row.sk_live_members?.[0]?.role === 'write' ? 'write' : 'read',
       };
     });
     useSharedTableStatus.setState({ tables, tablesUserId: actor });
+    const refreshRole = (value: GameTable | null) => {
+      const remote = tables.find((candidate) => candidate.id === value?.id);
+      if (
+        !value?.shared ||
+        value.shared.userId !== actor ||
+        !remote ||
+        (value.shared.role === remote.role &&
+          value.shared.ownerId === remote.ownerId)
+      )
+        return value;
+      return {
+        ...value,
+        shared: { ...value.shared, role: remote.role, ownerId: remote.ownerId },
+      };
+    };
+    // Permission notifications must take effect even while a content conflict is open.
+    useGameStore.setState((state) => ({
+      currentTable: refreshRole(state.currentTable),
+      archivedGameDays: state.archivedGameDays.map((day) => ({
+        ...day,
+        table: refreshRole(day.table)!,
+      })),
+    }));
     const state = useGameStore.getState();
     const table = state.currentTable;
     const missing =
@@ -389,9 +455,169 @@ async function discoverSharedTables() {
   }
 }
 let running: Promise<void> | null = null;
+
+export type ParallelRoundReview = {
+  remote: SharedTableRemote;
+  rounds: { round: GameRound; actorName: string }[];
+};
+export type SharedRoundResult =
+  | { review: ParallelRoundReview }
+  | { roundId: string; eventId?: string };
+
+/** Serialize with background sync. The versioned save is the final check:
+ * a concurrent writer forces a fresh read and a new review, never a blind merge. */
+export function saveSharedRound(
+  tableId: string,
+  payload: CreateRoundPayload,
+  roundId: string,
+  knownRoundIds: string[],
+  opening: { table: GameTable; players: Player[] },
+): Promise<SharedRoundResult> {
+  const previous = running;
+  let mayHaveCommitted = false;
+  const task = (async (): Promise<SharedRoundResult> => {
+    if (previous) await previous;
+    const actor = userId();
+    if (!isCurrent(tableId, actor) || !isPresent(tableId, actor))
+      throw new Error(
+        'Konto oder Tisch hat sich geändert. Deine Eingabe bleibt erhalten.',
+      );
+    await synchronize(tableId);
+    if (useSharedTableStatus.getState().conflict?.tableId === tableId)
+      throw new Error(
+        'Bitte zuerst den Tischkonflikt klären. Deine Eingabe bleibt erhalten.',
+      );
+    const local = sharedSnapshot(tableId)!;
+    if (fingerprint(local) !== localTable(tableId)?.shared?.baseline)
+      throw new Error(
+        'Ausstehende Tischänderungen konnten nicht übertragen werden. Deine Eingabe bleibt erhalten.',
+      );
+    const localKey = fingerprint(local);
+    const assertContext = () => {
+      if (!isCurrent(tableId, actor) || !isPresent(tableId, actor))
+        throw new Error(
+          'Konto oder Tisch hat sich geändert. Deine Eingabe bleibt erhalten.',
+        );
+    };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const remote = await command('read', { p_table_id: tableId });
+      assertContext();
+      const accepted = remote.payload.currentTable.roundHistory?.find(
+        (event) => event.roundId === roundId && event.action === 'created',
+      );
+      // A timed-out response may already have committed, even if later deleted.
+      if (accepted) {
+        if (fingerprint(sharedSnapshot(tableId)) === localKey)
+          apply(remote, actor);
+        return { roundId, eventId: accepted.id };
+      }
+      if (remote.ownerId !== actor && remote.role !== 'write')
+        throw new Error(
+          'Du hast nur Leserechte. Deine Eingabe bleibt erhalten.',
+        );
+      const known = new Set(knownRoundIds);
+      const additions = remote.payload.rounds.filter((round) => {
+        const creation = remote.payload.currentTable.roundHistory?.find(
+          (event) => event.roundId === round.id && event.action === 'created',
+        );
+        return (
+          !known.has(round.id) &&
+          !(creation?.actor.kind === 'account' && creation.actor.id === actor)
+        );
+      });
+      if (additions.length)
+        return {
+          review: {
+            remote,
+            rounds: additions.map((round) => ({
+              round,
+              actorName:
+                remote.payload.currentTable.roundHistory?.find(
+                  (event) =>
+                    event.roundId === round.id && event.action === 'created',
+                )?.actor.name ?? 'Ein anderer Teilnehmer',
+            })),
+          },
+        };
+      if (
+        fingerprint(opening.players) !== fingerprint(remote.payload.players) ||
+        fingerprint(opening.table.settings) !==
+          fingerprint(remote.payload.currentTable.settings)
+      )
+        throw new Error(
+          'Besetzung, Sitzordnung oder Regeln haben sich geändert. Deine Eingabe bleibt erhalten; bitte den Tisch prüfen.',
+        );
+      const patch = planRoundAddition(
+        { ...useGameStore.getState(), ...remote.payload },
+        { ...payload, participationRevision: undefined },
+        roundId,
+      );
+      if (!patch)
+        throw new Error(
+          'Die Eingabe passt nicht mehr zum aktuellen Tischstand. Bitte Besetzung, Leger, Tarif und Stock prüfen. Deine Eingabe bleibt erhalten.',
+        );
+      const candidate: SharedSnapshot = {
+        ...remote.payload,
+        currentTable: patch.currentTable!,
+        rounds: patch.rounds!,
+        balances: patch.balances!,
+        settlements: patch.settlements!,
+      };
+      assertSnapshot(candidate);
+      try {
+        mayHaveCommitted = true;
+        const saved = await command('save', {
+          p_table_id: tableId,
+          p_version: remote.version,
+          p_payload: candidate,
+        });
+        assertContext();
+        if (fingerprint(sharedSnapshot(tableId)) === localKey)
+          apply(saved, actor);
+        else
+          useSharedTableStatus.setState({
+            conflict: { userId: actor, tableId, remote: saved },
+            error:
+              'Das Spiel ist gemeinsam gespeichert. Weitere lokale Änderungen bleiben bis zur Klärung erhalten.',
+          });
+        return {
+          roundId,
+          eventId: saved.payload.currentTable.roundHistory?.find(
+            (event) => event.roundId === roundId && event.action === 'created',
+          )?.id,
+        };
+      } catch (error) {
+        if (
+          !['PT409', '40001'].includes((error as { code?: string }).code ?? '')
+        )
+          throw error;
+        mayHaveCommitted = false;
+      }
+    }
+    throw new Error(
+      'Der Tisch wird gerade geändert. Bitte erneut speichern. Deine Eingabe bleibt erhalten.',
+    );
+  })().catch((error: unknown) => {
+    throw Object.assign(
+      error instanceof Error ? error : new Error('Speichern fehlgeschlagen.'),
+      { mayHaveCommitted },
+    );
+  });
+  const gate = task
+    .then(
+      () => {},
+      () => {},
+    )
+    .finally(() => {
+      if (running === gate) running = null;
+    });
+  running = gate;
+  return task;
+}
+
 export function syncSharedTable(): Promise<void> {
   if (running) return running;
-  running = (async () => {
+  const job = (async () => {
     let state = useGameStore.getState();
     const actor = useAuthStore.getState().user?.id;
     if (
@@ -419,9 +645,10 @@ export function syncSharedTable(): Promise<void> {
     ]);
     for (const id of ids) if (id) await synchronize(id);
   })().finally(() => {
-    running = null;
+    if (running === job) running = null;
   });
-  return running;
+  running = job;
+  return job;
 }
 async function synchronize(tableId: string) {
   const table = localTable(tableId);
@@ -440,6 +667,40 @@ async function synchronize(tableId: string) {
       assertSnapshot(local);
       const localKey = fingerprint(local);
       const remoteKey = fingerprint(remote.payload);
+      if (remote.ownerId !== actor && remote.role !== 'write') {
+        if (localKey === remoteKey || localKey === currentMeta.baseline) {
+          apply(remote, actor);
+          useSharedTableStatus.setState({ error: null });
+        } else {
+          // Keep the draft/snapshot, but revoke local writing immediately.
+          useGameStore.setState((state) => ({
+            currentTable:
+              state.currentTable?.id === table.id
+                ? {
+                    ...state.currentTable,
+                    shared: { ...currentMeta, role: 'read' },
+                  }
+                : state.currentTable,
+            archivedGameDays: state.archivedGameDays.map((day) =>
+              day.table.id === table.id
+                ? {
+                    ...day,
+                    table: {
+                      ...day.table,
+                      shared: { ...currentMeta, role: 'read' },
+                    },
+                  }
+                : day,
+            ),
+          }));
+          useSharedTableStatus.setState({
+            conflict: { userId: actor, tableId: table.id, remote },
+            error:
+              'Dein Schreibrecht wurde entzogen. Deine Eingaben bleiben auf diesem Gerät erhalten. Bitte den aktuellen Tischstand prüfen.',
+          });
+        }
+        return;
+      }
       if (localKey === remoteKey || localKey === currentMeta.baseline) {
         apply(remote, actor);
         break;
@@ -493,7 +754,10 @@ async function synchronize(tableId: string) {
         }
         break;
       } catch (error) {
-        if ((error as { code?: string }).code !== '40001') throw error;
+        if (
+          !['PT409', '40001'].includes((error as { code?: string }).code ?? '')
+        )
+          throw error;
         // A writer won the compare-and-swap after our read. Re-read and rebase,
         // never retry the old whole-table snapshot against a newer version.
         if (attempt === 2)

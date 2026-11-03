@@ -16,10 +16,15 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import {
+  GestureDetector,
+  GestureHandlerRootView,
+  usePanGesture,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
+import { AuthBackground } from '../auth/AuthBackground';
 
 type InteractionSheetProps = {
   children: ReactNode;
@@ -29,6 +34,7 @@ type InteractionSheetProps = {
   dismissible?: boolean;
   fullScreen?: boolean;
   contentHandlesSafeArea?: boolean;
+  swipeRightToClose?: boolean;
 };
 
 /** Keep the modal mounted until the sheet's closing gesture/animation completes. */
@@ -47,6 +53,7 @@ function FullScreenSheet({
   onDismiss,
   dismissible = true,
   contentHandlesSafeArea = false,
+  swipeRightToClose = false,
 }: InteractionSheetProps) {
   const insets = useSafeAreaInsets();
   const wasVisible = useRef(visible);
@@ -54,6 +61,14 @@ function FullScreenSheet({
     if (wasVisible.current && !visible) onDismiss?.();
     wasVisible.current = visible;
   }, [visible, onDismiss]);
+  const content = (
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {children}
+    </KeyboardAvoidingView>
+  );
   return (
     <Modal
       transparent
@@ -64,27 +79,63 @@ function FullScreenSheet({
       }}
     >
       <GestureHandlerRootView style={styles.root}>
-        <View
-          style={[
-            styles.root,
-            styles.background,
-            !contentHandlesSafeArea && {
-              paddingTop: insets.top,
-              paddingBottom: insets.bottom,
-              paddingLeft: insets.left,
-              paddingRight: insets.right,
-            },
-          ]}
-        >
-          <KeyboardAvoidingView
-            style={styles.root}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <AuthBackground withEdgeBorder={false} withSafeArea={false}>
+          <View
+            style={[
+              styles.root,
+              !contentHandlesSafeArea && {
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+                paddingRight: insets.right,
+              },
+            ]}
           >
-            {children}
-          </KeyboardAvoidingView>
-        </View>
+            {swipeRightToClose ? (
+              <SwipeBack enabled={dismissible} onBack={onClose}>
+                {content}
+              </SwipeBack>
+            ) : (
+              content
+            )}
+          </View>
+        </AuthBackground>
       </GestureHandlerRootView>
     </Modal>
+  );
+}
+
+function SwipeBack({
+  children,
+  enabled,
+  onBack,
+}: {
+  children: ReactNode;
+  enabled: boolean;
+  onBack: () => void;
+}) {
+  const swipe = usePanGesture({
+    enabled,
+    activeOffsetX: 24,
+    failOffsetY: [-16, 16],
+    maxPointers: 1,
+    runOnJS: true,
+    onDeactivate: ({ translationX, translationY, canceled }) => {
+      if (
+        !canceled &&
+        translationX >= 72 &&
+        translationX > Math.abs(translationY) * 2
+      ) {
+        onBack();
+      }
+    },
+  });
+  return (
+    <GestureDetector gesture={swipe}>
+      <View style={styles.root} collapsable={false}>
+        {children}
+      </View>
+    </GestureDetector>
   );
 }
 

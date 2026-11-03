@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { FriendProfile } from '../../types/profile';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
-import { AnimalAvatar } from './AnimalAvatar';
 
 type FriendChipProps = {
   friend: FriendProfile;
@@ -39,11 +39,14 @@ export function FriendChip({
       ]}
     >
       <View>
-        <AnimalAvatar
-          accentColor={friend.accentColor}
-          animalId={friend.avatarId}
-          highlighted={isSelected}
+        <ProfileAvatar
           size={48}
+          profile={{
+            avatarKind: friend.avatarKind ?? 'animal',
+            animalId: friend.avatarId,
+            accentId: friend.accentId ?? 'forestGreen',
+            photoPath: friend.photoPath ?? null,
+          }}
         />
         {friend.isOnline ? <View style={styles.onlineDot} /> : null}
       </View>

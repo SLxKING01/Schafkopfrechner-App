@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { DEFAULT_USER_APPEARANCE } from '../constants/profileCustomization';
+import {
+  DEFAULT_USER_APPEARANCE,
+  PROFILE_ACCENTS,
+} from '../constants/profileCustomization';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import type { FriendProfile } from '../types/profile';
+import { isProfileCard } from '../utils/profile';
 
 export function usePlayerAccounts(query = '', enabled = true) {
   const userId = useAuthStore((state) => state.user?.id);
@@ -35,6 +39,16 @@ export function usePlayerAccounts(query = '', enabled = true) {
                 username: row.name,
                 avatarId: DEFAULT_USER_APPEARANCE.avatarId,
                 accentColor: DEFAULT_USER_APPEARANCE.accentColor,
+                ...(isProfileCard(row)
+                  ? {
+                      avatarKind: row.avatarKind,
+                      avatarId:
+                        row.animalId ?? DEFAULT_USER_APPEARANCE.avatarId,
+                      accentId: row.accentId,
+                      photoPath: row.photoPath,
+                      accentColor: PROFILE_ACCENTS[row.accentId],
+                    }
+                  : {}),
               }));
             if (active) setResult({ userId, query, accounts, error: null });
           } catch {

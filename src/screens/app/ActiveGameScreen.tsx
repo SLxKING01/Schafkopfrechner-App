@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  ChevronRight,
   Ellipsis,
   History,
   ListOrdered,
@@ -42,7 +41,11 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
-import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
+import {
+  historyColumnWidths,
+  MatchHistoryCard,
+} from '../../components/game/MatchHistoryCard';
+import { GameActionButton } from '../../components/game/GameActionButton';
 import { PlayerActionsMenu } from '../../components/game/PlayerActionsMenu';
 import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
 import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
@@ -50,13 +53,17 @@ import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { RoundUndoNotice } from '../../components/game/RoundUndoNotice';
 import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { SyncStatus } from '../../components/game/SyncStatus';
+import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
+import { useAccountProfiles } from '../../hooks/useAccountProfiles';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { reliableStorage } from '../../storage/reliableStorage';
+import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { GameRound, Player, PlayerBalance } from '../../types/game';
-import type { AnimalAvatarId } from '../../types/profile';
+import type { AnimalAvatarId, ProfileCard } from '../../types/profile';
 import {
   getStockBalanceCents,
   isCustomBooking,
@@ -67,10 +74,13 @@ import {
 import { formatRoundGameType } from '../../utils/cardSuits';
 import {
   getCurrentDealerId,
+  hasPendingMisdeal,
   getNextDealerId,
   roundPlayers,
 } from '../../utils/dealerOrder';
 import { outstandingBalances } from '../../utils/interimPayments';
+import { roundHistoryFingerprint } from '../../utils/roundHistory';
+import { tableAccess } from '../../utils/tableAccess';
 
 type ActiveGameScreenProps = AppStackScreenProps<'ActiveGame'>;
 type ActiveTab = 'players' | 'history';
@@ -147,6 +157,8 @@ function getPlayerVisual(index: number) {
 export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   const insets = useSafeAreaInsets();
   const currentTable = useGameStore((state) => state.currentTable);
+  const actorId = useAuthStore((state) => state.user?.id);
+  const { canWrite, canManage } = tableAccess(currentTable, actorId);
   const players = useGameStore((state) => state.players);
   const setPlayerOrder = useGameStore((state) => state.setPlayerOrder);
   const setTurboRamsch = useGameStore((state) => state.setTurboRamsch);
@@ -166,33 +178,51 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   });
   const [menuVisible, setMenuVisible] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [actionDockHeight, setActionDockHeight] = useState(0);
-  const [removedRound, setRemovedRound] = useState<{
+  const [undoTarget, setUndoTarget] = useState<{
     tableId: string;
-    roundId: string;
+    eventId: string;
+    action: 'created' | 'updated' | 'deleted' | 'restored';
   } | null>(null);
-  const dismissUndo = useCallback(() => setRemovedRound(null), []);
+  const appliedUndo = useRef<string | undefined>(undefined);
+  const dismissUndo = useCallback(() => {
+    appliedUndo.current = undefined;
+    setUndoTarget(null);
+  }, []);
+  const showUndo = useCallback((eventId?: string) => {
+    appliedUndo.current = undefined;
+    const table = useGameStore.getState().currentTable;
+    const event = table?.roundHistory?.find((e) => e.id === eventId);
+    if (table && event)
+      setUndoTarget({
+        tableId: table.id,
+        eventId: event.id,
+        action: event.action,
+      });
+    else setUndoTarget(null);
+  }, []);
   useEffect(
     () =>
       useGameStore.subscribe((state, previous) => {
-        if (state.currentTable?.id !== previous.currentTable?.id)
-          setRemovedRound(null);
+        if (state.currentTable?.id !== previous.currentTable?.id) dismissUndo();
       }),
-    [],
+    [dismissUndo],
   );
   const restoreRound = useCallback(
-    (roundId: string) => {
+    (roundId: string, expectedEventId?: string) => {
       const tableId = currentTable?.id;
-      if (!tableId || !useGameStore.getState().restoreRound(tableId, roundId))
+      if (
+        !tableId ||
+        !useGameStore.getState().restoreRound(tableId, roundId, expectedEventId)
+      )
         return (
           useGameStore.getState().roundError ??
           'Das Spiel konnte nicht wiederhergestellt werden.'
         );
-      setRemovedRound(null);
+      dismissUndo();
       triggerSaveHaptic();
       return undefined;
     },
-    [currentTable?.id],
+    [currentTable?.id, dismissUndo],
   );
   const [seatOrderVisible, setSeatOrderVisible] = useState(false);
   const [playerActions, setPlayerActions] = useState<{
@@ -209,6 +239,17 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
+  const deleteCandidate = useRef<{
+    tableId: string;
+    roundId: string;
+    eventId?: string;
+    fingerprint: string;
+    fromHistory: boolean;
+  } | null>(null);
+  const pendingDeletion = useRef<string | undefined>(undefined);
+  const deletionLock = useRef(false);
+  const [deletionSaving, setDeletionSaving] = useState(false);
+  const [deletionError, setDeletionError] = useState('');
   const editingRound =
     rounds.find((round) => round.id === editingRoundId) ?? null;
   const placedCoinsByPlayerId = useMemo<Record<string, number>>(
@@ -219,6 +260,9 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     [currentTable?.placedLegerPlayerIds],
   );
 
+  const accountProfiles = useAccountProfiles(
+    players.flatMap((player) => (player.userId ? [player.userId] : [])),
+  );
   const rankedPlayers = useMemo(
     () =>
       createRankedPlayers(
@@ -269,6 +313,13 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   );
 
   const editRound = useCallback((round: GameRound) => {
+    if (
+      !tableAccess(
+        useGameStore.getState().currentTable,
+        useAuthStore.getState().user?.id,
+      ).canWrite
+    )
+      return;
     setComposerSession((value) => value + 1);
     setInitialDeclarerId(undefined);
     setEditingRoundId(round.id);
@@ -290,6 +341,26 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     }, 0);
     return () => clearTimeout(timer);
   }, [route?.params?.roundId, rounds, editRound, navigation]);
+  const requestRoundDeletion = useCallback(
+    (round: GameRound, fromHistory: boolean) => {
+      const table = useGameStore.getState().currentTable;
+      if (!table || table.id !== round.tableId) return;
+      deleteCandidate.current = {
+        tableId: table.id,
+        roundId: round.id,
+        eventId: table.roundHistory
+          ?.filter((event) => event.roundId === round.id)
+          .at(-1)?.id,
+        fingerprint: roundHistoryFingerprint(round),
+        fromHistory,
+      };
+      pendingDeletion.current = undefined;
+      setDeletionError('');
+      setMenuVisible(false);
+      setUndoConfirmVisible(true);
+    },
+    [],
+  );
   const renderHistoryRound: ListRenderItem<GameRound> = useCallback(
     ({ item }) =>
       currentTable ? (
@@ -298,9 +369,17 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           players={players}
           rounds={rounds}
           round={item}
+          onDelete={
+            canWrite &&
+            !['carryIn', 'carryOut', 'refund'].includes(item.stockAction ?? '')
+              ? () => requestRoundDeletion(item, true)
+              : undefined
+          }
           onEdit={
-            !item.stockAction ||
-            ['deposit', 'payout', 'double'].includes(item.stockAction)
+            canWrite &&
+            !item.misdealPlayerId &&
+            (!item.stockAction ||
+              ['deposit', 'payout', 'double'].includes(item.stockAction))
               ? () => editRound(item)
               : undefined
           }
@@ -322,7 +401,15 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           />
         </RoundHistoryActions>
       ) : null,
-    [getPlayerName, editRound, rounds, currentTable, players],
+    [
+      getPlayerName,
+      editRound,
+      rounds,
+      currentTable,
+      players,
+      canWrite,
+      requestRoundDeletion,
+    ],
   );
 
   const keyExtractorRound = useCallback((round: GameRound) => round.id, []);
@@ -352,6 +439,11 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
 
   const openRoundComposer = useCallback((declarerId?: string) => {
     const state = useGameStore.getState();
+    if (
+      !tableAccess(state.currentTable, useAuthStore.getState().user?.id)
+        .canWrite
+    )
+      return;
     if (
       declarerId &&
       !roundPlayers(
@@ -522,7 +614,9 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           <Text style={styles.title}>{currentTable.name}</Text>
           <View style={styles.statusRow}>
             <View style={styles.statusDot} />
-            <AppText style={styles.statusText}>Runde läuft</AppText>
+            <AppText style={styles.statusText}>
+              {currentTable.shared && !canWrite ? 'Nur lesen' : 'Runde läuft'}
+            </AppText>
             <AppText style={styles.playerCount}>
               {players.length} Spieler
             </AppText>
@@ -567,22 +661,16 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     </>
   );
 
-  const finishDayButton = (
-    <Pressable
+  const finishDayButton = canManage ? (
+    <GameActionButton
       accessibilityHint="Schliesst den Spieltag ab und zeigt die Abrechnung"
       accessibilityLabel="Spieltag abschliessen"
-      accessibilityRole="button"
       hitSlop={touchHitSlop}
       onPress={finishDay}
-      style={({ pressed }) => [
-        styles.finishButton,
-        pressed && styles.finishPressed,
-      ]}
-    >
-      <AppText style={styles.finishText}>Spieltag abschließen</AppText>
-      <ChevronRight color={screenColors.gold} size={18} strokeWidth={2.4} />
-    </Pressable>
-  );
+      style={styles.finishButton}
+      title="Spieltag abschließen"
+    />
+  ) : null;
 
   return (
     <AuthBackground>
@@ -626,8 +714,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           }
           ListFooterComponent={
             <View>
-              <SharedTablePanel />
-              {finishDayButton}
+              <SharedTablePanel issuesOnly />
+              <SyncStatus />
             </View>
           }
           ListHeaderComponent={
@@ -641,20 +729,22 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                       Zeile antippen für Bearbeitung und Verlauf
                     </AppText>
                   </View>
-                  <View style={styles.roundCountPill}>
-                    <AppText style={styles.roundCountText}>
-                      {playedRounds} Spiele
-                      {rounds.length > playedRounds
-                        ? `\n${rounds.length - playedRounds} ${rounds.length - playedRounds === 1 ? 'Buchung' : 'Buchungen'}`
-                        : ''}
-                    </AppText>
-                  </View>
                 </View>
                 <View style={styles.historyColumns}>
-                  <AppText style={[styles.columnLabel, { width: 32 }]}>
+                  <AppText
+                    style={[
+                      styles.columnLabel,
+                      { width: historyColumnWidths.number },
+                    ]}
+                  >
                     Nr.
                   </AppText>
-                  <AppText style={[styles.columnLabel, { width: 64 }]}>
+                  <AppText
+                    style={[
+                      styles.columnLabel,
+                      { width: historyColumnWidths.game },
+                    ]}
+                  >
                     Spiel
                   </AppText>
                   <AppText style={[styles.columnLabel, { flex: 1 }]}>
@@ -663,7 +753,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   <AppText
                     style={[
                       styles.columnLabel,
-                      { width: 64, textAlign: 'right' },
+                      { width: historyColumnWidths.amount, textAlign: 'right' },
                     ]}
                   >
                     Betrag
@@ -721,6 +811,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                     <AppText style={styles.columnLabel}>Spieler</AppText>
                     <Pressable
                       accessibilityLabel="Sitzreihenfolge ändern"
+                      disabled={!canManage}
                       accessibilityRole="button"
                       onPress={() => setSeatOrderVisible(true)}
                       style={styles.orderIcon}
@@ -743,13 +834,24 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <View style={styles.dragTableRow}>
               <PlayerRankingRow
                 participating={participantIds.has(player.id)}
-                dragging={draggingPlayers || isActive}
-                onDrag={drag}
+                dragging={draggingPlayers || isActive || !canWrite}
+                canReorder={canManage}
+                onDrag={canManage ? drag : () => {}}
                 isDealer={player.id === currentDealerId}
+                hasMisdeal={Boolean(
+                  currentTable?.settings.misdealPenaltyEnabled &&
+                  hasPendingMisdeal(currentTable, rounds, player.id),
+                )}
                 player={player}
+                profileCard={
+                  accountProfiles[
+                    players.find((p) => p.id === player.id)?.userId ?? ''
+                  ]
+                }
                 onPressPlayer={(player) => openRoundComposer(player.id)}
                 onPressCoin={togglePlacedCoin}
                 onOpenActions={() =>
+                  canManage &&
                   currentTable &&
                   setPlayerActions({
                     tableId: currentTable.id,
@@ -788,6 +890,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 </View>
                 <Switch
                   accessibilityLabel="Turbo Ramsch"
+                  disabled={!canWrite}
                   accessibilityHint="Verdoppelt den Spielwert zusätzlich zu den Legern"
                   value={turboRamschEnabled}
                   onValueChange={setTurboRamsch}
@@ -820,71 +923,96 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         />
       )}
 
-      {removedRound?.tableId === currentTable?.id &&
-      removedRound &&
-      !rounds.some((r) => r.id === removedRound.roundId) ? (
+      {activeTab !== 'history' ||
+      roundSaved ||
+      (undoTarget && undoTarget.tableId === currentTable?.id) ? (
         <View
-          pointerEvents="box-none"
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: actionDockHeight,
-            zIndex: 5,
-          }}
+          style={[
+            styles.actionDock,
+            { paddingBottom: Math.max(8, insets.bottom > 0 ? 4 : 12) },
+          ]}
         >
-          <RoundUndoNotice
-            key={`${removedRound.tableId}:${removedRound.roundId}`}
-            onDismiss={dismissUndo}
-            onUndo={() => {
-              const error = restoreRound(removedRound.roundId);
-              if (error) Alert.alert('Nicht wiederhergestellt', error);
-            }}
-          />
+          {activeTab !== 'history' ? <SyncStatus /> : null}
+          {activeTab !== 'history' ? (
+            <View
+              style={styles.multiplierKpi}
+              accessibilityLabel={`Gesamtmultiplikator: ${roundMultiplier}x`}
+              accessibilityLiveRegion="polite"
+            >
+              <AppText style={styles.multiplierKpiLabel}>
+                Gesamtfaktor · {placedCoinCount} Leger
+                {turboRamschEnabled ? ' + Turbo' : ''}
+              </AppText>
+              <AppText style={styles.multiplierKpiValue}>
+                {roundMultiplier}×
+              </AppText>
+            </View>
+          ) : null}
+          {undoTarget?.tableId === currentTable?.id && undoTarget ? (
+            <RoundUndoNotice
+              key={undoTarget.eventId}
+              message={
+                undoTarget.action === 'deleted'
+                  ? 'Spiel gelöscht'
+                  : undoTarget.action === 'updated'
+                    ? 'Änderung gespeichert'
+                    : 'Spiel eingetragen'
+              }
+              undoLabel={
+                undoTarget.action === 'deleted'
+                  ? 'Gelöschtes Spiel rückgängig machen'
+                  : undoTarget.action === 'updated'
+                    ? 'Spieländerung rückgängig machen'
+                    : 'Spieleingabe rückgängig machen'
+              }
+              disabled={!canWrite}
+              onDismiss={dismissUndo}
+              onUndo={async () => {
+                if (appliedUndo.current !== undoTarget.eventId) {
+                  if (
+                    !useGameStore
+                      .getState()
+                      .revertRoundChange(undoTarget.tableId, undoTarget.eventId)
+                  )
+                    return (
+                      useGameStore.getState().roundError ??
+                      'Die Änderung konnte nicht zurückgenommen werden.'
+                    );
+                  appliedUndo.current = undoTarget.eventId;
+                }
+                await reliableStorage.retryWrites();
+                if (
+                  !(await reliableStorage.confirmWrite(
+                    'schafkopfrechner-games',
+                  ))
+                )
+                  return 'Rücknahme noch nicht auf dem Gerät gespeichert. Bitte erneut versuchen; die Aktion wird nicht doppelt ausgeführt.';
+                triggerSaveHaptic();
+                return undefined;
+              }}
+            />
+          ) : null}
+          {roundSaved ? (
+            <View accessibilityLiveRegion="polite" style={styles.savedNotice}>
+              <AppText style={{ color: screenColors.gold }}>
+                Auf Gerät gespeichert · Spielstände aktualisiert
+              </AppText>
+            </View>
+          ) : null}
+          {activeTab !== 'history' &&
+          (currentTable?.settings.games.stock.enabled ||
+            getStockBalanceCents(rounds) > 0) ? (
+            <View
+              accessible
+              accessibilityLabel={`Stock: ${formatAmount(getStockBalanceCents(rounds) / 100)}`}
+            >
+              <AppText style={styles.multiplierKpiLabel}>
+                Stock: {formatAmount(getStockBalanceCents(rounds) / 100)}
+              </AppText>
+            </View>
+          ) : null}
         </View>
       ) : null}
-      <View
-        onLayout={(event) =>
-          setActionDockHeight(event.nativeEvent.layout.height)
-        }
-        style={[
-          styles.actionDock,
-          { paddingBottom: Math.max(8, insets.bottom > 0 ? 4 : 12) },
-        ]}
-      >
-        <SyncStatus />
-        <View
-          style={styles.multiplierKpi}
-          accessibilityLabel={`Gesamtmultiplikator: ${roundMultiplier}x`}
-          accessibilityLiveRegion="polite"
-        >
-          <AppText style={styles.multiplierKpiLabel}>
-            Gesamtfaktor · {placedCoinCount} Leger
-            {turboRamschEnabled ? ' + Turbo' : ''}
-          </AppText>
-          <AppText style={styles.multiplierKpiValue}>
-            {roundMultiplier}×
-          </AppText>
-        </View>
-        {roundSaved ? (
-          <View accessibilityLiveRegion="polite" style={styles.savedNotice}>
-            <AppText style={{ color: screenColors.gold }}>
-              Auf Gerät gespeichert · Spielstände aktualisiert
-            </AppText>
-          </View>
-        ) : null}
-        {currentTable?.settings.games.stock.enabled ||
-        getStockBalanceCents(rounds) > 0 ? (
-          <View
-            accessible
-            accessibilityLabel={`Stock: ${formatAmount(getStockBalanceCents(rounds) / 100)}`}
-          >
-            <AppText style={styles.multiplierKpiLabel}>
-              Stock: {formatAmount(getStockBalanceCents(rounds) / 100)}
-            </AppText>
-          </View>
-        ) : null}
-      </View>
       <Modal
         transparent
         visible={menuVisible}
@@ -930,6 +1058,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Spieleraktionen öffnen"
+              disabled={!canManage}
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
@@ -946,6 +1075,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Tisch bearbeiten"
+              disabled={!canManage}
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
@@ -958,6 +1088,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Tisch archivieren"
+              disabled={!canManage}
               style={styles.menuItem}
               onPress={() => {
                 setMenuVisible(false);
@@ -971,12 +1102,15 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               accessibilityRole="button"
               accessibilityLabel="Letzte Runde zurücknehmen"
               disabled={
-                !rounds.length || rounds.at(-1)?.stockAction === 'carryIn'
+                !canWrite ||
+                !rounds.length ||
+                rounds.at(-1)?.stockAction === 'carryIn'
               }
               style={styles.menuItem}
               onPress={() => {
-                setMenuVisible(false);
-                setUndoConfirmVisible(true);
+                const state = useGameStore.getState();
+                const last = state.rounds.at(-1);
+                if (last) requestRoundDeletion(last, false);
               }}
             >
               <AppText style={styles.menuText}>
@@ -1000,7 +1134,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           rounds={rounds}
           players={players}
           onClose={() => setHistoryVisible(false)}
-          onRestore={restoreRound}
+          onRestore={canWrite ? restoreRound : undefined}
         />
       ) : null}
       {playerActions && playerActions.tableId === currentTable?.id ? (
@@ -1039,9 +1173,10 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         onDismiss={() => {
           if (!roundComposerVisible) setEditingRoundId(null);
         }}
-        onSaved={() => {
+        onSaved={(eventId) => {
           triggerSaveHaptic();
-          setRoundSaved(true);
+          showUndo(eventId);
+          setRoundSaved(!eventId);
           setRoundComposerVisible(false);
         }}
       />
@@ -1049,42 +1184,119 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
         transparent
         visible={undoConfirmVisible}
         animationType="fade"
-        onRequestClose={() => setUndoConfirmVisible(false)}
+        onRequestClose={() => {
+          if (!deletionSaving) setUndoConfirmVisible(false);
+        }}
       >
         <View style={styles.menuRoot}>
-          <View style={styles.menuCard}>
-            <AppText style={styles.menuTitle}>
-              Letzte Runde zurücknehmen?
+          <View
+            style={[styles.menuCard, styles.deleteDialog]}
+            accessibilityViewIsModal
+          >
+            <AppText
+              accessibilityRole="header"
+              style={[styles.menuTitle, styles.deleteTitle]}
+            >
+              {deleteCandidate.current?.fromHistory
+                ? 'Spiel l\u00f6schen?'
+                : 'Letzte Runde zur\u00fccknehmen?'}
             </AppText>
-            <AppText style={styles.menuText}>
-              Die Salden werden neu berechnet. Geber, Leger und Turbo werden auf
-              den gespeicherten Stand vor dieser Runde zurückgesetzt. Später
-              gesetzte Leger werden dabei ersetzt. Bei älteren Runden ohne
-              Geberprotokoll gilt die aktuelle Sitzreihenfolge.
-            </AppText>
+            {deletionError ? (
+              <AppText accessibilityRole="alert" style={styles.menuText}>
+                {deletionError}
+              </AppText>
+            ) : null}
             <GoldButton
-              title="Runde zurücknehmen"
+              title={
+                deletionError
+                  ? 'Erneut versuchen'
+                  : deleteCandidate.current?.fromHistory
+                    ? 'Spiel l\u00f6schen'
+                    : 'Runde zur\u00fccknehmen'
+              }
               accessibilityLabel="Runde zurücknehmen bestätigen"
-              onPress={() => {
-                const before = useGameStore.getState();
-                const roundId = before.rounds.at(-1)?.id;
-                if (!before.undoLastRound())
-                  Alert.alert(
-                    'Nicht möglich',
-                    useGameStore.getState().roundError ??
-                      'Die Runde konnte nicht zurückgenommen werden.',
+              disabled={deletionSaving}
+              loading={deletionSaving}
+              onPress={async () => {
+                if (deletionLock.current) return;
+                deletionLock.current = true;
+                setDeletionSaving(true);
+                setDeletionError('');
+                try {
+                  const before = useGameStore.getState();
+                  const candidate = deleteCandidate.current;
+                  if (
+                    !candidate ||
+                    before.currentTable?.id !== candidate.tableId
+                  )
+                    throw new Error(
+                      'Der Tisch wurde inzwischen gewechselt. Bitte die Rücknahme erneut öffnen.',
+                    );
+                  if (!pendingDeletion.current) {
+                    if (
+                      !before.undoLastRound(
+                        candidate.roundId,
+                        candidate.eventId,
+                        candidate.fingerprint,
+                        candidate.fromHistory,
+                      )
+                    )
+                      throw new Error(
+                        useGameStore.getState().roundError ??
+                          'Die Runde konnte nicht zurückgenommen werden.',
+                      );
+                    pendingDeletion.current = useGameStore
+                      .getState()
+                      .currentTable?.roundHistory?.slice()
+                      .reverse()
+                      .find(
+                        (event) =>
+                          event.roundId === candidate.roundId &&
+                          event.action === 'deleted',
+                      )?.id;
+                  }
+                  await reliableStorage.retryWrites();
+                  if (
+                    !(await reliableStorage.confirmWrite(
+                      'schafkopfrechner-games',
+                    ))
+                  )
+                    throw new Error(
+                      'Die Löschung ist noch nicht auf dem Gerät gesichert. Bitte erneut sichern; es wird kein weiteres Spiel gelöscht.',
+                    );
+                  if (
+                    useGameStore.getState().currentTable?.id ===
+                    candidate.tableId
+                  )
+                    showUndo(pendingDeletion.current);
+                  pendingDeletion.current = undefined;
+                  setUndoConfirmVisible(false);
+                  setRoundSaved(false);
+                } catch (error) {
+                  setDeletionError(
+                    error instanceof Error
+                      ? error.message
+                      : 'Speichern fehlgeschlagen.',
                   );
-                else if (before.currentTable && roundId)
-                  setRemovedRound({ tableId: before.currentTable.id, roundId });
-                setUndoConfirmVisible(false);
-                setRoundSaved(false);
+                } finally {
+                  deletionLock.current = false;
+                  setDeletionSaving(false);
+                }
               }}
             />
-            <GoldButton
-              title="Abbrechen"
+            <Pressable
+              accessibilityRole="button"
+              disabled={deletionSaving}
               accessibilityLabel="Zurücknehmen abbrechen"
               onPress={() => setUndoConfirmVisible(false)}
-            />
+              style={({ pressed }) => [
+                styles.deleteCancel,
+                pressed && styles.pressed,
+                deletionSaving && { opacity: 0.5 },
+              ]}
+            >
+              <AppText style={styles.deleteCancelText}>Abbrechen</AppText>
+            </Pressable>
           </View>
         </View>
       </Modal>
@@ -1328,25 +1540,32 @@ const SegmentButton = memo(function SegmentButton({
 
 type PlayerRankingRowProps = {
   dragging: boolean;
+  canReorder?: boolean;
   onDrag: () => void;
   participating: boolean;
   onOpenActions: () => void;
   isDealer: boolean;
+  hasMisdeal: boolean;
   player: RankedPlayer;
+  profileCard?: ProfileCard;
   onPressCoin: (playerId: string) => void;
   onPressPlayer: (player: RankedPlayer) => void;
 };
 
 const PlayerRankingRow = memo(function PlayerRankingRow({
   dragging,
+  canReorder = true,
   onDrag,
   participating,
   onOpenActions,
   isDealer,
+  hasMisdeal,
   onPressCoin,
   player,
+  profileCard,
   onPressPlayer,
 }: PlayerRankingRowProps) {
+  const name = profileCard?.displayName ?? player.name;
   const isPositive = player.amount > 0;
   const isNegative = player.amount < 0;
   const [hovered, setHovered] = useState(false);
@@ -1366,7 +1585,7 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
   return (
     <View style={[styles.playerRow, hovered && styles.rowHovered]}>
       <Pressable
-        accessibilityLabel={`${player.name}, ${formatAmount(player.amount)}${isDealer ? ', Geber' : ''}${player.isPaused ? ', Pausiert' : !participating ? ', setzt aus' : ''}`}
+        accessibilityLabel={`${name}, ${formatAmount(player.amount)}${isDealer ? ', Geber' : ''}${hasMisdeal ? ', Einmal vergeben' : ''}${player.isPaused ? ', Pausiert' : !participating ? ', setzt aus' : ''}`}
         accessibilityRole="button"
         onHoverIn={() => setHovered(true)}
         onHoverOut={() => setHovered(false)}
@@ -1386,14 +1605,21 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
           pressed && styles.rowPressed,
         ]}
       >
-        <CardStackIcon isDealer={isDealer} />
+        {profileCard ? (
+          <ProfileAvatar profile={profileCard} size={32} />
+        ) : (
+          <CardStackIcon isDealer={isDealer} />
+        )}
         <View style={styles.playerCopy}>
           <Text
             numberOfLines={2}
             ellipsizeMode="tail"
             style={[styles.playerName, player.isPaused && { opacity: 0.5 }]}
           >
-            {player.name}
+            {name}
+            {hasMisdeal ? (
+              <Text style={styles.amountNegative}>{'  \u2715'}</Text>
+            ) : null}
           </Text>
           {player.isPaused ? (
             <AppText style={styles.dealerLabel}>Pausiert</AppText>
@@ -1420,7 +1646,7 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         <CoinMultiplierBadge
           disabled={dragging}
           coinCount={player.placedCoins}
-          playerName={player.name}
+          playerName={name}
           onPress={handlePressCoin}
         />
       ) : (
@@ -1428,9 +1654,10 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
       )}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${player.name} verschieben`}
+        accessibilityLabel={`${name} verschieben`}
         accessibilityHint="Griff gedrückt halten und ziehen, um die Sitzreihenfolge zu ändern. Loslassen beendet das Verschieben. Alternativ das Listensymbol verwenden."
         accessibilityState={{ selected: dragging }}
+        disabled={!canReorder}
         delayLongPress={300}
         onLongPress={onDrag}
         style={styles.dragHandle}
@@ -1615,6 +1842,9 @@ const HistoryRoundRow = memo(function HistoryRoundRow({
       compact
       roundNumber={roundNumber}
       displayGameType={formatRoundGameType(round.gameType, round.suit)}
+      misdealPlayer={
+        round.misdealPlayerId ? getPlayerName(round.misdealPlayerId) : undefined
+      }
       customAmounts={
         isCustomBooking(round)
           ? round.customAmounts!.map((entry) => ({
@@ -1856,6 +2086,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
   },
+  deleteDialog: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    gap: 12,
+  },
+  deleteTitle: {
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  deleteCancel: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelText: {
+    color: screenColors.muted,
+    fontWeight: '600',
+  },
   menuItem: {
     minHeight: 52,
     flexDirection: 'row',
@@ -2021,18 +2270,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 3,
   },
-  roundCountPill: {
-    backgroundColor: 'rgba(245, 245, 245, 0.06)',
-    borderRadius: authRadius.pill,
-    paddingHorizontal: authSpacing.md,
-    paddingVertical: authSpacing.sm,
-  },
-  roundCountText: {
-    textAlign: 'center',
-    color: screenColors.soft,
-    fontSize: 12,
-    fontWeight: '900',
-  },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2092,23 +2329,7 @@ const styles = StyleSheet.create({
   finishButton: {
     marginTop: 20,
     marginBottom: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: screenColors.border,
-    backgroundColor: screenColors.goldSoft,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    minHeight: 44,
   },
-  finishPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.988 }],
-  },
-  finishText: { color: screenColors.gold, fontSize: 14, fontWeight: '600' },
   pressed: {
     opacity: 0.78,
     transform: [{ scale: 0.97 }],

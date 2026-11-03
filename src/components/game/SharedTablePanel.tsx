@@ -8,28 +8,48 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
+import { tableAccess } from '../../utils/tableAccess';
 import { AppText } from '../ui/AppText';
 
-export function SharedTablePanel() {
+export function SharedTablePanel({
+  issuesOnly = false,
+}: {
+  issuesOnly?: boolean;
+}) {
   const table = useGameStore((state) => state.currentTable);
   const userId = useAuthStore((state) => state.user?.id);
   const { busy, error, conflict } = useSharedTableStatus();
   if (!table) return null;
   const meta = table.shared;
   const own = !meta || meta.userId === userId;
+  if (issuesOnly && own && !error && conflict?.tableId !== table.id)
+    return null;
   return (
     <View style={styles.panel}>
-      <AppText style={styles.text}>
-        {meta
-          ? 'Gemeinsamer Tisch'
-          : 'Tisch wird für die eingetragenen Spielerkonten bereitgestellt.'}
-      </AppText>
+      {!issuesOnly ? (
+        <AppText style={styles.text}>
+          {meta
+            ? 'Gemeinsamer Tisch'
+            : 'Tisch wird für die eingetragenen Spielerkonten bereitgestellt.'}
+        </AppText>
+      ) : null}
+      {!issuesOnly && meta && own ? (
+        <AppText style={styles.text}>
+          {tableAccess(table, userId).canManage
+            ? 'Deine Berechtigung: Ersteller'
+            : tableAccess(table, userId).canWrite
+              ? 'Deine Berechtigung: Schreiben'
+              : 'Deine Berechtigung: Lesen · Änderungen sind gesperrt'}
+        </AppText>
+      ) : null}
       {!meta ? (
         <>
-          <AppText style={styles.text}>
-            Spielerkonten unter „Regeln & Tarife“ zuordnen. Der Tisch wird
-            automatisch übertragen.
-          </AppText>
+          {!issuesOnly ? (
+            <AppText style={styles.text}>
+              Freunde unter „Regeln & Tarife“ einladen. Zugriff entsteht erst
+              nach Annahme der Einladung. Der Tisch wird automatisch übertragen.
+            </AppText>
+          ) : null}
           {error ? (
             <>
               <AppText accessibilityRole="alert" style={styles.text}>
@@ -49,13 +69,15 @@ export function SharedTablePanel() {
         </>
       ) : own ? (
         <>
-          <AppText style={styles.text}>
-            {busy
-              ? 'Stand wird abgeglichen …'
-              : error
-                ? `Noch nicht übertragen: ${error}`
-                : `Letzter Abgleich: ${new Date(meta.updatedAt).toLocaleTimeString('de-DE')}`}
-          </AppText>
+          {!issuesOnly || error ? (
+            <AppText style={styles.text}>
+              {busy
+                ? 'Stand wird abgeglichen …'
+                : error
+                  ? `Noch nicht übertragen: ${error}`
+                  : `Letzter Abgleich: ${new Date(meta.updatedAt).toLocaleTimeString('de-DE')}`}
+            </AppText>
+          ) : null}
           {error && !conflict ? (
             <Pressable
               accessibilityRole="button"

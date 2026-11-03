@@ -20,6 +20,9 @@ export function createGameRound(
     loserIds: [...payload.loserIds],
     amount: payload.amount,
     gameType: payload.gameType,
+    ...(payload.misdealPlayerId
+      ? { misdealPlayerId: payload.misdealPlayerId }
+      : {}),
     ...(payload.customAmounts
       ? { customAmounts: payload.customAmounts.map((entry) => ({ ...entry })) }
       : {}),

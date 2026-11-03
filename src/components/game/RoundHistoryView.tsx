@@ -32,7 +32,7 @@ type Props = {
   players: Player[];
   roundId?: string;
   onClose: () => void;
-  onRestore?: (roundId: string) => string | undefined;
+  onRestore?: (roundId: string, eventId?: string) => string | undefined;
 };
 
 export function RoundHistoryModal(props: Props) {
@@ -72,7 +72,7 @@ export function RoundHistoryContent({
         event.action === 'deleted' &&
         latestByRound.get(event.roundId)?.id === event.id &&
         !rounds.some((r) => r.id === event.roundId)
-          ? () => onRestore(event.roundId)
+          ? () => onRestore(event.roundId, event.id)
           : undefined
       }
     />
@@ -223,6 +223,11 @@ function HistoryEvent({
                 ? 'Spiel wiederhergestellt'
                 : 'Spiel geändert'}
         </AppText>
+        {event.undoOfEventId ? (
+          <AppText style={styles.note}>
+            Rücknahme einer vorherigen Aktion
+          </AppText>
+        ) : null}
         <AppText style={styles.note}>
           {event.actor.name} ·{' '}
           {new Date(event.occurredAt).toLocaleString('de-DE', {

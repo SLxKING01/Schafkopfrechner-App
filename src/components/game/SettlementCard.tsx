@@ -34,16 +34,18 @@ export function SettlementCard({
         <AppText style={styles.subtitle}>
           {isPaid ? 'Bezahlt' : 'Offene Zahlung'}
         </AppText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${from} an ${to}, ${amount}: ${isPaid ? 'Zahlung wieder öffnen' : 'als bezahlt markieren'}`}
-          onPress={onMarkPaid}
-          style={[styles.button, isPaid && styles.buttonPaid]}
-        >
-          <AppText style={styles.buttonText}>
-            {isPaid ? 'Bezahlt · Rückgängig' : 'Als bezahlt markieren'}
-          </AppText>
-        </Pressable>
+        {onMarkPaid ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${from} an ${to}, ${amount}: ${isPaid ? 'Zahlung wieder öffnen' : 'als bezahlt markieren'}`}
+            onPress={onMarkPaid}
+            style={[styles.button, isPaid && styles.buttonPaid]}
+          >
+            <AppText style={styles.buttonText}>
+              {isPaid ? 'Bezahlt · Rückgängig' : 'Als bezahlt markieren'}
+            </AppText>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

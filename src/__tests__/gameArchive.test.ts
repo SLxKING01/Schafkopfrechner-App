@@ -5,6 +5,7 @@ import { reliableStorage } from '../storage/reliableStorage';
 import { useGameStore } from '../store/gameStore';
 import { seedLegacyRound } from '../testUtils/seedLegacyRound';
 import type { Player } from '../types/game';
+import { hasPendingMisdeal } from '../utils/dealerOrder';
 
 jest.mock('../lib/supabase', () => ({
   isSupabaseConfigured: false,
@@ -151,15 +152,20 @@ it('edits archived payments by table id without changing the current evening', (
   ).toBe(false);
 });
 
-it('blocks resetting or replacing an active evening, including an empty one', () => {
-  useGameStore.getState().createTable('Nicht fertig', makePlayers());
-  const original = useGameStore.getState().currentTable;
-  useGameStore.getState().resetGame();
-  expect(useGameStore.getState().currentTable).toEqual(original);
-  expect(
-    useGameStore.getState().createTable('Überschreiben', makePlayers()),
-  ).toBe(false);
-  expect(useGameStore.getState().currentTable).toEqual(original);
+it('preserves an open evening when creating and switching tables', () => {
+  const { createTable, resetGame, resumeTable } = useGameStore.getState();
+  expect(createTable('Erster Tisch', makePlayers())).toBe(true);
+  const first = useGameStore.getState().currentTable!;
+  resetGame();
+  expect(useGameStore.getState().currentTable).toEqual(first);
+
+  expect(createTable('Zweiter Tisch', makePlayers())).toBe(true);
+  const second = useGameStore.getState().currentTable!;
+  expect(resumeTable(first.id)).toBe(true);
+  expect(useGameStore.getState().currentTable).toEqual(first);
+  expect(useGameStore.getState().activeGame).toBe(true);
+  expect(resumeTable(second.id)).toBe(true);
+  expect(useGameStore.getState().currentTable).toEqual(second);
 });
 
 it('protects a closed evening against recalculation that would reset paid payments', () => {
@@ -314,4 +320,39 @@ it('rejects unknown Leger players, toggles each contribution once and protects c
   const closed = useGameStore.getState().currentTable;
   useGameStore.getState().togglePlayerLeger('b');
   expect(useGameStore.getState().currentTable).toBe(closed);
+});
+
+it('books the solo base rate on the second misdeal by the same dealer', () => {
+  const settings = {
+    ...createDefaultTableSettings(),
+    misdealPenaltyEnabled: true,
+  };
+  const players = [
+    ...makePlayers(),
+    { id: 'd', name: 'Dani', isLocal: true, isPaused: true },
+    { id: 'e', name: 'Eli', isLocal: true },
+  ];
+  const { createTable, recordMisdeal, setDealer } = useGameStore.getState();
+  expect(createTable('Vergeben', players, settings)).toBe(true);
+  const id = useGameStore.getState().currentTable!.id;
+  expect(recordMisdeal(id, 'b')).toBe(false);
+  expect(recordMisdeal(id, 'a')).toBe(true);
+  const first = useGameStore.getState();
+  expect(hasPendingMisdeal(first.currentTable, first.rounds, 'a')).toBe(true);
+  expect(first.rounds).toHaveLength(0);
+  expect(setDealer(id, 'b')).toBe(true);
+  expect(setDealer(id, 'a')).toBe(true);
+  expect(recordMisdeal(id, 'a')).toBe(true);
+  const second = useGameStore.getState();
+  expect(hasPendingMisdeal(second.currentTable, second.rounds, 'a')).toBe(
+    false,
+  );
+  expect(second.currentTable?.dealerId).toBe('a');
+  expect(second.rounds).toHaveLength(1);
+  expect(second.rounds[0].customAmounts).toEqual([
+    { playerId: 'a', amount: -1.5 },
+    { playerId: 'b', amount: 0.5 },
+    { playerId: 'c', amount: 0.5 },
+    { playerId: 'e', amount: 0.5 },
+  ]);
 });

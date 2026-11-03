@@ -1,65 +1,23 @@
-# Gelöschte Spiele wiederherstellen – Issue #17
+# Spiele rückgängig machen – Issue #17
 
-## Umfang
+Nach Spieleingabe, Korrektur und Löschung erscheint „Rückgängig“ direkt unter Gesamtfaktor/Leger. Die Meldung bleibt acht Sekunden sichtbar, bei aktivem Screenreader länger; Android berücksichtigt die Systemempfehlung. Während Speicherung und bei Fehlern läuft sie nicht ab. Wiederholungen nach Speicherfehlern führen dieselbe Rücknahme nicht mehrfach aus.
 
-Der bestätigte Mockup-Ablauf ergänzt das vorhandene Zurücknehmen der letzten
-Runde. Nach erfolgreicher Rücknahme erscheint eine kompakte Meldung „Spiel
-gelöscht“ mit „Rückgängig“. Sie bleibt acht Sekunden sichtbar; bei Screenreadern
-auf iOS/Web zwanzig Sekunden, auf Android gemäß Systemempfehlung. Die Meldung
-schwebt oberhalb der gemessenen Aktionsleiste und verkleinert den Tischverlauf
-nicht. Die Aktionsleiste bleibt bedienbar. Die kurze Einblendung berücksichtigt
-reduzierte Bewegung.
+Gelöschte Spiele können außerdem über Tischmenü → Änderungsverlauf → „Spiel wiederherstellen“ zurückgeholt werden, auch nach Neuladen oder Ablauf der Meldung. Nur die jüngste Löschung eines aktuell fehlenden Spiels bietet diese Aktion an. Abgeschlossene Tische bleiben lesbar (Folgearbeit #18).
 
-Später kann das Spiel über Tischmenü → Änderungsverlauf → „Spiel
-wiederherstellen“ zurückgeholt werden. Der Button erscheint nur an der neuesten
-Löschung eines aktuell fehlenden Spiels am laufenden Tisch. Historische
-Löschungen bleiben sichtbar, auch nachdem das Spiel wiederhergestellt wurde.
-Archivierte Tische bleiben hier ausschließlich lesbar. Beliebige alte
-Bearbeitungsstände und das Löschen beliebiger Einträge sind nicht Teil dieser
-Erweiterung.
+## Daten und Konflikte
 
-## Daten und Abrechnung
+- Eine Eingabe wird gezielt entfernt, eine Korrektur auf ihren vorherigen Stand zurückgesetzt. Löschungen werden an ursprünglicher Position mit gleicher ID, Teilnehmern und historischen Tarifen wiederhergestellt.
+- Stockbewegungen und Salden werden atomar neu berechnet. Reale Zwischenzahlungen bleiben bestehen. Unvereinbare Stock-/Regelwechsel lehnen die Aktion vollständig ab.
+- Geber, Leger und Turbo werden nur zurückgesetzt, wenn der gespeicherte Folgekontext noch unverändert ist. Spätere Spiele, Sitzreihenfolge, Pausierungen und manuelle Einstellungen bleiben erhalten.
+- Ereignis-ID und Inhaltsvergleich verhindern Rücknahmen veralteter Spielstände. Ein bereits geöffneter Löschdialog darf keine inzwischen neu hinzugekommene Runde löschen. Gleiche Zeitstempel ersetzen diese Prüfung nicht.
+- Jede Rücknahme erzeugt ein neues Audit-Ereignis mit Verfasser, Zeitpunkt und `undoOfEventId`; bestehende Ereignisse bleiben unverändert. Optionale `turnBefore`/`turnAfter` erhalten den Bedienkontext über Neuladen hinweg. Alte Daten bleiben lesbar; ohne Kontext bleiben aktuelle Geber-/Legereinstellungen erhalten.
+- Ersteller und Schreibende dürfen rückgängig machen und wiederherstellen. Lesende und abgeschlossene Tische werden im Store abgewehrt.
+- Die Versionsprüfung gemeinsamer Tische verhindert, dass eine lokale Rücknahme eine entfernte neuere Korrektur überschreibt; der lokale Stand bleibt als Konflikt erhalten.
 
-- Wiederhergestellt wird der letzte gespeicherte Stand vor der Löschung mit
-  unveränderter Spiel-ID, Teilnehmern, Tarif-Snapshot und ursprünglichem Kontext.
-- Neue Löschereignisse halten die damalige Reihenfolge der IDs fest. Die
-  Position wird anhand dieser Reihenfolgen rekonstruiert, auch bei mehreren
-  Löschungen und Wiederherstellungen in unterschiedlicher Reihenfolge. Alte
-  Undo-Ereignisse ohne Positionsdaten werden vor später erfassten Spielen
-  eingeordnet; es wird nicht nach Gerätezeit sortiert.
-- Stockbewegungen werden in der wiederhergestellten Reihenfolge vollständig
-  neu berechnet. Abhängige Änderungen erhalten eigene Historieneinträge mit
-  Verweis auf das wiederhergestellte Spiel.
-- Salden und Zahlungsplan werden atomar neu berechnet. Bereits geleistete
-  Zwischenzahlungen bleiben erhalten.
-- Bei Wiederherstellung der letzten, geberwechselnden Runde wird der Geber
-  wieder weitergesetzt und die für diese Runde gesetzten Leger werden
-  verbraucht. Bei älteren Runden bleibt der aktuelle Geber-/Legerstand bestehen.
-- Ein neues Ereignis `restored` dokumentiert Verfasser, Zeitpunkt und Ergebnis;
-  die bisherigen Ereignisse bleiben unverändert. Speicherung, Rehydration,
-  Archivierung und Snapshot-Validierung unterstützen diesen Ereignistyp.
-- Falscher Tisch, abgeschlossener Tisch, fehlende Spieler, doppelte
-  Wiederherstellung und widersprüchliche Stock-/Regelwechsel werden abgelehnt.
-  Eine Ablehnung verändert weder Rundendaten noch Salden noch Historie.
+## Prüfung und Grenzen
 
-## Prüfung
+Automatisierte Tests prüfen Eingaben, Korrekturen, Löschungen, Wiederherstellung, historische Tarife, Stock-Neuberechnung, reale Zahlungen, spätere Bedienänderungen, veraltete Dialoge, Berechtigungen, Rehydration, Mehrgeräte-Konflikte und fehlgeschlagene Speicherung mit Wiederholung.
 
-- Vollständige Jest-Suite: 45 Suiten / 403 Tests bestanden.
-- Danach ergänzte Tests und letzte UI-Anpassungen: 33 Tests in ActiveGame und
-  RoundHistoryView sowie 14 RoundHistory-Tests bestanden.
-- TypeScript, scoped ESLint und Formatierung geprüft.
-- Browser: vorhandenes gelöschtes Wenz-Spiel über Historie wiederhergestellt;
-  korrigierter Tarif 0,70 € pro Spieler und Gesamtbetrag 2,10 € erhalten.
-  Erneute Rücknahme → Meldung → Rückgängig ergab genau ein Spiel, korrekte
-  Salden und ein zusätzliches Wiederherstellungsereignis.
-- Wiederherstellung bleibt nach Neuladen erhalten. Beide Wege zusätzlich bei
-  320 × 568 Pixeln durchlaufen; abschließender Browserlauf ohne Konsolenfehler.
-- Screenshots in `output/playwright/round-restore-history-mobile.png` und
-  `output/playwright/round-undo-notice-mobile.png`.
+Keine zusätzliche Datenbankmigration nötig: Die optionalen Audit-Felder werden im bestehenden Snapshot gespeichert und durch den Client validiert. Physische iOS-/Android-Geräte und native Screenreader wurden für diese Erweiterung nicht geprüft. Änderungen liegen lokal auf `master`; kein Commit, Push oder Release für #17.
 
-## Grenzen
-
-Lokaler Ablauf auf Basis der bestehenden Snapshot-Speicherung. Kein neuer
-serverseitiger Mehrgeräte-Konfliktmechanismus und keine neuen Tischrechte.
-Physische iOS-/Android-Geräte, native Screenreader und maximale Systemschrift
-sind noch nicht geprüft. Änderungen sind lokal; kein Commit, Push oder Release.
+Abschlussprüfung: 50 Jest-Suiten / 460 Tests bestanden, TypeScript ohne Fehler, ESLint für alle betroffenen Dateien bestanden, Datenbankprüfung mit sämtlichen Migrationen und Berechtigungs-/Versionskonfliktfällen bestanden. `git diff --check` ohne Fehler.

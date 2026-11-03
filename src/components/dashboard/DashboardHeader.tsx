@@ -1,11 +1,13 @@
 import { Pressable, StyleSheet } from 'react-native';
 
+import { useOwnProfile } from '../../hooks/useOwnProfile';
 import { authColors } from '../../theme/colors';
 import {
   authControlSizes,
   authInteraction,
   authRadius,
 } from '../../theme/spacing';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
 import { PageHeader } from '../ui/PageHeader';
 
@@ -15,6 +17,7 @@ type DashboardHeaderProps = {
 };
 
 export function DashboardHeader({ username, onProfile }: DashboardHeaderProps) {
+  const { profile } = useOwnProfile();
   return (
     <PageHeader
       title={`Servus, ${username}`}
@@ -28,9 +31,13 @@ export function DashboardHeader({ username, onProfile }: DashboardHeaderProps) {
             pressed && authInteraction.pressed,
           ]}
         >
-          <AppText style={styles.avatarText}>
-            {username.charAt(0).toUpperCase()}
-          </AppText>
+          {profile ? (
+            <ProfileAvatar profile={profile} size={48} />
+          ) : (
+            <AppText style={styles.avatarText}>
+              {username.charAt(0).toUpperCase()}
+            </AppText>
+          )}
         </Pressable>
       }
     />

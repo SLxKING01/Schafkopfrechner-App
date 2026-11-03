@@ -37,18 +37,23 @@ export function PlayerActionsMenu({
   initialPlayerId,
   onClose,
 }: Props) {
+  const misdealEnabled = useGameStore(
+    (state) => state.currentTable?.settings.misdealPenaltyEnabled,
+  );
   const insets = useSafeAreaInsets();
   const [playerId, setPlayerId] = useState(initialPlayerId);
   const [busy, setBusy] = useState(false);
   const [needsRetry, setNeedsRetry] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'dealer' | 'pause'>(
-    'dealer',
-  );
+  const [pendingAction, setPendingAction] = useState<
+    'dealer' | 'pause' | 'misdeal'
+  >('dealer');
   const [error, setError] = useState('');
   const lock = useRef(false);
   const player = players.find(({ id }) => id === playerId);
   const isDealer = player?.id === dealerId;
-  async function selectDealer(action: 'dealer' | 'pause' = 'dealer') {
+  async function selectDealer(
+    action: 'dealer' | 'pause' | 'misdeal' = 'dealer',
+  ) {
     if (lock.current || !player) return;
     lock.current = true;
     setBusy(true);
@@ -60,7 +65,9 @@ export function PlayerActionsMenu({
         const ok =
           action === 'pause'
             ? store.setPlayerPaused(tableId, player.id, !player.isPaused)
-            : store.setDealer(tableId, player.id);
+            : action === 'misdeal'
+              ? store.recordMisdeal(tableId, player.id)
+              : store.setDealer(tableId, player.id);
         if (!ok)
           throw new Error(
             'Der Tisch oder Spieler ist nicht mehr verfügbar. Bitte das Menü erneut öffnen.',
@@ -178,6 +185,20 @@ export function PlayerActionsMenu({
                         color={authColors.goldHighlight}
                       />
                     ) : null}
+                  </Pressable>
+                ) : null}
+                {(misdealEnabled && isDealer && !needsRetry) ||
+                (needsRetry && pendingAction === 'misdeal') ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={busy}
+                    onPress={() => void selectDealer('misdeal')}
+                    style={({ pressed }) => [s.action, pressed && s.pressed]}
+                  >
+                    <X size={20} color={authColors.error} />
+                    <AppText style={s.text}>
+                      {needsRetry ? 'Erneut sichern' : 'Vergeben?'}
+                    </AppText>
                   </Pressable>
                 ) : null}
                 {!needsRetry || pendingAction === 'pause' ? (

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as crypto from 'expo-crypto';
 import { ChevronLeft } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Keyboard,
@@ -13,11 +14,16 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
 import {
   createDefaultTableSettings,
   getGameRules,
 } from '../../constants/tableSettings';
+import {
+  type ParallelRoundReview,
+  saveSharedRound,
+} from '../../services/shared/sharedTables';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
@@ -63,14 +69,16 @@ import {
   emptyTariffOptions,
 } from '../../utils/roundTariff';
 import { selectSauspielResult } from '../../utils/sauspielSelection';
-import { AuthBackground } from '../auth/AuthBackground';
+import { tableAccess } from '../../utils/tableAccess';
 import { GoldButton } from '../auth/GoldButton';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
+import { GameActionButton } from './GameActionButton';
 import { CustomAmountsEditor } from './CustomAmountsEditor';
 import { EuroStyleCoin } from './EuroStyleCoin';
 import { GameTypeSelector } from './GameTypeSelector';
+import { RoundHistoryContent } from './RoundHistoryView';
 const AmountInput = TextInput;
 const EntryScrollView = ScrollView;
 type Draft = {
@@ -92,17 +100,37 @@ type Draft = {
   stockCompletesDeal: boolean;
 };
 type CachedDraft = {
+  committedEventId?: string;
   draft: Draft;
   revision: string;
   committedId: string | null;
 };
+type SharedDraftContext = {
+  knownRoundIds: string[];
+  requestId: string;
+  attempted: boolean;
+};
 // Failed round writes remain session-only; retained input drafts are also stored on disk.
 const drafts = new Map<string, CachedDraft>();
-function isStoredDraft(
-  value: unknown,
-): value is { draft: Draft; revision: string } {
+function isStoredDraft(value: unknown): value is {
+  draft: Draft;
+  revision: string;
+  sharedEntry?: SharedDraftContext;
+} {
   if (!value || typeof value !== 'object') return false;
   const entry = value as Record<string, unknown>;
+  if (entry.sharedEntry !== undefined) {
+    const shared = entry.sharedEntry as SharedDraftContext;
+    if (
+      !shared ||
+      typeof shared.requestId !== 'string' ||
+      !shared.requestId ||
+      typeof shared.attempted !== 'boolean' ||
+      !Array.isArray(shared.knownRoundIds) ||
+      !shared.knownRoundIds.every((id) => typeof id === 'string')
+    )
+      return false;
+  }
   if (
     typeof entry.revision !== 'string' ||
     !entry.draft ||
@@ -187,7 +215,7 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onDismiss: () => void;
-  onSaved: () => void;
+  onSaved: (eventId?: string) => void;
 };
 function initialDraft(
   table: GameTable | null,
@@ -261,8 +289,30 @@ export function RoundEntrySheet({
   const { width, fontScale } = useWindowDimensions();
   const expandedPlayerLayout = fontScale >= 1.3 || width < 360;
   const rounds = useGameStore((state) => state.rounds);
+  const sharedNew = !!table?.shared && !editingRound;
+  const [openingSharedContext] = useState(() => ({ table, players: roster }));
+  const sharedEntry = useRef<SharedDraftContext>({
+    knownRoundIds: [
+      ...new Set([
+        ...rounds.map(({ id }) => id),
+        ...(table?.roundHistory?.map(({ roundId }) => roundId) ?? []),
+      ]),
+    ],
+    requestId: crypto.randomUUID(),
+    attempted: false,
+  });
+  const [sharedAttempted, setSharedAttempted] = useState(false);
+  const [parallelReview, setParallelReview] =
+    useState<ParallelRoundReview | null>(null);
+  const [inspectingRoundId, setInspectingRoundId] = useState<string | null>(
+    null,
+  );
   const currentTable = useGameStore((state) => state.currentTable);
   const ownerId = useAuthStore((state) => state.user?.id ?? 'guest');
+  const canWrite = tableAccess(
+    currentTable,
+    ownerId === 'guest' ? undefined : ownerId,
+  ).canWrite;
   const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${!editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
   const storageKey = `schafkopfrechner-round-draft-v1:${key}`;
   const revision = JSON.stringify({
@@ -272,14 +322,16 @@ export function RoundEntrySheet({
     context: editingRound
       ? null
       : {
-          rounds: rounds.map(({ id, updatedAt, createdAt }) => [
-            id,
-            updatedAt ?? createdAt,
-          ]),
+          rounds: sharedNew
+            ? null
+            : rounds.map(({ id, updatedAt, createdAt }) => [
+                id,
+                updatedAt ?? createdAt,
+              ]),
           settings: table?.settings,
-          dealer: table?.dealerId,
-          leger: table?.placedLegerPlayerIds,
-          turbo: table?.turboRamschEnabled,
+          dealer: sharedNew ? null : table?.dealerId,
+          leger: sharedNew ? null : table?.placedLegerPlayerIds,
+          turbo: sharedNew ? null : table?.turboRamschEnabled,
         },
   });
   const cached = drafts.get(key);
@@ -290,6 +342,9 @@ export function RoundEntrySheet({
   );
   const committed = useRef<string | null>(
     cached?.revision === revision ? cached.committedId : null,
+  );
+  const committedEvent = useRef(
+    cached?.revision === revision ? cached.committedEventId : undefined,
   );
   const savingLock = useRef(false);
   const editingRevision = useRef(
@@ -316,6 +371,10 @@ export function RoundEntrySheet({
         const value: unknown = JSON.parse(raw);
         if (!isStoredDraft(value) || value.revision !== revision) return;
         if (!cached?.committedId) setDraft(value.draft);
+        if (sharedNew && value.sharedEntry) {
+          sharedEntry.current = value.sharedEntry;
+          setSharedAttempted(value.sharedEntry.attempted);
+        }
       })
       .catch(() => {
         if (!cancelled)
@@ -331,7 +390,7 @@ export function RoundEntrySheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
   const patch = (change: Partial<Draft>) => {
-    if (loadingDraft || saving || committedId) return;
+    if (loadingDraft || saving || committedId || sharedAttempted) return;
     // Older tables may have Stoß disabled. Selecting Kontra/Re explicitly
     // enables it for future rounds while historic snapshots stay untouched.
     if (!editingRound && (change.options?.stoss ?? 0) > 0) {
@@ -611,7 +670,7 @@ export function RoundEntrySheet({
           : !!party);
   if (!valid && !hint)
     hint = 'Bitte das Ergebnis für alle beteiligten Spieler prüfen.';
-  const immutable = loadingDraft || saving || !!committedId;
+  const immutable = loadingDraft || saving || !!committedId || sharedAttempted;
   const gameLabel = formatRoundGameType(draft.gameType, draft.suit);
   useEffect(() => {
     if (!visible) return;
@@ -634,13 +693,22 @@ export function RoundEntrySheet({
       if (keep && !committed.current) {
         await AsyncStorage.setItem(
           storageKey,
-          JSON.stringify({ draft, revision }),
+          JSON.stringify({
+            draft,
+            revision,
+            ...(sharedNew ? { sharedEntry: sharedEntry.current } : {}),
+          }),
         );
       } else {
         await AsyncStorage.removeItem(storageKey);
       }
       if (keep && committed.current)
-        drafts.set(key, { draft, revision, committedId: committed.current });
+        drafts.set(key, {
+          draft,
+          revision,
+          committedId: committed.current,
+          committedEventId: committedEvent.current,
+        });
       else if (keep) drafts.delete(key);
       else {
         drafts.delete(key);
@@ -853,56 +921,125 @@ export function RoundEntrySheet({
           },
     );
   }
-  async function save() {
-    if (loadingDraft || savingLock.current || (!committed.current && !valid))
+  async function save(approveReview = false) {
+    if (
+      loadingDraft ||
+      savingLock.current ||
+      (!committed.current && !sharedAttempted && !valid)
+    )
       return;
     savingLock.current = true;
     setSaving(true);
     setSaveError('');
     try {
+      if (
+        !tableAccess(
+          useGameStore.getState().currentTable,
+          useAuthStore.getState().user?.id,
+        ).canWrite
+      )
+        throw new Error(
+          'Du hast nur Leserechte. Deine Eingabe bleibt erhalten.',
+        );
       if (!committed.current) {
-        const state = useGameStore.getState();
-        if (editingRound) {
-          const latest = state.rounds.find(
-            (round) => round.id === editingRound.id,
+        if (sharedNew && table) {
+          if (approveReview && parallelReview) {
+            sharedEntry.current.knownRoundIds = [
+              ...new Set([
+                ...sharedEntry.current.knownRoundIds,
+                ...parallelReview.remote.payload.rounds.map(({ id }) => id),
+              ]),
+            ];
+          }
+          sharedEntry.current.attempted = true;
+          setSharedAttempted(true);
+          // Persist identity and reviewed IDs before sending: uncertain responses
+          // and app restarts must retry the same operation, never create another.
+          await AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              draft,
+              revision,
+              sharedEntry: sharedEntry.current,
+            }),
           );
+          const result = await saveSharedRound(
+            table.id,
+            payload,
+            sharedEntry.current.requestId,
+            sharedEntry.current.knownRoundIds,
+            {
+              table: openingSharedContext.table!,
+              players: openingSharedContext.players,
+            },
+          );
+          if ('review' in result) {
+            setParallelReview(result.review);
+            // No request was sent for this draft, so it can still be edited.
+            sharedEntry.current.attempted = false;
+            setSharedAttempted(false);
+            return;
+          }
+          setParallelReview(null);
+          committed.current = result.roundId;
+          committedEvent.current = result.eventId;
+          setCommittedId(result.roundId);
+        } else {
+          const state = useGameStore.getState();
+          if (editingRound) {
+            const latest = state.rounds.find(
+              (round) => round.id === editingRound.id,
+            );
+            if (
+              !latest ||
+              roundHistoryFingerprint(latest) !== editingRevision.current
+            )
+              throw new Error(
+                'Dieses Spiel wurde inzwischen geändert. Bitte die Eingabe schließen und den aktuellen Stand erneut öffnen.',
+              );
+          }
+          if (state.currentTable?.id !== table?.id)
+            throw new Error(
+              'Der aktive Tisch hat sich geändert. Bitte die Eingabe erneut öffnen.',
+            );
           if (
-            !latest ||
-            roundHistoryFingerprint(latest) !== editingRevision.current
+            !editingRound &&
+            participationRevision(
+              state.currentTable,
+              state.players,
+              state.rounds.length,
+            ) !== openingParticipation
           )
             throw new Error(
-              'Dieses Spiel wurde inzwischen geändert. Bitte die Eingabe schließen und den aktuellen Stand erneut öffnen.',
+              'Die Besetzung oder Sitzordnung hat sich ge�ndert. Bitte die Eingabe schlie�en und erneut �ffnen.',
             );
+          const result = editingRound
+            ? state.updateRound(editingRound.id, payload)
+            : state.addRound({
+                ...payload,
+                participationRevision: openingParticipation,
+              });
+          if (!result)
+            throw new Error(
+              useGameStore.getState().roundError ??
+                'Runde nicht eingetragen. Bitte Parteien, Tarife und den Stock vor späteren Auszahlungen prüfen.',
+            );
+          committed.current =
+            editingRound?.id ?? useGameStore.getState().rounds.at(-1)!.id;
+          committedEvent.current = useGameStore
+            .getState()
+            .currentTable?.roundHistory?.slice()
+            .reverse()
+            .find(
+              (event) =>
+                event.roundId === committed.current &&
+                !event.causeRoundId &&
+                !state.currentTable?.roundHistory?.some(
+                  (previous) => previous.id === event.id,
+                ),
+            )?.id;
+          setCommittedId(committed.current);
         }
-        if (state.currentTable?.id !== table?.id)
-          throw new Error(
-            'Der aktive Tisch hat sich geändert. Bitte die Eingabe erneut öffnen.',
-          );
-        if (
-          !editingRound &&
-          participationRevision(
-            state.currentTable,
-            state.players,
-            state.rounds.length,
-          ) !== openingParticipation
-        )
-          throw new Error(
-            'Die Besetzung oder Sitzordnung hat sich ge�ndert. Bitte die Eingabe schlie�en und erneut �ffnen.',
-          );
-        const result = editingRound
-          ? state.updateRound(editingRound.id, payload)
-          : state.addRound({
-              ...payload,
-              participationRevision: openingParticipation,
-            });
-        if (!result)
-          throw new Error(
-            useGameStore.getState().roundError ??
-              'Runde nicht eingetragen. Bitte Parteien, Tarife und den Stock vor späteren Auszahlungen prüfen.',
-          );
-        committed.current =
-          editingRound?.id ?? useGameStore.getState().rounds.at(-1)!.id;
-        setCommittedId(committed.current);
       } else await reliableStorage.retryWrites();
       if (!(await reliableStorage.confirmWrite('schafkopfrechner-games')))
         throw new Error(
@@ -910,8 +1047,9 @@ export function RoundEntrySheet({
         );
       const current = useGameStore.getState();
       if (
-        current.currentTable?.id !== table?.id ||
-        !current.rounds.some(({ id }) => id === committed.current)
+        !sharedNew &&
+        (current.currentTable?.id !== table?.id ||
+          !current.rounds.some(({ id }) => id === committed.current))
       )
         throw new Error(
           'Der Tisch wurde inzwischen geändert. Bitte den aktuellen Spielstand prüfen.',
@@ -921,11 +1059,21 @@ export function RoundEntrySheet({
       AccessibilityInfo.announceForAccessibility(
         'Runde auf dem Gerät gespeichert.',
       );
-      onSaved();
+      onSaved(committedEvent.current);
     } catch (error) {
+      if (
+        sharedNew &&
+        (error as { mayHaveCommitted?: boolean })?.mayHaveCommitted === false
+      ) {
+        sharedEntry.current.attempted = false;
+        setSharedAttempted(false);
+      }
       setSaveError(
         error instanceof Error
-          ? error.message
+          ? error.message +
+              (sharedNew && sharedEntry.current.attempted
+                ? ' Bitte erneut speichern, um den gemeinsamen Stand zu prüfen. Bis dahin bleibt die Eingabe gesperrt.'
+                : '')
           : 'Die Gerätespeicherung konnte nicht bestätigt werden.',
       );
       if (committed.current)
@@ -933,6 +1081,7 @@ export function RoundEntrySheet({
           draft,
           revision,
           committedId: committed.current,
+          committedEventId: committedEvent.current,
         });
     } finally {
       savingLock.current = false;
@@ -996,12 +1145,19 @@ export function RoundEntrySheet({
       </View>
     );
   }
+  const saveStatus = saving
+    ? 'Wird auf dem Ger\u00e4t gespeichert \u2026'
+    : !canWrite
+      ? 'Dein Schreibrecht wurde entzogen. Deine Eingabe bleibt erhalten.'
+      : saveError ||
+        (committedId ? 'Noch nicht auf dem Ger\u00e4t gesichert.' : hint);
+  const bottomInset = useContext(SafeAreaInsetsContext)?.bottom ?? 0;
   const title = editingRound ? 'Korrektur speichern' : 'Runde speichern';
   return (
     <>
       <InteractionSheet
         fullScreen
-        contentHandlesSafeArea
+        swipeRightToClose
         visible={visible && !closeChoice}
         onClose={requestClose}
         onDismiss={() => {
@@ -1009,560 +1165,693 @@ export function RoundEntrySheet({
         }}
         dismissible={!saving}
       >
-        <AuthBackground withEdgeBorder={false}>
-          <View style={styles.container}>
-            <View style={styles.header}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Rundeneingabe schließen"
-                disabled={saving}
-                onPress={requestClose}
-                style={({ pressed }) => [
-                  styles.backButton,
-                  pressed && authInteraction.pressed,
-                  saving && authInteraction.disabled,
-                ]}
-              >
-                <ChevronLeft
-                  size={authControlSizes.icon}
-                  color={authColors.textPrimary}
-                />
-              </Pressable>
-              <AppText accessibilityRole="header" style={styles.title}>
-                {draft.choosing ? 'Spielauswahl' : gameLabel}
-              </AppText>
-            </View>
-            <EntryScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              contentInsetAdjustmentBehavior="automatic"
-              showsVerticalScrollIndicator={false}
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Rundeneingabe schließen"
+              disabled={saving}
+              onPress={requestClose}
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && authInteraction.pressed,
+                saving && authInteraction.disabled,
+              ]}
             >
-              <View
-                pointerEvents={immutable ? 'none' : 'auto'}
-                accessibilityElementsHidden={immutable}
-                importantForAccessibility={
-                  immutable ? 'no-hide-descendants' : 'auto'
-                }
-                style={styles.content}
-              >
-                {!customMode ? (
-                  <AppText style={styles.hint}>
-                    {editingRound ? 'Mitgespielt' : 'Spielen'}:{' '}
-                    {players.map((p) => p.name).join(', ')}
-                    {editingRound?.roundContext
-                      ? ` � Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
-                      : ''}
-                  </AppText>
-                ) : null}
-                {draft.choosing ? (
-                  <>
-                    <AppText style={styles.hint}>
-                      {editingRound
-                        ? 'Spielart mit den ursprünglichen Tisch-Tarifen korrigieren. Parteien und Boni werden beim Wechsel neu gewählt.'
-                        : 'Welche Spielart wurde gespielt? Nur aktivierte Spiele sind verfügbar.'}
+              <ChevronLeft
+                size={authControlSizes.icon}
+                color={authColors.textPrimary}
+              />
+            </Pressable>
+            <AppText accessibilityRole="header" style={styles.title}>
+              {draft.choosing ? 'Spielauswahl' : gameLabel}
+            </AppText>
+          </View>
+          <EntryScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentInsetAdjustmentBehavior="automatic"
+            showsVerticalScrollIndicator={false}
+          >
+            <View
+              pointerEvents={immutable ? 'none' : 'auto'}
+              accessibilityElementsHidden={immutable}
+              importantForAccessibility={
+                immutable ? 'no-hide-descendants' : 'auto'
+              }
+              style={styles.content}
+            >
+              {!draft.choosing && !customMode ? (
+                <AppText style={styles.hint}>
+                  {editingRound ? 'Mitgespielt' : 'Spielen'}:{' '}
+                  {players.map((p) => p.name).join(', ')}
+                  {editingRound?.roundContext
+                    ? ` � Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
+                    : ''}
+                </AppText>
+              ) : null}
+              {draft.choosing ? (
+                <>
+                  {draft.declarer ? (
+                    <AppText style={styles.gold}>
+                      Ansager:{' '}
+                      {players.find((p) => p.id === draft.declarer)?.name ??
+                        'Unbekannt'}
                     </AppText>
-                    {draft.declarer ? (
-                      <AppText style={styles.gold}>
-                        Ansager:{' '}
-                        {players.find((p) => p.id === draft.declarer)?.name ??
-                          'Unbekannt'}
-                      </AppText>
-                    ) : null}
-                    <GameTypeSelector
-                      enabledTypes={enabledTypes}
-                      variant="list"
-                      onSelect={changeGame}
+                  ) : null}
+                  <GameTypeSelector
+                    enabledTypes={enabledTypes}
+                    variant="list"
+                    onSelect={changeGame}
+                  />
+                  {!enabledTypes.length ? (
+                    <AppText style={styles.hint}>
+                      Keine Spielart aktiviert. Bitte die Tischregeln prüfen.
+                    </AppText>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Spielart ändern"
+                    onPress={() =>
+                      patch({
+                        choosing: true,
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.row,
+                      pressed && authInteraction.pressed,
+                    ]}
+                  >
+                    <AppText style={styles.gold}>‹ Spielart ändern</AppText>
+                  </Pressable>
+                  {customMode ? (
+                    <CustomAmountsEditor
+                      players={roster}
+                      entries={draft.customEntries ?? {}}
+                      onChange={(customEntries) => patch({ customEntries })}
+                      disabled={immutable}
                     />
-                    {!enabledTypes.length ? (
-                      <AppText style={styles.hint}>
-                        Keine Spielart aktiviert. Bitte die Tischregeln prüfen.
-                      </AppText>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Spielart ändern"
-                      onPress={() =>
-                        patch({
-                          choosing: true,
-                        })
-                      }
-                      style={({ pressed }) => [
-                        styles.row,
-                        pressed && authInteraction.pressed,
-                      ]}
-                    >
-                      <AppText style={styles.gold}>‹ Spielart ändern</AppText>
-                    </Pressable>
-                    {customMode ? (
-                      <CustomAmountsEditor
-                        players={roster}
-                        entries={draft.customEntries ?? {}}
-                        onChange={(customEntries) => patch({ customEntries })}
-                        disabled={immutable}
-                      />
-                    ) : (
-                      <>
+                  ) : (
+                    <>
+                      {stockDeposit || draft.manual ? (
                         <View style={styles.tariffHeader}>
                           <AppText style={styles.hint}>
                             {stockDeposit
                               ? 'Einzahlung je Spieler'
-                              : draft.manual
-                                ? 'Gewinnerpartei gesamt'
-                                : 'Tarif pro Spieler'}
+                              : 'Gewinnerpartei gesamt'}
                           </AppText>
                           <AppText selectable style={styles.amount}>
-                            {stockDeposit
-                              ? formatOverviewMoney(stockUnit ?? 0)
-                              : draft.manual
-                                ? formatOverviewMoney(amountCents)
-                                : formatOverviewMoney(tariff?.totalCents ?? 0)}
+                            {formatOverviewMoney(
+                              stockDeposit ? (stockUnit ?? 0) : amountCents,
+                            )}
                           </AppText>
                         </View>
-                        {stockDeposit ? (
-                          <View style={styles.card}>
-                            <AppText style={styles.label}>
-                              Stock einzahlen
-                            </AppText>
-                            <AppText style={styles.hint}>
-                              Alle vier zahlen den konfigurierten Einsatz.
-                              Spielboni und Multiplikatoren verändern diese
-                              Einzahlung nicht.
-                            </AppText>
-                            {players.map((player) => (
-                              <View key={player.id} style={styles.row}>
-                                <AppText style={styles.text}>
-                                  {player.name}
-                                </AppText>
-                                <AppText style={styles.text}>
-                                  −{formatOverviewMoney(stockUnit ?? 0)}
-                                </AppText>
+                      ) : null}
+                      {stockDeposit ? (
+                        <View style={styles.card}>
+                          <AppText style={styles.label}>
+                            Stock einzahlen
+                          </AppText>
+                          <AppText style={styles.hint}>
+                            Alle vier zahlen den konfigurierten Einsatz.
+                            Spielboni und Multiplikatoren verändern diese
+                            Einzahlung nicht.
+                          </AppText>
+                          {players.map((player) => (
+                            <View key={player.id} style={styles.row}>
+                              <AppText style={styles.text}>
+                                {player.name}
+                              </AppText>
+                              <AppText style={styles.text}>
+                                −{formatOverviewMoney(stockUnit ?? 0)}
+                              </AppText>
+                            </View>
+                          ))}
+                          <AppText style={styles.gold}>
+                            Stock danach:{' '}
+                            {formatOverviewMoney(stockBefore + amountCents)}
+                          </AppText>
+                          <AppText style={styles.hint}>
+                            Alle weiter: Derselbe Geber teilt erneut aus. Geber
+                            und Leger bleiben erhalten.
+                          </AppText>
+                        </View>
+                      ) : (
+                        <>
+                          {draft.gameType !== 'ramsch' &&
+                          (!partnerGame || !draft.declarer) ? (
+                            <View style={styles.card}>
+                              <AppText style={styles.text}>Ansager</AppText>
+                              <View style={styles.roleRow}>
+                                {players.map((p) => (
+                                  <Pressable
+                                    key={p.id}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Ansager ${p.name}`}
+                                    disabled={
+                                      !!initialDeclarerId &&
+                                      !editingRound &&
+                                      p.id !== initialDeclarerId
+                                    }
+                                    accessibilityState={{
+                                      selected: draft.declarer === p.id,
+                                    }}
+                                    onPress={() => chooseDeclarer(p.id)}
+                                    style={[
+                                      styles.roleChoice,
+                                      draft.declarer === p.id &&
+                                        styles.selected,
+                                    ]}
+                                  >
+                                    <AppText style={styles.text}>
+                                      {p.name}
+                                    </AppText>
+                                  </Pressable>
+                                ))}
                               </View>
-                            ))}
-                            <AppText style={styles.gold}>
-                              Stock danach:{' '}
-                              {formatOverviewMoney(stockBefore + amountCents)}
-                            </AppText>
-                            <AppText style={styles.hint}>
-                              Alle weiter: Derselbe Geber teilt erneut aus.
-                              Geber und Leger bleiben erhalten.
-                            </AppText>
-                          </View>
-                        ) : (
-                          <>
-                            {draft.gameType !== 'ramsch' &&
-                            (!partnerGame || !draft.declarer) ? (
-                              <View style={styles.card}>
-                                <AppText style={styles.text}>Ansager</AppText>
-                                <View style={styles.roleRow}>
-                                  {players.map((p) => (
+                              {!draft.declarer && editingRound ? (
+                                <AppText style={styles.hint}>
+                                  Bisheriger Ansager unbekannt. Nur eine
+                                  bekannte Zuordnung ergänzen.
+                                </AppText>
+                              ) : null}
+                              {partnerGame && draft.declarer ? (
+                                <>
+                                  <AppText style={styles.text}>Partner</AppText>
+                                  <View style={styles.roleRow}>
+                                    {players
+                                      .filter((p) => p.id !== draft.declarer)
+                                      .map((p) => (
+                                        <Pressable
+                                          key={p.id}
+                                          accessibilityRole="button"
+                                          accessibilityLabel={`Partner ${p.name}`}
+                                          accessibilityState={{
+                                            selected: draft.partner === p.id,
+                                          }}
+                                          onPress={() => choosePartner(p.id)}
+                                          style={[
+                                            styles.roleChoice,
+                                            draft.partner === p.id &&
+                                              styles.selected,
+                                          ]}
+                                        >
+                                          <AppText style={styles.text}>
+                                            {p.name}
+                                          </AppText>
+                                        </Pressable>
+                                      ))}
+                                  </View>
+                                </>
+                              ) : null}
+                              {draft.declarer ? (
+                                <View
+                                  style={[
+                                    styles.segments,
+                                    styles.declarerResult,
+                                  ]}
+                                >
+                                  {([true, false] as const).map((won) => (
                                     <Pressable
-                                      key={p.id}
+                                      key={String(won)}
                                       accessibilityRole="button"
-                                      accessibilityLabel={`Ansager ${p.name}`}
-                                      disabled={
-                                        !!initialDeclarerId &&
-                                        !editingRound &&
-                                        p.id !== initialDeclarerId
-                                      }
+                                      accessibilityLabel={`Ansager ${won ? 'gewonnen' : 'verloren'}`}
                                       accessibilityState={{
-                                        selected: draft.declarer === p.id,
+                                        selected: (won
+                                          ? draft.winners
+                                          : draft.losers
+                                        ).includes(draft.declarer),
                                       }}
-                                      onPress={() => chooseDeclarer(p.id)}
+                                      onPress={() => chooseResult(won)}
                                       style={[
-                                        styles.roleChoice,
-                                        draft.declarer === p.id &&
+                                        styles.segment,
+                                        (won
+                                          ? draft.winners
+                                          : draft.losers
+                                        ).includes(draft.declarer) &&
                                           styles.selected,
                                       ]}
                                     >
-                                      <AppText style={styles.text}>
-                                        {p.name}
+                                      <AppText style={styles.segmentText}>
+                                        {won ? 'Gewonnen' : 'Verloren'}
                                       </AppText>
                                     </Pressable>
                                   ))}
                                 </View>
-                                {!draft.declarer && editingRound ? (
-                                  <AppText style={styles.hint}>
-                                    Bisheriger Ansager unbekannt. Nur eine
-                                    bekannte Zuordnung ergänzen.
-                                  </AppText>
-                                ) : null}
-                                {partnerGame && draft.declarer ? (
-                                  <>
-                                    <AppText style={styles.text}>
-                                      Partner
-                                    </AppText>
-                                    <View style={styles.roleRow}>
-                                      {players
-                                        .filter((p) => p.id !== draft.declarer)
-                                        .map((p) => (
-                                          <Pressable
-                                            key={p.id}
-                                            accessibilityRole="button"
-                                            accessibilityLabel={`Partner ${p.name}`}
-                                            accessibilityState={{
-                                              selected: draft.partner === p.id,
-                                            }}
-                                            onPress={() => choosePartner(p.id)}
-                                            style={[
-                                              styles.roleChoice,
-                                              draft.partner === p.id &&
-                                                styles.selected,
-                                            ]}
-                                          >
-                                            <AppText style={styles.text}>
-                                              {p.name}
-                                            </AppText>
-                                          </Pressable>
-                                        ))}
+                              ) : null}
+                            </View>
+                          ) : null}
+                          <View style={styles.playerList}>
+                            {players.map((player, index) => {
+                              const winner = draft.winners.includes(player.id);
+                              const loser = draft.losers.includes(player.id);
+                              const cents = winner
+                                ? (party?.winnerCents ??
+                                    (draft.winners.length
+                                      ? amountCents / draft.winners.length
+                                      : 0)) +
+                                  (stockPayout ? stockShare(player.id) : 0)
+                                : loser
+                                  ? -(
+                                      party?.loserCents ??
+                                      (draft.losers.length
+                                        ? amountCents / draft.losers.length
+                                        : 0)
+                                    ) -
+                                    (stockDouble ? stockShare(player.id) : 0)
+                                  : 0;
+                              return (
+                                <View
+                                  key={player.id}
+                                  style={[
+                                    styles.playerRow,
+                                    expandedPlayerLayout &&
+                                      styles.expandedPlayerRow,
+                                    index < players.length - 1 &&
+                                      styles.playerSeparator,
+                                  ]}
+                                >
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Klopfen ${player.name}`}
+                                    accessibilityHint={
+                                      canKnock
+                                        ? placedLegerIds.includes(player.id)
+                                          ? 'Klopfen zurücknehmen'
+                                          : 'Nachträglich klopfen und den Spielwert verdoppeln'
+                                        : 'Klopfen ist für diese Runde nicht verfügbar'
+                                    }
+                                    accessibilityState={{
+                                      selected: placedLegerIds.includes(
+                                        player.id,
+                                      ),
+                                      disabled:
+                                        immutable ||
+                                        !canKnock ||
+                                        (!placedLegerIds.includes(player.id) &&
+                                          placedLegerIds.length >= 4),
+                                    }}
+                                    disabled={
+                                      immutable ||
+                                      !canKnock ||
+                                      (!placedLegerIds.includes(player.id) &&
+                                        placedLegerIds.length >= 4)
+                                    }
+                                    onPress={() => toggleKnock(player.id)}
+                                    style={({ pressed }) => [
+                                      styles.coinButton,
+                                      pressed && authInteraction.pressed,
+                                      (immutable ||
+                                        !canKnock ||
+                                        (!placedLegerIds.includes(player.id) &&
+                                          placedLegerIds.length >= 4)) &&
+                                        authInteraction.disabled,
+                                    ]}
+                                  >
+                                    <EuroStyleCoin
+                                      label={
+                                        placedLegerIds.includes(player.id)
+                                          ? '2×'
+                                          : '1×'
+                                      }
+                                      muted={
+                                        !placedLegerIds.includes(player.id)
+                                      }
+                                    />
+                                  </Pressable>
+                                  <Pressable
+                                    accessible={
+                                      guided &&
+                                      !partnerGame &&
+                                      draft.gameType !== 'ramsch'
+                                    }
+                                    focusable={
+                                      guided &&
+                                      !partnerGame &&
+                                      draft.gameType !== 'ramsch'
+                                    }
+                                    accessibilityRole={
+                                      guided &&
+                                      !partnerGame &&
+                                      draft.gameType !== 'ramsch'
+                                        ? 'button'
+                                        : undefined
+                                    }
+                                    accessibilityLabel={
+                                      guided &&
+                                      !partnerGame &&
+                                      draft.gameType !== 'ramsch'
+                                        ? `Alleinspieler ${player.name}`
+                                        : `Ergebnis für ${player.name}`
+                                    }
+                                    disabled={
+                                      !!initialDeclarerId &&
+                                      !editingRound &&
+                                      player.id !== initialDeclarerId
+                                    }
+                                    accessibilityState={{
+                                      selected: draft.solo === player.id,
+                                    }}
+                                    onPress={() => {
+                                      if (
+                                        guided &&
+                                        !partnerGame &&
+                                        draft.gameType !== 'ramsch'
+                                      )
+                                        selectSolo(player.id);
+                                    }}
+                                    style={({ pressed }) => [
+                                      styles.playerIdentity,
+                                      pressed && authInteraction.pressed,
+                                    ]}
+                                  >
+                                    <View style={styles.playerNameBlock}>
+                                      <AppText
+                                        numberOfLines={
+                                          expandedPlayerLayout ? undefined : 1
+                                        }
+                                        style={styles.playerName}
+                                      >
+                                        {player.name}
+                                      </AppText>
+                                      {partnerGame &&
+                                      draft.declarer === player.id ? (
+                                        <AppText style={styles.gold}>
+                                          Spielmacher
+                                        </AppText>
+                                      ) : partnerGame &&
+                                        draft.partner === player.id ? (
+                                        <AppText style={styles.gold}>
+                                          Gesuchter
+                                        </AppText>
+                                      ) : null}
+                                      <AppText
+                                        style={
+                                          winner ? styles.gold : styles.hint
+                                        }
+                                      >
+                                        {winner || loser
+                                          ? `${cents > 0 ? '+' : cents < 0 ? '−' : ''}${formatOverviewMoney(Math.round(Math.abs(cents)))}`
+                                          : '—'}
+                                      </AppText>
                                     </View>
-                                  </>
-                                ) : null}
-                                {draft.declarer ? (
+                                  </Pressable>
                                   <View
                                     style={[
                                       styles.segments,
-                                      styles.declarerResult,
+                                      expandedPlayerLayout &&
+                                        styles.expandedSegments,
                                     ]}
                                   >
                                     {([true, false] as const).map((won) => (
                                       <Pressable
                                         key={String(won)}
                                         accessibilityRole="button"
-                                        accessibilityLabel={`Ansager ${won ? 'gewonnen' : 'verloren'}`}
+                                        accessibilityLabel={
+                                          guided &&
+                                          !partnerGame &&
+                                          draft.solo === player.id
+                                            ? `Alleinspieler ${won ? 'gewonnen' : 'verloren'}`
+                                            : `${player.name} ${won ? 'gewonnen' : 'verloren'}`
+                                        }
                                         accessibilityState={{
-                                          selected: (won
-                                            ? draft.winners
-                                            : draft.losers
-                                          ).includes(draft.declarer),
+                                          selected: won ? winner : loser,
                                         }}
-                                        onPress={() => chooseResult(won)}
-                                        style={[
-                                          styles.segment,
-                                          (won
-                                            ? draft.winners
-                                            : draft.losers
-                                          ).includes(draft.declarer) &&
-                                            styles.selected,
+                                        style={({ pressed }) => [
+                                          [
+                                            styles.segment,
+                                            (won ? winner : loser) &&
+                                              (won
+                                                ? styles.segmentWon
+                                                : styles.selected),
+                                          ],
+                                          pressed && authInteraction.pressed,
                                         ]}
+                                        onPress={() => {
+                                          if (draft.gameType === 'ramsch') {
+                                            selectRamsch(player.id, won);
+                                          } else if (guided && !partnerGame) {
+                                            if (
+                                              draft.solo &&
+                                              draft.solo !== player.id &&
+                                              (winner || loser)
+                                            )
+                                              selectSolo(draft.solo, !won);
+                                            else selectSolo(player.id, won);
+                                          } else if (partnerGame) {
+                                            selectSauspiel(player.id, won);
+                                          } else
+                                            toggle(
+                                              player.id,
+                                              won ? 'winner' : 'loser',
+                                            );
+                                        }}
                                       >
-                                        <AppText style={styles.segmentText}>
+                                        <AppText
+                                          style={[
+                                            styles.segmentText,
+                                            (won ? winner : loser) &&
+                                              (won
+                                                ? styles.segmentWonText
+                                                : styles.gold),
+                                          ]}
+                                        >
                                           {won ? 'Gewonnen' : 'Verloren'}
                                         </AppText>
                                       </Pressable>
                                     ))}
                                   </View>
-                                ) : null}
-                              </View>
-                            ) : null}
-                            <View style={styles.playerList}>
-                              {players.map((player, index) => {
-                                const winner = draft.winners.includes(
-                                  player.id,
-                                );
-                                const loser = draft.losers.includes(player.id);
-                                const cents = winner
-                                  ? (party?.winnerCents ??
-                                      (draft.winners.length
-                                        ? amountCents / draft.winners.length
-                                        : 0)) +
-                                    (stockPayout ? stockShare(player.id) : 0)
-                                  : loser
-                                    ? -(
-                                        party?.loserCents ??
-                                        (draft.losers.length
-                                          ? amountCents / draft.losers.length
-                                          : 0)
-                                      ) -
-                                      (stockDouble ? stockShare(player.id) : 0)
-                                    : 0;
-                                return (
-                                  <View
-                                    key={player.id}
+                                </View>
+                              );
+                            })}
+                          </View>
+                          {supportsCardSuit(draft.gameType) ? (
+                            <View style={styles.suitRow}>
+                              {cardSuits.map((suit) => (
+                                <Pressable
+                                  key={suit.id}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Kartenfarbe ${suit.label}`}
+                                  accessibilityState={{
+                                    selected: draft.suit === suit.id,
+                                  }}
+                                  onPress={() =>
+                                    patch({
+                                      suit:
+                                        draft.suit === suit.id
+                                          ? undefined
+                                          : suit.id,
+                                    })
+                                  }
+                                  style={({ pressed }) => [
+                                    [
+                                      styles.suitChoice,
+                                      draft.suit === suit.id && styles.selected,
+                                    ],
+                                    pressed && authInteraction.pressed,
+                                  ]}
+                                >
+                                  <CardSuitIcon
+                                    suit={suit.id}
+                                    color={suit.color}
+                                  />
+                                  <AppText
                                     style={[
-                                      styles.playerRow,
-                                      expandedPlayerLayout &&
-                                        styles.expandedPlayerRow,
-                                      index < players.length - 1 &&
-                                        styles.playerSeparator,
+                                      styles.suitLabel,
+                                      draft.suit === suit.id && styles.gold,
                                     ]}
                                   >
-                                    <Pressable
-                                      accessibilityRole="button"
-                                      accessibilityLabel={`Klopfen ${player.name}`}
-                                      accessibilityHint={
-                                        canKnock
-                                          ? placedLegerIds.includes(player.id)
-                                            ? 'Klopfen zurücknehmen'
-                                            : 'Nachträglich klopfen und den Spielwert verdoppeln'
-                                          : 'Klopfen ist für diese Runde nicht verfügbar'
-                                      }
-                                      accessibilityState={{
-                                        selected: placedLegerIds.includes(
-                                          player.id,
-                                        ),
-                                        disabled:
-                                          immutable ||
-                                          !canKnock ||
-                                          (!placedLegerIds.includes(
-                                            player.id,
-                                          ) &&
-                                            placedLegerIds.length >= 4),
-                                      }}
-                                      disabled={
-                                        immutable ||
-                                        !canKnock ||
-                                        (!placedLegerIds.includes(player.id) &&
-                                          placedLegerIds.length >= 4)
-                                      }
-                                      onPress={() => toggleKnock(player.id)}
-                                      style={({ pressed }) => [
-                                        styles.coinButton,
-                                        pressed && authInteraction.pressed,
-                                        (immutable ||
-                                          !canKnock ||
-                                          (!placedLegerIds.includes(
-                                            player.id,
-                                          ) &&
-                                            placedLegerIds.length >= 4)) &&
-                                          authInteraction.disabled,
-                                      ]}
+                                    {suit.label}
+                                  </AppText>
+                                </Pressable>
+                              ))}
+                            </View>
+                          ) : null}
+                          <View style={styles.optionsPanel}>
+                            {!draft.manual ? (
+                              <View style={[styles.row, styles.optionRow]}>
+                                <AppText
+                                  style={[styles.text, styles.optionLabel]}
+                                >
+                                  Gelegt
+                                </AppText>
+                                <AppText style={styles.countValue}>
+                                  {effectiveOptions.legerCount}
+                                </AppText>
+                                <AppText
+                                  style={[styles.hint, styles.tableContext]}
+                                >
+                                  Über Münzen
+                                </AppText>
+                              </View>
+                            ) : null}
+                            {draft.gameType === 'ramsch' ? (
+                              <>
+                                <AppText
+                                  style={[styles.hint, styles.optionHint]}
+                                >
+                                  {draft.options.durchmarsch
+                                    ? 'Ein Spieler gewinnt gegen drei.'
+                                    : 'Höchste Augenzahl verliert gegen die anderen drei.'}
+                                </AppText>
+                                {rules.ramschDurchmarsch ? (
+                                  <View style={[styles.row, styles.optionRow]}>
+                                    <AppText
+                                      style={[styles.text, styles.optionLabel]}
                                     >
-                                      <EuroStyleCoin
-                                        label={
-                                          placedLegerIds.includes(player.id)
-                                            ? '2×'
-                                            : '1×'
+                                      Durchmarsch
+                                    </AppText>
+                                    <View style={styles.switchColumn}>
+                                      <Switch
+                                        thumbColor={authColors.textPrimary}
+                                        trackColor={{
+                                          true: authColors.gold,
+                                          false: authColors.control,
+                                        }}
+                                        ios_backgroundColor={authColors.control}
+                                        accessibilityLabel="Durchmarsch"
+                                        value={
+                                          draft.options.durchmarsch ?? false
                                         }
-                                        muted={
-                                          !placedLegerIds.includes(player.id)
+                                        onValueChange={(durchmarsch) =>
+                                          patch({
+                                            options: {
+                                              ...draft.options,
+                                              durchmarsch,
+                                              jungfrauen: 0,
+                                            },
+                                            ...(durchmarsch
+                                              ? { winners: [], losers: [] }
+                                              : {}),
+                                          })
                                         }
                                       />
-                                    </Pressable>
-                                    <Pressable
-                                      accessible={
-                                        guided &&
-                                        !partnerGame &&
-                                        draft.gameType !== 'ramsch'
-                                      }
-                                      focusable={
-                                        guided &&
-                                        !partnerGame &&
-                                        draft.gameType !== 'ramsch'
-                                      }
-                                      accessibilityRole={
-                                        guided &&
-                                        !partnerGame &&
-                                        draft.gameType !== 'ramsch'
-                                          ? 'button'
-                                          : undefined
-                                      }
-                                      accessibilityLabel={
-                                        guided &&
-                                        !partnerGame &&
-                                        draft.gameType !== 'ramsch'
-                                          ? `Alleinspieler ${player.name}`
-                                          : `Ergebnis für ${player.name}`
-                                      }
-                                      disabled={
-                                        !!initialDeclarerId &&
-                                        !editingRound &&
-                                        player.id !== initialDeclarerId
-                                      }
-                                      accessibilityState={{
-                                        selected: draft.solo === player.id,
-                                      }}
-                                      onPress={() => {
-                                        if (
-                                          guided &&
-                                          !partnerGame &&
-                                          draft.gameType !== 'ramsch'
-                                        )
-                                          selectSolo(player.id);
-                                      }}
-                                      style={({ pressed }) => [
-                                        styles.playerIdentity,
-                                        pressed && authInteraction.pressed,
-                                      ]}
-                                    >
-                                      <View style={styles.playerNameBlock}>
-                                        <AppText
-                                          numberOfLines={
-                                            expandedPlayerLayout ? undefined : 1
-                                          }
-                                          style={styles.playerName}
-                                        >
-                                          {player.name}
-                                        </AppText>
-                                        {draft.declarer === player.id ? (
-                                          <AppText style={styles.gold}>
-                                            {partnerGame
-                                              ? 'Spielmacher'
-                                              : 'Alleinspieler'}
-                                          </AppText>
-                                        ) : partnerGame &&
-                                          draft.partner === player.id ? (
-                                          <AppText style={styles.gold}>
-                                            Gesuchter
-                                          </AppText>
-                                        ) : null}
-                                        <AppText
-                                          style={
-                                            winner ? styles.gold : styles.hint
-                                          }
-                                        >
-                                          {winner || loser
-                                            ? `${cents > 0 ? '+' : cents < 0 ? '−' : ''}${formatOverviewMoney(Math.round(Math.abs(cents)))}`
-                                            : '—'}
-                                        </AppText>
-                                      </View>
-                                    </Pressable>
-                                    <View
-                                      style={[
-                                        styles.segments,
-                                        expandedPlayerLayout &&
-                                          styles.expandedSegments,
-                                      ]}
-                                    >
-                                      {([true, false] as const).map((won) => (
-                                        <Pressable
-                                          key={String(won)}
-                                          accessibilityRole="button"
-                                          accessibilityLabel={
-                                            guided &&
-                                            !partnerGame &&
-                                            draft.solo === player.id
-                                              ? `Alleinspieler ${won ? 'gewonnen' : 'verloren'}`
-                                              : `${player.name} ${won ? 'gewonnen' : 'verloren'}`
-                                          }
-                                          accessibilityState={{
-                                            selected: won ? winner : loser,
-                                          }}
-                                          style={({ pressed }) => [
-                                            [
-                                              styles.segment,
-                                              (won ? winner : loser) &&
-                                                (won
-                                                  ? styles.segmentWon
-                                                  : styles.selected),
-                                            ],
-                                            pressed && authInteraction.pressed,
-                                          ]}
-                                          onPress={() => {
-                                            if (draft.gameType === 'ramsch') {
-                                              selectRamsch(player.id, won);
-                                            } else if (guided && !partnerGame) {
-                                              if (
-                                                draft.solo &&
-                                                draft.solo !== player.id &&
-                                                (winner || loser)
-                                              )
-                                                selectSolo(draft.solo, !won);
-                                              else selectSolo(player.id, won);
-                                            } else if (partnerGame) {
-                                              selectSauspiel(player.id, won);
-                                            } else
-                                              toggle(
-                                                player.id,
-                                                won ? 'winner' : 'loser',
-                                              );
-                                          }}
-                                        >
-                                          <AppText
-                                            style={[
-                                              styles.segmentText,
-                                              (won ? winner : loser) &&
-                                                (won
-                                                  ? styles.segmentWonText
-                                                  : styles.gold),
-                                            ]}
-                                          >
-                                            {won ? 'Gewonnen' : 'Verloren'}
-                                          </AppText>
-                                        </Pressable>
-                                      ))}
                                     </View>
                                   </View>
-                                );
-                              })}
-                            </View>
-                            {supportsCardSuit(draft.gameType) ? (
-                              <View style={styles.suitRow}>
-                                {cardSuits.map((suit) => (
-                                  <Pressable
-                                    key={suit.id}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Kartenfarbe ${suit.label}`}
-                                    accessibilityState={{
-                                      selected: draft.suit === suit.id,
-                                    }}
-                                    onPress={() =>
-                                      patch({
-                                        suit:
-                                          draft.suit === suit.id
-                                            ? undefined
-                                            : suit.id,
-                                      })
-                                    }
-                                    style={({ pressed }) => [
-                                      [
-                                        styles.suitChoice,
-                                        draft.suit === suit.id &&
-                                          styles.selected,
-                                      ],
-                                      pressed && authInteraction.pressed,
-                                    ]}
-                                  >
-                                    <CardSuitIcon
-                                      suit={suit.id}
-                                      color={suit.color}
-                                    />
-                                    <AppText
-                                      style={[
-                                        styles.suitLabel,
-                                        draft.suit === suit.id && styles.gold,
-                                      ]}
-                                    >
-                                      {suit.label}
-                                    </AppText>
-                                  </Pressable>
-                                ))}
-                              </View>
+                                ) : null}
+                                {rules.ramschJungfrau &&
+                                !draft.options.durchmarsch
+                                  ? count('jungfrauen', 'Jungfrauen', 2)
+                                  : null}
+                              </>
                             ) : null}
-                            <View style={styles.optionsPanel}>
-                              {!draft.manual ? (
+                            {sauspiel &&
+                            !automaticStock &&
+                            (settings.games.stock.enabled ||
+                              stockBefore > 0 ||
+                              editingRound?.stockAction === 'payout') ? (
+                              <View style={styles.optionSection}>
                                 <View style={[styles.row, styles.optionRow]}>
                                   <AppText
                                     style={[styles.text, styles.optionLabel]}
                                   >
-                                    Gelegt
+                                    Stock auszahlen ·{' '}
+                                    {formatOverviewMoney(stockBefore)}
                                   </AppText>
-                                  <AppText style={styles.countValue}>
-                                    {effectiveOptions.legerCount}
-                                  </AppText>
-                                  <AppText
-                                    style={[styles.hint, styles.tableContext]}
-                                  >
-                                    Über Münzen
-                                  </AppText>
+                                  <View style={styles.switchColumn}>
+                                    <Switch
+                                      thumbColor={authColors.textPrimary}
+                                      trackColor={{
+                                        true: authColors.gold,
+                                        false: authColors.control,
+                                      }}
+                                      ios_backgroundColor={authColors.control}
+                                      accessibilityLabel="Stock auszahlen"
+                                      disabled={
+                                        stockBefore <= 0 ||
+                                        (!!draft.declarer && !draft.won) ||
+                                        draft.winners.length !== 2 ||
+                                        draft.losers.length !== 2
+                                      }
+                                      value={stockPayout}
+                                      onValueChange={(payStock) =>
+                                        patch({
+                                          payStock,
+                                        })
+                                      }
+                                    />
+                                  </View>
                                 </View>
-                              ) : null}
-                              {draft.gameType === 'ramsch' ? (
-                                <>
-                                  <AppText
-                                    style={[styles.hint, styles.optionHint]}
-                                  >
-                                    {draft.options.durchmarsch
-                                      ? 'Ein Spieler gewinnt gegen drei.'
-                                      : 'Höchste Augenzahl verliert gegen die anderen drei.'}
-                                  </AppText>
-                                  {rules.ramschDurchmarsch ? (
+                                <AppText
+                                  style={[styles.hint, styles.optionHint]}
+                                >
+                                  {stockPayout
+                                    ? `${formatOverviewMoney(stockBefore / 2)} zusätzlich je Sauspiel-Gewinner.`
+                                    : 'Nur bei gewonnener Spielerpartei, je zur Hälfte.'}
+                                </AppText>
+                              </View>
+                            ) : null}
+                            {sauspiel &&
+                            automaticStock &&
+                            settings.games.stock.enabled ? (
+                              <View style={styles.optionSection}>
+                                <AppText
+                                  style={[styles.text, styles.optionLabel]}
+                                >
+                                  Stock · {formatOverviewMoney(stockBefore)}
+                                </AppText>
+                                <AppText
+                                  style={[styles.hint, styles.optionHint]}
+                                >
+                                  {stockPayout
+                                    ? `Wird automatisch an Ansager und Partner ausgezahlt. Stock danach: 0,00 €.`
+                                    : stockDouble
+                                      ? `Ansager und Partner zahlen zusätzlich ein. Stock danach: ${formatOverviewMoney(stockBefore * 2)}.`
+                                      : stockBefore === 0
+                                        ? 'Der Stock ist leer. Keine zusätzliche Stockbuchung.'
+                                        : 'Nach Auswahl des Ergebnisses wird der Stock automatisch ausgezahlt oder verdoppelt.'}
+                                </AppText>
+                              </View>
+                            ) : null}
+                            {draft.manual ? (
+                              <View style={styles.optionSection}>
+                                <AppText
+                                  style={[styles.hint, styles.optionHint]}
+                                >
+                                  Historischer manueller Gesamtgewinn, ohne
+                                  zusätzliche Faktoren.
+                                </AppText>
+                                <AmountInput
+                                  accessibilityLabel="Betrag"
+                                  keyboardType="decimal-pad"
+                                  returnKeyType="done"
+                                  onSubmitEditing={Keyboard.dismiss}
+                                  value={draft.manualAmount}
+                                  onChangeText={(manualAmount) =>
+                                    patch({
+                                      manualAmount,
+                                    })
+                                  }
+                                  style={styles.input}
+                                />
+                              </View>
+                            ) : (
+                              <>
+                                {draft.gameType !== 'ramsch' &&
+                                rules.bonuses.laufende &&
+                                settings.bonusRules.laufende.enabled
+                                  ? count(
+                                      'laufende',
+                                      'Laufende',
+                                      rules.laufendeMax,
+                                      rules.laufendeMin,
+                                    )
+                                  : null}
+                                {(['schneider', 'schwarz'] as const)
+                                  .filter(
+                                    (id) =>
+                                      draft.gameType !== 'ramsch' &&
+                                      rules.bonuses[id] &&
+                                      settings.bonusRules[id].enabled,
+                                  )
+                                  .map((id) => (
                                     <View
+                                      key={id}
                                       style={[styles.row, styles.optionRow]}
                                     >
                                       <AppText
@@ -1571,7 +1860,9 @@ export function RoundEntrySheet({
                                           styles.optionLabel,
                                         ]}
                                       >
-                                        Durchmarsch
+                                        {id === 'schneider'
+                                          ? 'Schneider'
+                                          : 'Schwarz'}
                                       </AppText>
                                       <View style={styles.switchColumn}>
                                         <Switch
@@ -1583,363 +1874,279 @@ export function RoundEntrySheet({
                                           ios_backgroundColor={
                                             authColors.control
                                           }
-                                          accessibilityLabel="Durchmarsch"
-                                          value={
-                                            draft.options.durchmarsch ?? false
+                                          accessibilityLabel={
+                                            id === 'schneider'
+                                              ? 'Schneider'
+                                              : 'Schwarz'
                                           }
-                                          onValueChange={(durchmarsch) =>
+                                          disabled={
+                                            id === 'schneider' &&
+                                            draft.options.schwarz
+                                          }
+                                          value={
+                                            id === 'schneider'
+                                              ? draft.options.schneider ||
+                                                draft.options.schwarz
+                                              : draft.options.schwarz
+                                          }
+                                          onValueChange={(value) =>
                                             patch({
                                               options: {
                                                 ...draft.options,
-                                                durchmarsch,
-                                                jungfrauen: 0,
+                                                [id]: value,
                                               },
-                                              ...(durchmarsch
-                                                ? { winners: [], losers: [] }
-                                                : {}),
                                             })
                                           }
                                         />
                                       </View>
                                     </View>
-                                  ) : null}
-                                  {rules.ramschJungfrau &&
-                                  !draft.options.durchmarsch
-                                    ? count('jungfrauen', 'Jungfrauen', 2)
-                                    : null}
-                                </>
-                              ) : null}
-                              {sauspiel &&
-                              !automaticStock &&
-                              (settings.games.stock.enabled ||
-                                stockBefore > 0 ||
-                                editingRound?.stockAction === 'payout') ? (
-                                <View style={styles.optionSection}>
-                                  <View style={[styles.row, styles.optionRow]}>
-                                    <AppText
-                                      style={[styles.text, styles.optionLabel]}
+                                  ))}
+                                {rules.bonuses.stoss ? (
+                                  <>
+                                    <View
+                                      style={[styles.row, styles.optionRow]}
                                     >
-                                      Stock auszahlen ·{' '}
-                                      {formatOverviewMoney(stockBefore)}
-                                    </AppText>
-                                    <View style={styles.switchColumn}>
-                                      <Switch
-                                        thumbColor={authColors.textPrimary}
-                                        trackColor={{
-                                          true: authColors.gold,
-                                          false: authColors.control,
-                                        }}
-                                        ios_backgroundColor={authColors.control}
-                                        accessibilityLabel="Stock auszahlen"
-                                        disabled={
-                                          stockBefore <= 0 ||
-                                          (!!draft.declarer && !draft.won) ||
-                                          draft.winners.length !== 2 ||
-                                          draft.losers.length !== 2
-                                        }
-                                        value={stockPayout}
-                                        onValueChange={(payStock) =>
-                                          patch({
-                                            payStock,
-                                          })
-                                        }
-                                      />
-                                    </View>
-                                  </View>
-                                  <AppText
-                                    style={[styles.hint, styles.optionHint]}
-                                  >
-                                    {stockPayout
-                                      ? `${formatOverviewMoney(stockBefore / 2)} zusätzlich je Sauspiel-Gewinner.`
-                                      : 'Nur bei gewonnener Spielerpartei, je zur Hälfte.'}
-                                  </AppText>
-                                </View>
-                              ) : null}
-                              {sauspiel &&
-                              automaticStock &&
-                              settings.games.stock.enabled ? (
-                                <View style={styles.optionSection}>
-                                  <AppText
-                                    style={[styles.text, styles.optionLabel]}
-                                  >
-                                    Stock · {formatOverviewMoney(stockBefore)}
-                                  </AppText>
-                                  <AppText
-                                    style={[styles.hint, styles.optionHint]}
-                                  >
-                                    {stockPayout
-                                      ? `Wird automatisch an Ansager und Partner ausgezahlt. Stock danach: 0,00 €.`
-                                      : stockDouble
-                                        ? `Ansager und Partner zahlen zusätzlich ein. Stock danach: ${formatOverviewMoney(stockBefore * 2)}.`
-                                        : stockBefore === 0
-                                          ? 'Der Stock ist leer. Keine zusätzliche Stockbuchung.'
-                                          : 'Nach Auswahl des Ergebnisses wird der Stock automatisch ausgezahlt oder verdoppelt.'}
-                                  </AppText>
-                                </View>
-                              ) : null}
-                              {draft.manual ? (
-                                <View style={styles.optionSection}>
-                                  <AppText
-                                    style={[styles.hint, styles.optionHint]}
-                                  >
-                                    Historischer manueller Gesamtgewinn, ohne
-                                    zusätzliche Faktoren.
-                                  </AppText>
-                                  <AmountInput
-                                    accessibilityLabel="Betrag"
-                                    keyboardType="decimal-pad"
-                                    returnKeyType="done"
-                                    onSubmitEditing={Keyboard.dismiss}
-                                    value={draft.manualAmount}
-                                    onChangeText={(manualAmount) =>
-                                      patch({
-                                        manualAmount,
-                                      })
-                                    }
-                                    style={styles.input}
-                                  />
-                                </View>
-                              ) : (
-                                <>
-                                  {draft.gameType !== 'ramsch' &&
-                                  rules.bonuses.laufende &&
-                                  settings.bonusRules.laufende.enabled
-                                    ? count(
-                                        'laufende',
-                                        'Laufende',
-                                        rules.laufendeMax,
-                                        rules.laufendeMin,
-                                      )
-                                    : null}
-                                  {(['schneider', 'schwarz'] as const)
-                                    .filter(
-                                      (id) =>
-                                        draft.gameType !== 'ramsch' &&
-                                        rules.bonuses[id] &&
-                                        settings.bonusRules[id].enabled,
-                                    )
-                                    .map((id) => (
-                                      <View
-                                        key={id}
-                                        style={[styles.row, styles.optionRow]}
+                                      <AppText
+                                        style={[
+                                          styles.text,
+                                          styles.optionLabel,
+                                        ]}
                                       >
-                                        <AppText
-                                          style={[
-                                            styles.text,
-                                            styles.optionLabel,
-                                          ]}
-                                        >
-                                          {id === 'schneider'
-                                            ? 'Schneider'
-                                            : 'Schwarz'}
+                                        Kontra
+                                      </AppText>
+                                      <View style={styles.switchColumn}>
+                                        <Switch
+                                          thumbColor={authColors.textPrimary}
+                                          trackColor={{
+                                            true: authColors.gold,
+                                            false: authColors.control,
+                                          }}
+                                          ios_backgroundColor={
+                                            authColors.control
+                                          }
+                                          accessibilityLabel="Kontra"
+                                          value={draft.options.stoss > 0}
+                                          onValueChange={(value) =>
+                                            patch({
+                                              options: {
+                                                ...draft.options,
+                                                stoss: value ? 1 : 0,
+                                              },
+                                            })
+                                          }
+                                        />
+                                      </View>
+                                    </View>
+                                    {count('stoss', 'Re', 3, 1, 1)}
+                                    <AppText
+                                      style={[styles.hint, styles.optionHint]}
+                                    >
+                                      Kontra ×2 · jede Re-Stufe nochmals ×2
+                                    </AppText>
+                                  </>
+                                ) : null}
+                                <AppText
+                                  style={[styles.hint, styles.optionHint]}
+                                >
+                                  Gesamtfaktor: {tariff?.multiplier ?? 1}x ·{' '}
+                                  {effectiveOptions.legerCount} Leger
+                                </AppText>
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel="Preisaufschlüsselung"
+                                  accessibilityState={{
+                                    expanded: details,
+                                  }}
+                                  style={({ pressed }) => [
+                                    styles.row,
+                                    pressed && authInteraction.pressed,
+                                  ]}
+                                  onPress={() => setDetails(!details)}
+                                >
+                                  <AppText style={styles.gold}>
+                                    Preisaufschlüsselung {details ? '−' : '+'}
+                                  </AppText>
+                                </Pressable>
+                                {details ? (
+                                  <View style={styles.card}>
+                                    {editingRound ? (
+                                      <AppText style={styles.hint}>
+                                        Ursprüngliche Tisch-Tarife
+                                      </AppText>
+                                    ) : null}
+                                    {tariff?.lines.map((line) => (
+                                      <View key={line.label} style={styles.row}>
+                                        <AppText style={styles.text}>
+                                          {line.label}
                                         </AppText>
-                                        <View style={styles.switchColumn}>
-                                          <Switch
-                                            thumbColor={authColors.textPrimary}
-                                            trackColor={{
-                                              true: authColors.gold,
-                                              false: authColors.control,
-                                            }}
-                                            ios_backgroundColor={
-                                              authColors.control
-                                            }
-                                            accessibilityLabel={
-                                              id === 'schneider'
-                                                ? 'Schneider'
-                                                : 'Schwarz'
-                                            }
-                                            disabled={
-                                              id === 'schneider' &&
-                                              draft.options.schwarz
-                                            }
-                                            value={
-                                              id === 'schneider'
-                                                ? draft.options.schneider ||
-                                                  draft.options.schwarz
-                                                : draft.options.schwarz
-                                            }
-                                            onValueChange={(value) =>
-                                              patch({
-                                                options: {
-                                                  ...draft.options,
-                                                  [id]: value,
-                                                },
-                                              })
-                                            }
-                                          />
-                                        </View>
+                                        <AppText style={styles.text}>
+                                          {formatOverviewMoney(line.cents)}
+                                        </AppText>
                                       </View>
                                     ))}
-                                  {rules.bonuses.stoss ? (
-                                    <>
-                                      <View
-                                        style={[styles.row, styles.optionRow]}
-                                      >
-                                        <AppText
-                                          style={[
-                                            styles.text,
-                                            styles.optionLabel,
-                                          ]}
-                                        >
-                                          Kontra
-                                        </AppText>
-                                        <View style={styles.switchColumn}>
-                                          <Switch
-                                            thumbColor={authColors.textPrimary}
-                                            trackColor={{
-                                              true: authColors.gold,
-                                              false: authColors.control,
-                                            }}
-                                            ios_backgroundColor={
-                                              authColors.control
-                                            }
-                                            accessibilityLabel="Kontra"
-                                            value={draft.options.stoss > 0}
-                                            onValueChange={(value) =>
-                                              patch({
-                                                options: {
-                                                  ...draft.options,
-                                                  stoss: value ? 1 : 0,
-                                                },
-                                              })
-                                            }
-                                          />
-                                        </View>
-                                      </View>
-                                      {count('stoss', 'Re', 3, 1, 1)}
-                                      <AppText
-                                        style={[styles.hint, styles.optionHint]}
-                                      >
-                                        Kontra ×2 · jede Re-Stufe nochmals ×2
-                                      </AppText>
-                                    </>
-                                  ) : null}
-                                  <AppText
-                                    style={[styles.hint, styles.optionHint]}
-                                  >
-                                    Gesamtfaktor: {tariff?.multiplier ?? 1}x ·{' '}
-                                    {effectiveOptions.legerCount} Leger
-                                  </AppText>
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Preisaufschlüsselung"
-                                    accessibilityState={{
-                                      expanded: details,
-                                    }}
-                                    style={({ pressed }) => [
-                                      styles.row,
-                                      pressed && authInteraction.pressed,
-                                    ]}
-                                    onPress={() => setDetails(!details)}
-                                  >
-                                    <AppText style={styles.gold}>
-                                      Preisaufschlüsselung {details ? '−' : '+'}
+                                    <AppText style={styles.text}>
+                                      Tarif je Spieler:{' '}
+                                      {formatOverviewMoney(
+                                        tariff?.totalCents ?? 0,
+                                      )}
                                     </AppText>
-                                  </Pressable>
-                                  {details ? (
-                                    <View style={styles.card}>
-                                      {editingRound ? (
-                                        <AppText style={styles.hint}>
-                                          Ursprüngliche Tisch-Tarife
+                                    {party ? (
+                                      <>
+                                        <AppText style={styles.text}>
+                                          Je Gewinner: +
+                                          {formatOverviewMoney(
+                                            party.winnerCents,
+                                          )}
                                         </AppText>
-                                      ) : null}
-                                      {tariff?.lines.map((line) => (
-                                        <View
-                                          key={line.label}
-                                          style={styles.row}
-                                        >
-                                          <AppText style={styles.text}>
-                                            {line.label}
-                                          </AppText>
-                                          <AppText style={styles.text}>
-                                            {formatOverviewMoney(line.cents)}
-                                          </AppText>
-                                        </View>
-                                      ))}
-                                      <AppText style={styles.text}>
-                                        Tarif je Spieler:{' '}
-                                        {formatOverviewMoney(
-                                          tariff?.totalCents ?? 0,
-                                        )}
-                                      </AppText>
-                                      {party ? (
-                                        <>
-                                          <AppText style={styles.text}>
-                                            Je Gewinner: +
-                                            {formatOverviewMoney(
-                                              party.winnerCents,
-                                            )}
-                                          </AppText>
-                                          <AppText style={styles.text}>
-                                            Je Verlierer: −
-                                            {formatOverviewMoney(
-                                              party.loserCents,
-                                            )}
-                                          </AppText>
-                                        </>
-                                      ) : null}
-                                    </View>
-                                  ) : null}
-                                </>
-                              )}
-                            </View>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-              </View>
-            </EntryScrollView>
+                                        <AppText style={styles.text}>
+                                          Je Verlierer: −
+                                          {formatOverviewMoney(
+                                            party.loserCents,
+                                          )}
+                                        </AppText>
+                                      </>
+                                    ) : null}
+                                  </View>
+                                ) : null}
+                              </>
+                            )}
+                          </View>
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
             {!draft.choosing ? (
-              <View style={styles.footer}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Schließen"
+                disabled={loadingDraft || saving}
+                onPress={requestClose}
+                style={({ pressed }) => [
+                  styles.discard,
+                  pressed && authInteraction.pressed,
+                  immutable && authInteraction.disabled,
+                ]}
+              >
+                <AppText style={styles.hint}>Schließen</AppText>
+              </Pressable>
+            ) : null}
+          </EntryScrollView>
+          {!draft.choosing ? (
+            <View
+              style={[
+                styles.footer,
+                { paddingTop: (authSpacing.xs + bottomInset) / 2 },
+              ]}
+            >
+              {saveStatus ? (
                 <View accessibilityLiveRegion="polite">
                   <AppText
                     selectable
                     accessibilityRole={saveError ? 'alert' : undefined}
                     style={styles.hint}
                   >
-                    {saving
-                      ? 'Wird auf dem Gerät gespeichert …'
-                      : saveError ||
-                        (committedId
-                          ? 'Noch nicht auf dem Gerät gesichert.'
-                          : hint || '')}
+                    {saveStatus}
                   </AppText>
                 </View>
-                <GoldButton
-                  title={
-                    committedId && saveError
-                      ? 'Erneut auf Gerät speichern'
-                      : title
-                  }
-                  accessibilityLabel={
-                    committedId && saveError
-                      ? 'Erneut auf Gerät speichern'
-                      : title
-                  }
-                  disabled={loadingDraft || saving || (!committedId && !valid)}
-                  loading={saving}
-                  onPress={save}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Schließen"
-                  disabled={immutable}
-                  onPress={requestClose}
-                  style={({ pressed }) => [
-                    styles.discard,
-                    pressed && authInteraction.pressed,
-                    immutable && authInteraction.disabled,
-                  ]}
-                >
-                  <AppText style={styles.hint}>Schließen</AppText>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-        </AuthBackground>
+              ) : null}
+              <GameActionButton
+                title={
+                  committedId && saveError
+                    ? 'Erneut auf Gerät speichern'
+                    : title
+                }
+                accessibilityLabel={
+                  committedId && saveError
+                    ? 'Erneut auf Gerät speichern'
+                    : title
+                }
+                disabled={
+                  !canWrite ||
+                  loadingDraft ||
+                  saving ||
+                  (!committedId && !sharedAttempted && !valid)
+                }
+                loading={saving}
+                onPress={() => save()}
+              />
+            </View>
+          ) : null}
+        </View>
       </InteractionSheet>
+      <Modal
+        visible={visible && !!parallelReview}
+        transparent={!inspectingRoundId}
+        animationType="none"
+        onRequestClose={() =>
+          saving
+            ? undefined
+            : inspectingRoundId
+              ? setInspectingRoundId(null)
+              : setParallelReview(null)
+        }
+      >
+        {parallelReview && inspectingRoundId ? (
+          <RoundHistoryContent
+            table={parallelReview.remote.payload.currentTable}
+            rounds={parallelReview.remote.payload.rounds}
+            players={parallelReview.remote.payload.players}
+            roundId={inspectingRoundId}
+            onClose={() => setInspectingRoundId(null)}
+          />
+        ) : parallelReview ? (
+          <View style={styles.modalRoot}>
+            <ScrollView
+              style={styles.dialog}
+              contentContainerStyle={styles.dialogContent}
+            >
+              <AppText accessibilityRole="header" style={styles.dialogTitle}>
+                Dasselbe Spiel?
+              </AppText>
+              <AppText selectable style={styles.hint}>
+                Während deiner Eingabe wurden diese Spiele eingetragen. Ist
+                deine Runde bereits dabei? Deine Eingabe bleibt erhalten.
+              </AppText>
+              {parallelReview.rounds.map(({ round, actorName }) => (
+                <View key={round.id}>
+                  <AppText selectable style={styles.hint}>
+                    {actorName} hat inzwischen{' '}
+                    {formatRoundGameType(round.gameType, round.suit)}{' '}
+                    eingetragen.
+                  </AppText>
+                  <GoldButton
+                    title="Eintrag ansehen"
+                    onPress={() => setInspectingRoundId(round.id)}
+                    disabled={saving}
+                  />
+                </View>
+              ))}
+              {saveError ? (
+                <AppText
+                  selectable
+                  accessibilityRole="alert"
+                  style={styles.hint}
+                >
+                  {saveError}
+                </AppText>
+              ) : null}
+              <GoldButton
+                title="Als weiteres Spiel speichern"
+                loading={saving}
+                disabled={saving}
+                onPress={() => save(true)}
+              />
+              <GoldButton
+                title="Zur eigenen Eingabe"
+                disabled={saving}
+                onPress={() => setParallelReview(null)}
+              />
+            </ScrollView>
+          </View>
+        ) : null}
+      </Modal>
       <Modal
         visible={visible && closeChoice}
         transparent
@@ -1957,7 +2164,9 @@ export function RoundEntrySheet({
             <AppText style={styles.hint}>
               {committedId
                 ? 'Die Runde ist noch nicht auf dem Gerät gesichert.'
-                : 'Nicht gespeicherte Eingaben gehen verloren.'}
+                : sharedAttempted
+                  ? 'Die Serverantwort ist unklar. Bitte erneut speichern, um zu prüfen, ob die Runde bereits eingetragen wurde. Du kannst den Entwurf behalten und später fortsetzen.'
+                  : 'Nicht gespeicherte Eingaben gehen verloren.'}
             </AppText>
             {saveError ? (
               <AppText accessibilityRole="alert" style={styles.hint}>
@@ -1968,7 +2177,14 @@ export function RoundEntrySheet({
               title="Weiter bearbeiten"
               onPress={() => setCloseChoice(false)}
             />
-            {!committedId ? (
+            {sharedNew && !committedId ? (
+              <GoldButton
+                title="Entwurf behalten"
+                disabled={saving}
+                onPress={() => leave(true)}
+              />
+            ) : null}
+            {!committedId && !sharedAttempted ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Entwurf verwerfen"
@@ -1996,6 +2212,8 @@ const styles = StyleSheet.create({
     paddingTop: authSpacing.md,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: authSpacing.md,
     paddingBottom: authSpacing.sm,
   },
@@ -2273,8 +2491,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: authColors.borderSoft,
     gap: authSpacing.sm,
-    paddingTop: authSpacing.md,
-    paddingBottom: authSpacing.md,
+    paddingBottom: authSpacing.xs,
   },
   amount: {
     color: authColors.textPrimary,
