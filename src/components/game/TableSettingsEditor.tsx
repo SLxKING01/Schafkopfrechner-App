@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -28,7 +29,9 @@ import type {
   TableSettingEntry,
   TableSettings,
 } from '../../types/game';
+import { parseCustomAmountCents } from '../../utils/customRound';
 import { stockMode } from '../../utils/stockRules';
+import { AppButton } from '../ui/AppButton';
 import { AppText } from '../ui/AppText';
 
 type TableSettingsEditorProps = {
@@ -563,6 +566,26 @@ const SettingRow = memo(function SettingRow({
   onToggle,
   onValueChange,
 }: SettingRowProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [invalidTariff, setInvalidTariff] = useState(false);
+
+  function closeTariffInput() {
+    setDraft(null);
+    setInvalidTariff(false);
+  }
+
+  function confirmTariff() {
+    if (draft === null || !entry.enabled) return;
+    const cents = parseCustomAmountCents(draft);
+    const roundedCents = cents === null ? NaN : Math.round(cents / 10) * 10;
+    if (!Number.isSafeInteger(roundedCents)) {
+      setInvalidTariff(true);
+      return;
+    }
+    onValueChange(roundedCents / 100);
+    closeTariffInput();
+  }
+
   return (
     <View style={styles.row}>
       <View style={styles.ruleHeader}>
@@ -591,7 +614,10 @@ const SettingRow = memo(function SettingRow({
                 true: 'rgba(111, 169, 114, 0.85)',
               }}
               value={entry.enabled}
-              onValueChange={onToggle}
+              onValueChange={(enabled) => {
+                closeTariffInput();
+                onToggle(enabled);
+              }}
             />
           </View>
         ) : null}
@@ -604,6 +630,36 @@ const SettingRow = memo(function SettingRow({
           <AppText style={styles.multiplierText}>
             Faktor {formatValue(entry.value, entry.mode)}
           </AppText>
+        ) : entry.enabled && draft !== null ? (
+          <View style={styles.tariffInputGroup}>
+            <TextInput
+              accessibilityLabel={`${definition.label}: Tarif in Euro`}
+              autoFocus
+              selectTextOnFocus
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              value={draft}
+              onChangeText={(value) => {
+                setDraft(value);
+                setInvalidTariff(false);
+              }}
+              onSubmitEditing={confirmTariff}
+              style={[styles.valueBox, styles.valueText, styles.tariffInput]}
+            />
+            {invalidTariff ? (
+              <AppText accessibilityRole="alert" style={styles.tariffError}>
+                Gib einen gültigen Eurobetrag ein, z. B. 0,35.
+              </AppText>
+            ) : null}
+            <View style={styles.tariffInputActions}>
+              <AppButton
+                title="Abbrechen"
+                variant="secondary"
+                onPress={closeTariffInput}
+              />
+              <AppButton title="Übernehmen" onPress={confirmTariff} />
+            </View>
+          </View>
         ) : (
           <View
             style={[styles.valueBox, !entry.enabled && styles.valueBoxDisabled]}
@@ -628,12 +684,19 @@ const SettingRow = memo(function SettingRow({
             >
               <Minus color={authColors.goldHighlight} size={16} />
             </Pressable>
-            <Text
+            <Pressable
               accessibilityLabel={`${definition.label}: ${formatValue(entry.value, entry.mode)} Euro`}
-              style={styles.valueText}
+              accessibilityHint="Tarif per Tastatur bearbeiten"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !entry.enabled }}
+              disabled={!entry.enabled}
+              onPress={() => setDraft(formatValue(entry.value, entry.mode))}
+              style={styles.stepButton}
             >
-              {formatValue(entry.value, entry.mode)} €
-            </Text>
+              <Text style={styles.valueText}>
+                {formatValue(entry.value, entry.mode)} €
+              </Text>
+            </Pressable>
             <Pressable
               accessibilityLabel={`${definition.label}: Tarif um 0,10 € erhöhen`}
               accessibilityRole="button"
@@ -721,6 +784,23 @@ const styles = StyleSheet.create({
     color: 'rgba(245, 245, 245, 0.48)',
     fontSize: 12,
     fontWeight: '500',
+  },
+  tariffInputGroup: {
+    width: '100%',
+    gap: authSpacing.sm,
+  },
+  tariffInput: {
+    width: '100%',
+    minHeight: 44,
+    paddingHorizontal: authSpacing.sm,
+  },
+  tariffInputActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: authSpacing.sm,
+  },
+  tariffError: {
+    color: authColors.textPrimary,
   },
   valueBox: {
     alignItems: 'center',

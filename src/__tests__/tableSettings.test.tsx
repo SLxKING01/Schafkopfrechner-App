@@ -80,7 +80,7 @@ it('uses the agreed tariffs and includes Ramsch among the base games', () => {
   expect(settings.bonusRules.leger.value).toBe(2);
 });
 
-it('steps tariffs by ten cents, stops at zero, and preserves tariffs when toggled', async () => {
+it('steps, edits and rounds tariffs, and preserves tariffs when toggled', async () => {
   function Editor() {
     const [settings, setSettings] = useState(createDefaultTableSettings);
     return <TableSettingsEditor settings={settings} onChange={setSettings} />;
@@ -96,8 +96,7 @@ it('steps tariffs by ten cents, stops at zero, and preserves tariffs when toggle
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
-  const amount = (value: string) =>
-    view.root.findByProps({ accessibilityLabel: `Rufspiel: ${value} Euro` });
+  const amount = (value: string) => button(`Rufspiel: ${value} Euro`);
   for (const value of ['0,30', '0,40', '0,50']) {
     await act(async () =>
       button('Rufspiel: Tarif um 0,10 € erhöhen').props.onPress(),
@@ -125,6 +124,30 @@ it('steps tariffs by ten cents, stops at zero, and preserves tariffs when toggle
   expect(button('Rufspiel: Tarif um 0,10 € erhöhen').props.disabled).toBe(true);
   await act(async () => toggle().props.onValueChange(true));
   expect(amount('0,10')).toBeTruthy();
+  const typeTariff = async (value: string) => {
+    const input = view.root
+      .findAllByProps({ accessibilityLabel: 'Rufspiel: Tarif in Euro' })
+      .find(
+        (node: { props: { onChangeText?: unknown } }) =>
+          typeof node.props.onChangeText === 'function',
+      )!;
+    await act(async () => input.props.onChangeText(value));
+  };
+  await act(async () => amount('0,10').props.onPress());
+  await typeTariff('');
+  await act(async () => button('Übernehmen').props.onPress());
+  expect(
+    view.root.findAllByProps({ accessibilityRole: 'alert' }).length,
+  ).toBeGreaterThan(0);
+  await typeTariff('0.34');
+  await act(async () => button('Übernehmen').props.onPress());
+  await act(async () => amount('0,30').props.onPress());
+  await typeTariff('0,35');
+  await act(async () => button('Abbrechen').props.onPress());
+  await act(async () => amount('0,30').props.onPress());
+  await typeTariff('0,35');
+  await act(async () => button('Übernehmen').props.onPress());
+  expect(amount('0,40')).toBeTruthy();
   expect(
     view.root
       .findAllByType(Switch)
