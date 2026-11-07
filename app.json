@@ -3,6 +3,7 @@
     "name": "Schafkopfrechner-App",
     "slug": "Schafkopfrechner-App",
     "version": "1.0.0",
+    "scheme": "schafkopfrechner",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -29,6 +30,22 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "QuickRound",
+              "displayName": "Spiel eintragen",
+              "description": "Öffnet die Spieleingabe am laufenden Tisch.",
+              "ios": {
+                "supportedFamilies": ["accessoryRectangular"]
+              },
+              "android": null
+            }
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {

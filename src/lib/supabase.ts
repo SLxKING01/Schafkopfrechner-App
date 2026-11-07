@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 
 import { AuthError, createClient, processLock } from '@supabase/supabase-js';
+import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, Platform } from 'react-native';
 
@@ -56,6 +57,82 @@ export const supabase = createClient(
       persistSession: true,
       detectSessionInUrl: false,
       lock: processLock,
+    },
+  },
+);
+
+const recoveryStorageKey = 'schafkopfrechner-password-recovery';
+const recoveryVerifierKey = `${recoveryStorageKey}-code-verifier`;
+let recoverySession: string | null = null;
+
+export function clearRecoverySession() {
+  recoverySession = null;
+}
+
+export const passwordRecoveryClient = createClient(
+  supabaseUrl ?? 'https://placeholder.supabase.co',
+  supabaseKey ?? 'missing-supabase-key',
+  {
+    auth: {
+      storageKey: recoveryStorageKey,
+      storage: {
+        getItem: async (key) =>
+          key === recoveryVerifierKey
+            ? ExpoSecureStoreAdapter.getItem(key)
+            : recoverySession,
+        setItem: async (key, value) => {
+          if (key === recoveryVerifierKey)
+            await ExpoSecureStoreAdapter.setItem(key, value);
+          else recoverySession = value;
+        },
+        removeItem: async (key) => {
+          if (key === recoveryVerifierKey)
+            await ExpoSecureStoreAdapter.removeItem(key);
+          else clearRecoverySession();
+        },
+      },
+      flowType: 'pkce',
+      autoRefreshToken: false,
+      persistSession: true,
+      detectSessionInUrl: false,
+      lock: processLock,
+    },
+    global: {
+      fetch: async (input, init) => {
+        // React Native can lack Web Crypto. Keep the recovery verifier random
+        // and use S256 even when the SDK falls back to a plain challenge.
+        if (
+          typeof input === 'string' &&
+          new URL(input).pathname.endsWith('/recover') &&
+          typeof init?.body === 'string'
+        ) {
+          const body = JSON.parse(init.body);
+          if (body.code_challenge_method === 'plain') {
+            const verifier = Crypto.randomUUID() + Crypto.randomUUID();
+            const challenge = await Crypto.digestStringAsync(
+              Crypto.CryptoDigestAlgorithm.SHA256,
+              verifier,
+              { encoding: Crypto.CryptoEncoding.BASE64 },
+            );
+            await ExpoSecureStoreAdapter.setItem(
+              recoveryVerifierKey,
+              JSON.stringify(`${verifier}/recovery`),
+            );
+            return fetch(input, {
+              ...init,
+              body: JSON.stringify({
+                ...body,
+                code_challenge: challenge
+                  .replace(/\+/g, '-')
+                  .replace(/\//g, '_')
+                  .replace(/=+$/, ''),
+                code_challenge_method: 's256',
+              }),
+            });
+          }
+        }
+        return fetch(input, init);
+      },
     },
   },
 );

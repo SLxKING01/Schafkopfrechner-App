@@ -22,6 +22,7 @@ export function AppViewport({ children }: { children: ReactNode }) {
   const [preview] = useState(
     () =>
       shouldShowPhonePreview(window.location.href, window.innerWidth) &&
+      new URL(window.location.href).searchParams.get('recovery') !== '1' &&
       !window.matchMedia('(pointer: coarse)').matches,
   );
   if (!preview) return <>{children}</>;

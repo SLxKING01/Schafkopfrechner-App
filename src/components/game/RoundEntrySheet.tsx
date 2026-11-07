@@ -74,9 +74,9 @@ import { GoldButton } from '../auth/GoldButton';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
-import { GameActionButton } from './GameActionButton';
 import { CustomAmountsEditor } from './CustomAmountsEditor';
 import { EuroStyleCoin } from './EuroStyleCoin';
+import { GameActionButton } from './GameActionButton';
 import { GameTypeSelector } from './GameTypeSelector';
 import { RoundHistoryContent } from './RoundHistoryView';
 const AmountInput = TextInput;
@@ -112,6 +112,64 @@ type SharedDraftContext = {
 };
 // Failed round writes remain session-only; retained input drafts are also stored on disk.
 const drafts = new Map<string, CachedDraft>();
+const roundDraftStorageKey = (key: string) =>
+  `schafkopfrechner-round-draft-v1:${key}`;
+
+function roundDraftRevision(
+  table: GameTable | null,
+  roster: Player[],
+  rounds: GameRound[],
+  editingRound: GameRound | null,
+) {
+  const shared = !!table?.shared;
+  return JSON.stringify({
+    round: editingRound,
+    players: roster.map(({ id, isPaused }) => [id, !!isPaused]),
+    context: editingRound
+      ? null
+      : {
+          rounds: shared
+            ? null
+            : rounds.map(({ id, updatedAt, createdAt }) => [
+                id,
+                updatedAt ?? createdAt,
+              ]),
+          settings: table?.settings,
+          dealer: shared ? null : table?.dealerId,
+          leger: shared ? null : table?.placedLegerPlayerIds,
+          turbo: shared ? null : table?.turboRamschEnabled,
+        },
+  });
+}
+
+export async function quickRoundDraftPlayer(
+  table: GameTable,
+  roster: Player[],
+  rounds: GameRound[],
+  ownerId: string,
+) {
+  const revision = roundDraftRevision(table, roster, rounds, null);
+  const baseKey = `${ownerId}:${table.id}:new`;
+  const choices = [
+    undefined,
+    ...roundPlayers(table, roster, rounds.length).map(({ id }) => id),
+  ];
+  const matching = await Promise.all(
+    choices.map(async (id) => {
+      const key = id ? `${baseKey}:player:${id}` : baseKey;
+      if (drafts.get(key)?.revision === revision) return true;
+      try {
+        const raw = await AsyncStorage.getItem(roundDraftStorageKey(key));
+        const value: unknown = raw ? JSON.parse(raw) : null;
+        return isStoredDraft(value) && value.revision === revision;
+      } catch {
+        return false;
+      }
+    }),
+  );
+  return choices[matching.indexOf(true)];
+}
+
 function isStoredDraft(value: unknown): value is {
   draft: Draft;
   revision: string;
@@ -314,26 +372,8 @@ export function RoundEntrySheet({
     ownerId === 'guest' ? undefined : ownerId,
   ).canWrite;
   const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${!editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
-  const storageKey = `schafkopfrechner-round-draft-v1:${key}`;
-  const revision = JSON.stringify({
-    round: editingRound,
-    players: roster.map(({ id, isPaused }) => [id, !!isPaused]),
-    // A new round changes dealer, multipliers and the context of a new draft.
-    context: editingRound
-      ? null
-      : {
-          rounds: sharedNew
-            ? null
-            : rounds.map(({ id, updatedAt, createdAt }) => [
-                id,
-                updatedAt ?? createdAt,
-              ]),
-          settings: table?.settings,
-          dealer: sharedNew ? null : table?.dealerId,
-          leger: sharedNew ? null : table?.placedLegerPlayerIds,
-          turbo: sharedNew ? null : table?.turboRamschEnabled,
-        },
-  });
+  const storageKey = roundDraftStorageKey(key);
+  const revision = roundDraftRevision(table, roster, rounds, editingRound);
   const cached = drafts.get(key);
   const [draft, setDraft] = useState<Draft>(() =>
     cached?.revision === revision
@@ -951,8 +991,6 @@ export function RoundEntrySheet({
               ]),
             ];
           }
-          sharedEntry.current.attempted = true;
-          setSharedAttempted(true);
           // Persist identity and reviewed IDs before sending: uncertain responses
           // and app restarts must retry the same operation, never create another.
           await AsyncStorage.setItem(
@@ -960,9 +998,11 @@ export function RoundEntrySheet({
             JSON.stringify({
               draft,
               revision,
-              sharedEntry: sharedEntry.current,
+              sharedEntry: { ...sharedEntry.current, attempted: true },
             }),
           );
+          sharedEntry.current.attempted = true;
+          setSharedAttempted(true);
           const result = await saveSharedRound(
             table.id,
             payload,
@@ -978,6 +1018,14 @@ export function RoundEntrySheet({
             // No request was sent for this draft, so it can still be edited.
             sharedEntry.current.attempted = false;
             setSharedAttempted(false);
+            await AsyncStorage.setItem(
+              storageKey,
+              JSON.stringify({
+                draft,
+                revision,
+                sharedEntry: sharedEntry.current,
+              }),
+            );
             return;
           }
           setParallelReview(null);
@@ -2106,8 +2154,10 @@ export function RoundEntrySheet({
                 Dasselbe Spiel?
               </AppText>
               <AppText selectable style={styles.hint}>
-                Während deiner Eingabe wurden diese Spiele eingetragen. Ist
-                deine Runde bereits dabei? Deine Eingabe bleibt erhalten.
+                {parallelReview.rounds.length === 1
+                  ? 'Während deiner Eingabe wurde ein Spiel eingetragen. Ist es dieselbe Runde?'
+                  : `Während deiner Eingabe wurden ${parallelReview.rounds.length} Spiele eingetragen. Ist deine Runde bereits dabei?`}
+                {' Deine Eingabe bleibt erhalten.'}
               </AppText>
               {parallelReview.rounds.map(({ round, actorName }) => (
                 <View key={round.id}>

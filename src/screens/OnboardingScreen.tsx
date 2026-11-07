@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CardSuitIcon } from '../components/game/CardSuitIcon';
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
 import type { AuthStackScreenProps } from '../navigation/types';
@@ -28,13 +29,27 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.backgroundPattern} pointerEvents="none" aria-hidden>
-        <AppText style={[styles.patternSuit, styles.patternSuitTop]}>♥</AppText>
-        <AppText style={[styles.patternSuit, styles.patternSuitMiddle]}>
-          ♣
-        </AppText>
-        <AppText style={[styles.patternSuit, styles.patternSuitBottom]}>
-          ♥
-        </AppText>
+        <View style={[styles.patternSuit, styles.patternSuitTop]}>
+          <CardSuitIcon
+            suit="herz"
+            color="rgba(217, 164, 65, 0.06)"
+            size={132}
+          />
+        </View>
+        <View style={[styles.patternSuit, styles.patternSuitMiddle]}>
+          <CardSuitIcon
+            suit="eichel"
+            color="rgba(217, 164, 65, 0.06)"
+            size={132}
+          />
+        </View>
+        <View style={[styles.patternSuit, styles.patternSuitBottom]}>
+          <CardSuitIcon
+            suit="herz"
+            color="rgba(217, 164, 65, 0.06)"
+            size={132}
+          />
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -144,9 +159,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   patternSuit: {
-    color: 'rgba(217, 164, 65, 0.06)',
-    fontSize: 132,
-    fontWeight: '700',
     position: 'absolute',
   },
   patternSuitTop: {

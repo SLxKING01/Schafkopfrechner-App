@@ -12,6 +12,12 @@
 
 Schließen fragt bei einer geänderten Eingabe nach „Weiter bearbeiten“, „Entwurf behalten“ oder „Entwurf verwerfen“. Dies gilt für neue Runden und Korrekturen gleichermaßen. „Entwurf behalten“ sichert neue Eingaben und Korrekturen lokal auf dem Gerät, getrennt nach Konto beziehungsweise Gast, Tisch und Runde. Sie werden auch nach einem vollständigen App-Neustart beim erneuten Öffnen der Eingabe wiederhergestellt. Bei einem Speicherfehler bleibt der Dialog mit einer Fehlermeldung offen. Eine geänderte Originalrunde oder Spielerbesetzung macht einen Korrekturentwurf ungültig; bei neuen Runden gilt dies auch für geänderte Runden, Tarife, Geber oder Multiplikatoren. Verwerfen oder erfolgreiches Eintragen entfernt den gespeicherten Entwurf. Ohne „Entwurf behalten“ wird eine angefangene Eingabe nicht automatisch gesichert. Entwürfe werden nicht in die Cloud übertragen.
 
+## Spieleingabe vom iPhone-Sperrbildschirm
+
+Öffne die installierte App einmal. Halte danach den entsperrten Sperrbildschirm gedrückt, tippe auf **Anpassen → Sperrbildschirm** und wähle den Widget-Bereich unter der Uhr. Füge dort unter **Schafkopfrechner-App** das Widget **Spiel eintragen** hinzu und bestätige mit **Fertig**.
+
+Ein Tipp öffnet nach dem Entsperren die Spieleingabe, sofern ein geeigneter laufender Tisch gefunden wird. Bei mehreren verfügbaren Tischen wählst du einen aus. Das Widget zeigt keine Tisch- oder Kontodaten. Es ist in nativen iOS-Builds mit Widget-Erweiterung verfügbar.
+
 ## Was „gespeichert“ bedeutet
 
 Die Erfolgsmeldung wird erst nach bestätigter Speicherung des kanonischen Spielstands auf dem Gerät angezeigt. Die Eingabe bleibt währenddessen gegen Doppeleingaben gesperrt. Bei einem Schreibfehler bleibt der Eintrag im Arbeitsspeicher ausdrücklich als ungesichert markiert. „Erneut auf Gerät speichern“ wiederholt die Speicherung desselben Eintrags und legt keine zweite Runde an. Ein solcher Eintrag kann ungesichert geschlossen und in derselben Sitzung erneut geöffnet werden; die Warnung bleibt maßgeblich, bis die Speicherung bestätigt wurde.

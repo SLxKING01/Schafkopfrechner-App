@@ -41,13 +41,16 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { EuroStyleCoin } from '../../components/game/EuroStyleCoin';
+import { GameActionButton } from '../../components/game/GameActionButton';
 import {
   historyColumnWidths,
   MatchHistoryCard,
 } from '../../components/game/MatchHistoryCard';
-import { GameActionButton } from '../../components/game/GameActionButton';
 import { PlayerActionsMenu } from '../../components/game/PlayerActionsMenu';
-import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
+import {
+  quickRoundDraftPlayer,
+  RoundEntrySheet,
+} from '../../components/game/RoundEntrySheet';
 import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
 import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { RoundUndoNotice } from '../../components/game/RoundUndoNotice';
@@ -74,11 +77,12 @@ import {
 import { formatRoundGameType } from '../../utils/cardSuits';
 import {
   getCurrentDealerId,
-  hasPendingMisdeal,
   getNextDealerId,
+  hasPendingMisdeal,
   roundPlayers,
 } from '../../utils/dealerOrder';
 import { outstandingBalances } from '../../utils/interimPayments';
+import { canOpenQuickRound } from '../../utils/quickRound';
 import { roundHistoryFingerprint } from '../../utils/roundHistory';
 import { tableAccess } from '../../utils/tableAccess';
 
@@ -460,6 +464,63 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     setEditingRoundId(null);
     setRoundComposerVisible(true);
   }, []);
+
+  useEffect(() => {
+    const request = route?.params?.quickRound;
+    if (!request || !navigation.isFocused()) return;
+    if (roundComposerVisible) {
+      navigation.setParams({ quickRound: undefined });
+      return;
+    }
+    if (
+      request === true ||
+      currentTable?.id !== request ||
+      !canOpenQuickRound(
+        currentTable,
+        players,
+        useGameStore.getState().activeGame,
+        actorId,
+      )
+    ) {
+      navigation.setParams({ quickRound: undefined });
+      navigation.navigate('QuickRound');
+      return;
+    }
+    let cancelled = false;
+    void quickRoundDraftPlayer(currentTable, players, rounds, actorId!).then(
+      (id) => {
+        if (cancelled || !navigation.isFocused()) return;
+        const state = useGameStore.getState();
+        const userId = useAuthStore.getState().user?.id;
+        navigation.setParams({ quickRound: undefined });
+        if (
+          state.currentTable?.id === request &&
+          canOpenQuickRound(
+            state.currentTable,
+            state.players,
+            state.activeGame,
+            userId,
+          )
+        ) {
+          openRoundComposer(id);
+        } else {
+          navigation.navigate('QuickRound');
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    actorId,
+    currentTable,
+    navigation,
+    openRoundComposer,
+    players,
+    roundComposerVisible,
+    rounds,
+    route?.params?.quickRound,
+  ]);
 
   const closeRoundComposer = useCallback(() => {
     triggerSelectionHaptic();

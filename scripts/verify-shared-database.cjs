@@ -77,8 +77,11 @@ let db;
   await db.exec(
     fs.readFileSync('supabase/verify-table-invitations.sql', 'utf8'),
   );
+  await db.exec(
+    fs.readFileSync('supabase/verify-settlement-events.sql', 'utf8'),
+  );
   console.log(
-    'PASS: all migrations, roster membership, reader/writer/owner permissions, revocation, CAS, round identities, private profiles, photo access, friendship transitions, blocks, invitation consent and role assignment on isolated PostgreSQL.',
+    'PASS: migrations, shared permissions, CAS, round identities, profiles, friendships, invitations and settlement events on isolated PostgreSQL.',
   );
 })()
   .catch((e) => {

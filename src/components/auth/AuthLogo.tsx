@@ -1,19 +1,13 @@
-import { Heart, Leaf } from 'lucide-react-native';
 import { StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
+import { CardSuitIcon } from '../game/CardSuitIcon';
 
 export function AuthLogo() {
   return (
     <View style={styles.shadow}>
       <View style={styles.logo}>
-        <Leaf color={authColors.background} size={34} strokeWidth={2.2} />
-        <Heart
-          color={authColors.background}
-          size={18}
-          strokeWidth={2.4}
-          style={styles.heart}
-        />
+        <CardSuitIcon suit="eichel" color={authColors.background} size={42} />
       </View>
     </View>
   );
@@ -37,8 +31,5 @@ const styles = StyleSheet.create({
     height: 70,
     justifyContent: 'center',
     width: 70,
-  },
-  heart: {
-    marginTop: -9,
   },
 });

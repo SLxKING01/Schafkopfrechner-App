@@ -22,6 +22,7 @@ import Animated from 'react-native-reanimated';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
+import { CardSuitIcon } from '../../components/game/CardSuitIcon';
 import { FriendChip } from '../../components/game/FriendChip';
 import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
@@ -285,12 +286,13 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           </Animated.View>
 
           <View style={styles.headerSymbols} pointerEvents="none">
-            <AppText style={[styles.headerSuit, styles.headerSuitLeft]}>
-              {'♣'}
-            </AppText>
-            <AppText style={[styles.headerSuit, styles.headerSuitRight]}>
-              {'♥'}
-            </AppText>
+            <View style={styles.headerSuit}>
+              <CardSuitIcon
+                suit="herz"
+                color="rgba(231, 198, 92, 0.055)"
+                size={92}
+              />
+            </View>
           </View>
 
           <Animated.View entering={formEntering} style={styles.createCard}>
@@ -357,7 +359,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               />
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Spieler zum Tisch hinzufuegen"
+                accessibilityLabel="Spielplatz am Tisch hinzufügen"
                 disabled={!canAddPlayer}
                 onPress={addPlayer}
                 style={({ pressed }) => [
@@ -645,17 +647,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerSuit: {
-    color: 'rgba(231, 198, 92, 0.055)',
-    fontSize: 92,
-    fontWeight: '800',
     position: 'absolute',
-  },
-  headerSuitLeft: {
-    left: 104,
-    top: -68,
-    transform: [{ rotate: '-13deg' }],
-  },
-  headerSuitRight: {
     right: 6,
     top: -92,
     transform: [{ rotate: '13deg' }],

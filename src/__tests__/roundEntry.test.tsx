@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
 import { ScrollView } from 'react-native';
 
-import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
+import {
+  quickRoundDraftPlayer,
+  RoundEntrySheet,
+} from '../components/game/RoundEntrySheet';
 import * as sharedTables from '../services/shared/sharedTables';
 import { reliableStorage } from '../storage/reliableStorage';
 import { useAuthStore } from '../store/authStore';
@@ -826,6 +829,11 @@ it('opens an existing entry and returns to the unchanged draft before explicit p
   await ui.press('Runde speichern');
   expect(ui.onSaved).not.toHaveBeenCalled();
   expect(useGameStore.getState().rounds).toHaveLength(0);
+  const tableId = useGameStore.getState().currentTable!.id;
+  const stored = await AsyncStorage.getItem(
+    `schafkopfrechner-round-draft-v1:editor:${tableId}:new`,
+  );
+  expect(JSON.parse(stored!).sharedEntry.attempted).toBe(false);
   const before = save.mock.calls[0][1];
   await ui.press('Eintrag ansehen');
   expect(JSON.stringify(ui.view.toJSON())).toContain('Änderungsverlauf');
@@ -838,12 +846,12 @@ it('opens an existing entry and returns to the unchanged draft before explicit p
   expect(ui.button('Runde speichern').props.disabled).toBe(false);
   await act(async () => ui.view.unmount());
 });
-it('persists an offline shared draft and operation identity across closing and reopening', async () => {
+it('reopens a retained player draft from the shortcut without losing its operation identity', async () => {
   sharedEditorSetup();
   const save = jest
     .spyOn(sharedTables, 'saveSharedRound')
     .mockRejectedValue(Error('Offline'));
-  const ui = await mount();
+  const ui = await mount(null, players, 'a');
   await ui.press('Spieltyp Wenz');
   await ui.press('Alleinspieler A');
   await ui.press('Ansager gewonnen');
@@ -854,7 +862,15 @@ it('persists an offline shared draft and operation identity across closing and r
   await ui.press('Schließen');
   await ui.press('Entwurf behalten');
   await act(async () => ui.view.unmount());
-  const restored = await mount();
+  const state = useGameStore.getState();
+  const playerId = await quickRoundDraftPlayer(
+    state.currentTable!,
+    state.players,
+    state.rounds,
+    'editor',
+  );
+  expect(playerId).toBe('a');
+  const restored = await mount(null, players, playerId);
   await restored.press('Runde speichern');
   expect(save.mock.calls[1][1]).toEqual(first[1]);
   expect(save.mock.calls[1][2]).toEqual(first[2]);

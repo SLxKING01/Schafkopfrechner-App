@@ -4,6 +4,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 export type AuthStackParamList = {
   Onboarding: undefined;
   Login: undefined;
+  RequestPassword: { email?: string } | undefined;
   Register: undefined;
   MainTabs: undefined;
   CloseMatchDay: undefined;
@@ -14,11 +15,14 @@ export type AppStackParamList = {
   TableInvitations: { tableId?: string } | undefined;
   Friends: undefined;
   EditProfile: undefined;
+  PayPalMe: undefined;
+  RequestPassword: { email?: string; fromAccount: true };
   AppTabs: NavigatorScreenParams<AppTabParamList> | undefined;
   CreateTable: undefined;
   EditTable: undefined;
   MatchDayDetails: { matchDayId: string };
-  ActiveGame: { roundId?: string } | undefined;
+  ActiveGame: { roundId?: string; quickRound?: true | string } | undefined;
+  QuickRound: undefined;
   TableStatistics: { tableKey: string };
   Settlement: { tableId: string; roundId?: string } | undefined;
   TableArchive: undefined;
@@ -40,8 +44,8 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
-  AuthStack: undefined;
-  AppStack: undefined;
+  AuthStack: NavigatorScreenParams<AuthStackParamList> | undefined;
+  AppStack: NavigatorScreenParams<AppStackParamList> | undefined;
   MainTabs: undefined;
   CloseMatchDay: undefined;
   MatchDayDetails: { matchDayId: string };

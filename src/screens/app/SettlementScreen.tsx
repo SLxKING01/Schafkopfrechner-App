@@ -1,6 +1,14 @@
 import { Handshake } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
@@ -18,8 +26,15 @@ import {
   StatNote,
   StatPanel,
 } from '../../components/statistics/StatisticsPanels';
+import { AppButton } from '../../components/ui/AppButton';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
+import {
+  allowedPaymentActions,
+  paymentActionLabels,
+  paymentState,
+  useSettlementEvents,
+} from '../../services/shared/settlementEvents';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
@@ -34,6 +49,7 @@ import {
 } from '../../utils/accounting';
 import { formatRoundGameType } from '../../utils/cardSuits';
 import { outstandingBalances } from '../../utils/interimPayments';
+import { paypalMePaymentURL } from '../../utils/paypalMe';
 import { createStatisticsTable } from '../../utils/statistics';
 import { tableAccess } from '../../utils/tableAccess';
 
@@ -46,6 +62,7 @@ function formatAmount(amount: number) {
 export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [paypalErrorId, setPaypalErrorId] = useState<string>();
   const currentTable = useGameStore((state) => state.currentTable);
   const actorId = useAuthStore((state) => state.user?.id);
   const currentPlayers = useGameStore((state) => state.players);
@@ -63,7 +80,45 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const settlements = archived?.settlements ?? currentSettlements;
   const rounds = archived?.rounds ?? currentRounds;
   const balances = archived?.balances ?? currentBalances;
-  const openPayments = settlements.filter(({ isPaid }) => !isPaid).length;
+  const shared = !!table?.shared;
+  const journal = useSettlementEvents(
+    table && !table.isActive && shared && table.shared?.userId === actorId
+      ? table.id
+      : undefined,
+    actorId,
+  );
+  const payments = settlements.map((payment) => {
+    const status = paymentState(payment, journal.events ?? []);
+    const target = journal.links?.find((link) => link.paymentId === payment.id);
+    const payer = players.find(({ id }) => id === payment.fromPlayerId);
+    const recipient = players.find(({ id }) => id === payment.toPlayerId);
+    const paypalURL =
+      target &&
+      actorId &&
+      payer?.userId === actorId &&
+      recipient?.userId === target.recipientId &&
+      target.amount === payment.amount &&
+      !status.confirmed &&
+      !status.reported
+        ? paypalMePaymentURL(target.handle, target.amount)
+        : null;
+    return { payment, status, paypalURL };
+  });
+  const openPayments = payments.filter(
+    ({ status }) => !status.confirmed,
+  ).length;
+  const paymentTotals = payments.reduce(
+    (totals, { payment, status }) => {
+      const key = status.confirmed
+        ? 'confirmed'
+        : status.reported
+          ? 'reported'
+          : 'open';
+      totals[key] += Math.round(payment.amount * 100);
+      return totals;
+    },
+    { open: 0, reported: 0, confirmed: 0 },
+  );
   const playerNameById = new Map(
     players.map((player) => [player.id, player.name]),
   );
@@ -158,7 +213,10 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
             table={table}
             players={players}
             balances={balances}
-            settlements={settlements}
+            settlements={payments.map(({ payment, status }) => ({
+              ...payment,
+              isPaid: status.confirmed,
+            }))}
             completedAt={archived?.completedAt ?? null}
           />
         ) : null}
@@ -169,7 +227,19 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
               ? 'Keine Zahlungen offen'
               : `${openPayments} ${openPayments === 1 ? 'Zahlung' : 'Zahlungen'} zum Ausgleichen`}
         </AppText>
-        {settlements.length > 0 && openPayments === 0 ? (
+        {shared && !table.isActive ? (
+          journal.events ? (
+            <AppText style={styles.subtitle}>
+              Offen {formatAmount(paymentTotals.open / 100)} · Gemeldet,
+              unbestätigt {formatAmount(paymentTotals.reported / 100)} ·
+              Bestätigt {formatAmount(paymentTotals.confirmed / 100)}
+            </AppText>
+          ) : (
+            <AppText style={styles.subtitle}>
+              {journal.error ?? 'Zahlungsstatus werden geladen …'}
+            </AppText>
+          )
+        ) : settlements.length > 0 && openPayments === 0 ? (
           <AppText style={styles.subtitle}>
             Alle Zahlungen sind als bezahlt markiert.
           </AppText>
@@ -192,15 +262,22 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                   message="Alle Spieler sind bereits ausgeglichen."
                 />
               ) : (
-                settlements.map((settlement) => (
+                payments.map(({ payment: settlement, status, paypalURL }) => (
                   <SettlementCard
                     key={settlement.id}
                     amount={formatAmount(settlement.amount)}
                     from={getPlayerName(settlement.fromPlayerId)}
-                    isPaid={settlement.isPaid}
+                    isPaid={status.confirmed}
+                    status={
+                      shared
+                        ? journal.events || settlement.isPaid
+                          ? status.label
+                          : 'Status wird geprüft'
+                        : undefined
+                    }
                     to={getPlayerName(settlement.toPlayerId)}
                     onMarkPaid={
-                      tableAccess(table, actorId).canManage
+                      !shared && tableAccess(table, actorId).canManage
                         ? () =>
                             markSettlementPaid(
                               settlement.id,
@@ -209,7 +286,79 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                             )
                         : undefined
                     }
-                  />
+                  >
+                    {shared && journal.events ? (
+                      <>
+                        {paypalURL ? (
+                          <AppButton
+                            title="Mit PayPal bezahlen"
+                            onPress={async () => {
+                              setPaypalErrorId(undefined);
+                              try {
+                                if (Platform.OS === 'web')
+                                  window.location.assign(paypalURL);
+                                else await Linking.openURL(paypalURL);
+                              } catch {
+                                setPaypalErrorId(settlement.id);
+                              }
+                            }}
+                          />
+                        ) : null}
+                        {paypalErrorId === settlement.id ? (
+                          <AppText
+                            accessibilityRole="alert"
+                            style={styles.subtitle}
+                          >
+                            PayPal konnte nicht geöffnet werden. Bitte versuche
+                            es erneut.
+                          </AppText>
+                        ) : null}
+                        {allowedPaymentActions(
+                          settlement,
+                          status,
+                          players,
+                          table,
+                          actorId,
+                        ).map((action) => (
+                          <AppButton
+                            key={action}
+                            title={paymentActionLabels[action]}
+                            variant="secondary"
+                            disabled={journal.busy}
+                            onPress={() => {
+                              void journal
+                                .record(settlement.id, action)
+                                .catch(() =>
+                                  Alert.alert(
+                                    'Zahlungsstatus konnte nicht geändert werden',
+                                    'Der aktuelle Stand wird neu geladen. Bitte prüfe ihn und versuche es bei Bedarf erneut.',
+                                  ),
+                                );
+                            }}
+                          />
+                        ))}
+                        {status.history.map((event) => (
+                          <AppText key={event.id} style={styles.subtitle}>
+                            {event.actor_name}
+                            {event.delegated ? ` für ${event.player_name}` : ''}
+                            {' · '}
+                            {
+                              {
+                                report: 'Zahlung gemeldet',
+                                confirm: 'Eingang bestätigt',
+                                undo_report: 'Meldung zurückgenommen',
+                                undo_confirm: 'Bestätigung zurückgenommen',
+                              }[event.action]
+                            }
+                            {' · '}
+                            {new Date(event.occurred_at).toLocaleString(
+                              'de-DE',
+                            )}
+                          </AppText>
+                        ))}
+                      </>
+                    ) : null}
+                  </SettlementCard>
                 ))
               )}
             </View>

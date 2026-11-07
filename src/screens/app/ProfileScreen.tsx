@@ -12,14 +12,11 @@ import {
   LayoutGrid,
   Lock,
   LogOut,
-  Mail,
   MessageSquareText,
-  Palette,
   ShieldCheck,
   Smartphone,
   Sparkles,
   TableProperties,
-  User,
   UserRoundCog,
   Users,
   Volume2,
@@ -72,7 +69,7 @@ export function ProfileScreen() {
   const accentColor = PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'];
   const email = user?.email ?? 'Nicht gesetzt';
   const userId = user?.id;
-  const openAvatarSheet = () => navigation.navigate('EditProfile');
+  const openProfileEditor = () => navigation.navigate('EditProfile');
   useFocusEffect(
     useCallback(() => {
       if (userId) void refreshOwnProfile(userId);
@@ -104,33 +101,25 @@ export function ProfileScreen() {
     {
       icon: UserRoundCog,
       title: 'Profil bearbeiten',
-      subtitle: 'Anzeigename, Bild und private Angaben',
-      onPress: openAvatarSheet,
+      subtitle: 'Anzeigename, Avatar, Akzentfarbe und Kontodaten',
+      onPress: openProfileEditor,
     },
     {
-      icon: User,
-      title: 'Avatar ändern',
-      subtitle: 'Foto, Tieravatar und Akzentfarbe',
-      onPress: openAvatarSheet,
-    },
-    {
-      icon: User,
-      title: 'Anzeigename',
-      subtitle: username,
-      onPress: openAvatarSheet,
-    },
-    {
-      icon: Mail,
-      title: 'E-Mail',
-      subtitle: email,
-      onPress: () => showPrepared('E-Mail'),
+      icon: KeyRound,
+      title: 'Passwort zurücksetzen',
+      subtitle: 'Link per E-Mail anfordern',
+      onPress: () =>
+        navigation.navigate('RequestPassword', {
+          email: user?.email,
+          fromAccount: true,
+        }),
     },
     {
       icon: CreditCard,
-      title: 'PayPal verbinden',
-      subtitle: 'Für schnelle Auszahlungen am Spielabend',
+      title: 'PayPal.Me-Link',
+      subtitle: 'Für Zahlungen aus gemeinsamen Tischabrechnungen',
       tone: 'gold',
-      onPress: () => showPrepared('PayPal verbinden'),
+      onPress: () => navigation.navigate('PayPalMe'),
     },
   ];
 
@@ -168,12 +157,6 @@ export function ProfileScreen() {
   ];
 
   const designRows: SettingRow[] = [
-    {
-      icon: Palette,
-      title: 'Akzentfarbe',
-      subtitle: 'Aktuell ausgewählte Profilfarbe',
-      onPress: openAvatarSheet,
-    },
     {
       icon: Sparkles,
       title: 'Theme',
@@ -218,12 +201,6 @@ export function ProfileScreen() {
   ];
 
   const privacyRows: SettingRow[] = [
-    {
-      icon: KeyRound,
-      title: 'Passwort ändern',
-      subtitle: 'Sicheres Passwort aktualisieren',
-      onPress: () => showPrepared('Passwort ändern'),
-    },
     {
       icon: Bell,
       title: 'Benachrichtigungen',
@@ -291,9 +268,9 @@ export function ProfileScreen() {
         <View style={[styles.profileHeader, { borderColor: accentColor }]}>
           <View style={[styles.avatarGlow, { backgroundColor: accentColor }]} />
           <Pressable
-            accessibilityLabel="Avatar ändern"
+            accessibilityLabel="Profil bearbeiten"
             accessibilityRole="button"
-            onPress={openAvatarSheet}
+            onPress={openProfileEditor}
             style={({ pressed }) => [
               styles.avatarButton,
               pressed && styles.pressed,

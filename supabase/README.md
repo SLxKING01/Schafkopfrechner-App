@@ -31,3 +31,11 @@ Es werden ausschliesslich oeffentliche Client-Schluessel in der App verwendet.
 Pruefung: `npx jest --runInBand`, `npx tsc --noEmit`, ESLint und Web-Export.
 `verify-sync.sql` testet direkt in Postgres Speichern, Lesen, Aktualisieren,
 Versionskonflikte und Kontotrennung. Saemtliche Testdaten werden zurueckgerollt.
+## Passwort zurücksetzen
+
+Unter **Authentication → URL Configuration → Redirect URLs** müssen für die Passwort-Wiederherstellung die Rücksprungziele freigegeben sein:
+
+- Native App: `schafkopfrechner://passwort-zuruecksetzen`
+- Web: die jeweilige App-URL mit `?recovery=1`, zum Beispiel `http://localhost:8081/?recovery=1` für die lokale Webvorschau.
+
+Die Vorlage **Reset Password** muss den Supabase-Bestätigungslink `{{ .ConfirmationURL }}` verwenden. Die Mail wird auf demselben Gerät in der installierten App beziehungsweise im selben Browser geöffnet, in dem sie angefordert wurde. Für den nativen Rücksprung ist ein Build mit dem App-Schema erforderlich.

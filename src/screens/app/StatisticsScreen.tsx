@@ -28,6 +28,7 @@ import {
   type StatisticsSubject,
   statisticsSubjects,
   subjectEntries,
+  summarizePlayPositions,
   summarizeStatistics,
 } from '../../utils/statistics';
 
@@ -40,6 +41,7 @@ export function StatisticsScreen() {
   const [subjectId, setSubjectId] = useState('');
   const [tableId, setTableId] = useState('');
   const [period, setPeriod] = useState<'all' | 'month'>('all');
+  const [showPositions, setShowPositions] = useState(false);
   const tables = overview.statisticsTables;
   const assigned = useMemo(
     () => dashboardPersonal(tables, userId),
@@ -84,6 +86,10 @@ export function StatisticsScreen() {
   );
   const summary = useMemo(() => summarizeStatistics(entries), [entries]);
   const personal = mode === 'player';
+  const playPositions = useMemo(
+    () => (personal && showPositions ? summarizePlayPositions(entries) : null),
+    [entries, personal, showPositions],
+  );
   return (
     <AuthBackground withEdgeBorder={false}>
       <ScrollView
@@ -276,6 +282,37 @@ export function StatisticsScreen() {
                       unbekannt. Kleine Stichproben sind keine Bewertung der
                       Spielstärke.
                     </StatNote>
+                    {personal ? (
+                      <StatAction
+                        selected={showPositions}
+                        onPress={() => setShowPositions((open) => !open)}
+                      >
+                        Nach Spielposition
+                      </StatAction>
+                    ) : null}
+                    {playPositions ? (
+                      <StatPanel>
+                        {playPositions.positions.map(
+                          ({ label, games, wins }) => (
+                            <View key={label}>
+                              <StatHeading>{label}</StatHeading>
+                              <StatNote>
+                                {games
+                                  ? `Spiele ${games} · Gewonnen ${wins} · Quote ${rate(wins, games)}`
+                                  : 'Keine Spiele auf dieser Position'}
+                              </StatNote>
+                            </View>
+                          ),
+                        )}
+                        {playPositions.unknown > 0 ? (
+                          <StatNote>
+                            {playPositions.unknown === 1
+                              ? 'Position bei einem Spiel unbekannt'
+                              : `Position bei ${playPositions.unknown} Spielen unbekannt`}
+                          </StatNote>
+                        ) : null}
+                      </StatPanel>
+                    ) : null}
                     <GameTypeStatistics
                       entries={entries}
                       personal={personal}

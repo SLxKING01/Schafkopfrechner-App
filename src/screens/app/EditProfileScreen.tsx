@@ -127,6 +127,7 @@ export function ProfileEditor({
 }) {
   const actor = initialProfile.id;
   const userId = useAuthStore((state) => state.user?.id);
+  const email = useAuthStore((state) => state.user?.email);
   const [draft, setDraft] = useState<ProfileDraft>(() => ({
     fields: profileFields(initialProfile),
     version: initialProfile.version,
@@ -460,6 +461,14 @@ export function ProfileEditor({
             <AppText selectable style={s.error}>
               {errors.displayName}
             </AppText>
+          ) : null}
+          {email ? (
+            <View>
+              <AppText>E-Mail-Adresse</AppText>
+              <AppText selectable style={s.hint}>
+                {email}
+              </AppText>
+            </View>
           ) : null}
           <AppText accessibilityRole="header" variant="subtitle">
             Private Angaben

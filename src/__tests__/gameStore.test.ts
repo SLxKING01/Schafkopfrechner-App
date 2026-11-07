@@ -214,6 +214,15 @@ describe('accounting invariants at the table boundary', () => {
       { playerId: 'player-4', amount: -0.33 },
     ]);
   });
+  it('preserves separate seats for players with the same name', () => {
+    resetGameStore();
+    const roster = [players[0], { ...players[1], name: players[0].name }];
+    expect(useGameStore.getState().createTable('Tisch', roster)).toBe(true);
+    expect(useGameStore.getState().players.map(({ id }) => id)).toEqual(
+      roster.map(({ id }) => id),
+    );
+  });
+
   it('rejects duplicate player ids when creating a table', () => {
     resetGameStore();
     expect(

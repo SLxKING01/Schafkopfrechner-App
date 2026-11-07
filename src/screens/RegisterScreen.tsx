@@ -1,13 +1,4 @@
-import {
-  Apple,
-  BarChart3,
-  Calculator,
-  Lock,
-  Mail,
-  User,
-  UserPlus,
-  Users,
-} from 'lucide-react-native';
+import { Apple, Lock, Mail, User } from 'lucide-react-native';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -20,16 +11,9 @@ import type { AuthStackScreenProps } from '../navigation/types';
 import { register } from '../services/auth/register';
 import { useAuthStore } from '../store/authStore';
 import { authColors } from '../theme/colors';
-import { authRadius, authSpacing } from '../theme/spacing';
+import { authSpacing } from '../theme/spacing';
 
 type RegisterScreenProps = AuthStackScreenProps<'Register'>;
-
-const features = [
-  { label: 'Spielstände speichern', icon: Calculator },
-  { label: 'Freunde einladen', icon: Users },
-  { label: 'Automatisch abrechnen', icon: UserPlus },
-  { label: 'Statistiken verfolgen', icon: BarChart3 },
-];
 
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [username, setUsername] = useState('');
@@ -156,25 +140,6 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
           onChangeText={setConfirmPassword}
         />
 
-        <View style={styles.featureCard}>
-          {features.map((feature) => {
-            const Icon = feature.icon;
-
-            return (
-              <View key={feature.label} style={styles.featureItem}>
-                <View style={styles.featureIcon}>
-                  <Icon
-                    color={authColors.accentGreen}
-                    size={16}
-                    strokeWidth={2}
-                  />
-                </View>
-                <AppText style={styles.featureText}>{feature.label}</AppText>
-              </View>
-            );
-          })}
-        </View>
-
         <View style={styles.socialRow}>
           <SocialButton
             icon={Apple}
@@ -200,32 +165,6 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 const styles = StyleSheet.create({
   form: {
     gap: authSpacing.md,
-  },
-  featureCard: {
-    backgroundColor: 'rgba(107, 163, 110, 0.1)',
-    borderColor: 'rgba(107, 163, 110, 0.2)',
-    borderRadius: authRadius.lg,
-    borderWidth: 1,
-    gap: authSpacing.sm,
-    padding: authSpacing.md,
-  },
-  featureItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: authSpacing.sm,
-  },
-  featureIcon: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(107, 163, 110, 0.14)',
-    borderRadius: 14,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  featureText: {
-    color: authColors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
   },
   socialRow: {
     flexDirection: 'row',

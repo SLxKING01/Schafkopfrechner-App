@@ -172,7 +172,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
           </Animated.View>
         ) : null}
 
-        <View style={styles.optionsRow}>
+        <View style={styles.options}>
           <View style={styles.rememberRow}>
             <Switch
               accessibilityLabel="Angemeldet bleiben"
@@ -191,9 +191,10 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            disabled
-            style={styles.disabledLink}
+            disabled={isSubmitting}
+            onPress={() =>
+              navigation.navigate('RequestPassword', { email: email.trim() })
+            }
           >
             <AppText style={styles.forgotText}>Passwort vergessen?</AppText>
           </Pressable>
@@ -214,10 +215,9 @@ const styles = StyleSheet.create({
   form: {
     gap: authSpacing.md,
   },
-  optionsRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  options: {
+    alignItems: 'flex-start',
+    gap: authSpacing.sm,
     marginBottom: authSpacing.sm,
     marginTop: authSpacing.xs,
   },
@@ -225,9 +225,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: authSpacing.sm,
-  },
-  disabledLink: {
-    opacity: 0.62,
   },
   errorBox: {
     backgroundColor: authColors.errorBackground,
@@ -246,6 +243,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     color: authColors.textSecondary,
+    flexShrink: 1,
     fontSize: 13,
   },
   forgotText: {

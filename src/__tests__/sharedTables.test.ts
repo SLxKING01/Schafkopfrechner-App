@@ -621,7 +621,7 @@ const entryPayload: CreateRoundPayload = {
   amount: 0.4,
   tariffOptions: { ...emptyTariffOptions },
 };
-function anotherPhoneAddsRound() {
+function anotherPhoneAddsRound(payload = entryPayload) {
   const local = useGameStore.getState();
   actor('phone-b');
   useGameStore.setState({
@@ -635,7 +635,7 @@ function anotherPhoneAddsRound() {
       },
     },
   });
-  expect(useGameStore.getState().addRound(entryPayload)).toBe(true);
+  expect(useGameStore.getState().addRound(payload)).toBe(true);
   remote = {
     ...remote,
     version: remote.version + 1,
@@ -645,6 +645,36 @@ function anotherPhoneAddsRound() {
   useGameStore.setState(local);
   return remote.payload.rounds.at(-1)!;
 }
+it('warns about played rounds but ignores pure stock bookings', async () => {
+  const settings = clone(useGameStore.getState().currentTable!.settings);
+  settings.games.stock.enabled = true;
+  settings.games.ramsch.enabled = false;
+  useGameStore.getState().updateCurrentTableSettings(settings);
+  await publishSharedTable();
+  const booking = anotherPhoneAddsRound({
+    gameType: 'stock',
+    winnerId: '',
+    winnerIds: [],
+    loserIds: ['a', 'b', 'c', 'd'],
+    amount: 0.8,
+    stockAction: 'deposit',
+  });
+  const played = anotherPhoneAddsRound({
+    ...entryPayload,
+    tariffOptions: undefined,
+    declarerId: 'a',
+    partnerId: 'b',
+  });
+  const result = await saveEntry('only-played-rounds');
+  if (!('review' in result)) throw Error('Expected review');
+  expect(result.review.rounds.map(({ round }) => round.id)).toEqual([
+    played.id,
+  ]);
+  expect(remote.payload.rounds.map(({ id }) => id)).toEqual([
+    booking.id,
+    played.id,
+  ]);
+});
 function saveEntry(id: string, known: string[] = []) {
   const state = useGameStore.getState();
   return saveSharedRound(remote.id, entryPayload, id, known, {

@@ -24,6 +24,10 @@ export type StatisticsSourceRound = {
   declarerWon?: boolean;
   tariffOptions?: GameRound['tariffOptions'];
   stockAction?: GameRound['stockAction'];
+  misdealPlayerId?: GameRound['misdealPlayerId'];
+  participantIds?: GameRound['participantIds'];
+  seatOrderIds?: GameRound['seatOrderIds'];
+  roundContext?: GameRound['roundContext'];
 };
 export type StatisticsRound = StatisticsSourceRound & {
   key: string;
@@ -141,6 +145,70 @@ export function subjectEntries(
       .filter((r) => !member || r.participants.includes(member.playerId))
       .map((round) => ({ round, playerId: member?.playerId }));
   });
+}
+
+export const playPositionLabels = [
+  'Geber',
+  'Direkt nach dem Geber',
+  '2. nach dem Geber',
+  '3. nach dem Geber',
+  '4. nach dem Geber',
+] as const;
+
+function historicalPosition(round: StatisticsRound, playerId: string) {
+  const { seatOrderIds, participantIds, roundContext } = round;
+  if (!seatOrderIds || !participantIds || !roundContext) return null;
+  const dealerId = roundContext.dealerIdBefore;
+  const dealerIndex = seatOrderIds.indexOf(dealerId);
+  const participants = new Set(participantIds);
+  if (
+    dealerIndex < 0 ||
+    new Set(seatOrderIds).size !== seatOrderIds.length ||
+    participantIds.length !== 4 ||
+    participants.size !== 4 ||
+    round.participants.length !== 4 ||
+    new Set(round.participants).size !== 4 ||
+    round.participants.some((id) => !participants.has(id)) ||
+    participantIds.some((id) => !seatOrderIds.includes(id))
+  )
+    return null;
+
+  if (playerId === dealerId) return 0;
+  const afterDealer = [
+    ...seatOrderIds.slice(dealerIndex + 1),
+    ...seatOrderIds.slice(0, dealerIndex),
+  ].filter((id) => participants.has(id));
+  const index = afterDealer.indexOf(playerId);
+  return index < 0 ? null : index + 1;
+}
+
+export function summarizePlayPositions(entries: StatisticsEntry[]) {
+  const positions = playPositionLabels.map((label) => ({
+    label,
+    games: 0,
+    wins: 0,
+  }));
+  let unknown = 0;
+  const currentEntries = new Map(
+    entries.map((entry) => [entry.round.key, entry]),
+  );
+  for (const { round, playerId } of currentEntries.values()) {
+    if (
+      !playerId ||
+      !round.participants.includes(playerId) ||
+      round.misdealPlayerId ||
+      !isPlayedRound(round)
+    )
+      continue;
+    const index = historicalPosition(round, playerId);
+    if (index === null) {
+      unknown++;
+      continue;
+    }
+    positions[index].games++;
+    if (round.winners.includes(playerId)) positions[index].wins++;
+  }
+  return { positions, unknown };
 }
 export type StatisticsSummary = {
   count: number;

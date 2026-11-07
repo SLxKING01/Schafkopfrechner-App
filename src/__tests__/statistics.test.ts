@@ -5,6 +5,7 @@ import {
   type StatisticsSourceRound,
   statisticsSubjects,
   subjectEntries,
+  summarizePlayPositions,
   summarizeStatistics,
   tableTrend,
 } from '../utils/statistics';
@@ -31,16 +32,70 @@ function round(
     ...overrides,
   };
 }
-function table(rounds: StatisticsSourceRound[], id = 't') {
+function table(rounds: StatisticsSourceRound[], id = 't', roster = players) {
   return createStatisticsTable(
     id,
     id,
-    players,
+    roster,
     rounds,
     { kind: 'active' },
     'id',
   );
 }
+
+it('uses only historical positions and actual results, skipping paused seats and an out-sitting dealer', () => {
+  const context = (dealerIdBefore: string) => ({
+    dealerIdBefore,
+    legerPlayerIds: [],
+    turboRamsch: false,
+  });
+  const historical = {
+    seatOrderIds: ['b', 'c', 'a', 'paused', 'd', 'e'],
+    participantIds: ['a', 'b', 'c', 'd'],
+  };
+  const t = table(
+    [
+      round('1', { ...historical, roundContext: context('a') }),
+      round('2', { ...historical, roundContext: context('e') }),
+      round('3', { ...historical, roundContext: context('c') }),
+      round('3', {
+        ...historical,
+        roundContext: context('c'),
+        winnerId: 'c',
+        winnerIds: ['c', 'd'],
+        loserIds: ['a', 'b'],
+      }),
+      round('4'),
+      round('5', { ...historical, misdealPlayerId: 'a' }),
+      round('6', { ...historical, roundContext: context('missing') }),
+    ],
+    't',
+    [...players, { id: 'paused', name: 'Pausiert' }, { id: 'e', name: 'E' }],
+  );
+  const mine = (playerId: string) =>
+    summarizePlayPositions(
+      subjectEntries([t], {
+        id: playerId,
+        name: playerId,
+        context: '',
+        memberships: [{ tableId: t.id, playerId }],
+      }),
+    );
+
+  expect(mine('a')).toMatchObject({
+    unknown: 2,
+    positions: [
+      { games: 1, wins: 1 },
+      { games: 1, wins: 0 },
+      { games: 0, wins: 0 },
+      { games: 1, wins: 1 },
+      { games: 0, wins: 0 },
+    ],
+  });
+  expect(mine('d').positions[1]).toMatchObject({ games: 1, wins: 0 });
+  expect(mine('d').positions[4]).toMatchObject({ games: 1, wins: 0 });
+  expect(mine('e').positions[0]).toMatchObject({ games: 0, wins: 0 });
+});
 
 it('counts actual Sauspiel partners in either order including losses, never the opponents', () => {
   const t = table([

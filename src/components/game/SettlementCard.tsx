@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
@@ -11,6 +12,8 @@ type SettlementCardProps = {
   amount: string;
   isPaid?: boolean;
   onMarkPaid?: () => void;
+  status?: string;
+  children?: ReactNode;
 };
 
 export function SettlementCard({
@@ -19,6 +22,8 @@ export function SettlementCard({
   amount,
   isPaid = false,
   onMarkPaid,
+  status,
+  children,
 }: SettlementCardProps) {
   return (
     <View style={[styles.card, isPaid && styles.paid]}>
@@ -32,7 +37,7 @@ export function SettlementCard({
       </View>
       <View style={styles.side}>
         <AppText style={styles.subtitle}>
-          {isPaid ? 'Bezahlt' : 'Offene Zahlung'}
+          {status ?? (isPaid ? 'Bezahlt' : 'Offene Zahlung')}
         </AppText>
         {onMarkPaid ? (
           <Pressable
@@ -46,6 +51,7 @@ export function SettlementCard({
             </AppText>
           </Pressable>
         ) : null}
+        {children}
       </View>
     </View>
   );

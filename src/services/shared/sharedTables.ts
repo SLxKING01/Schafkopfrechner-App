@@ -13,6 +13,7 @@ import type {
   PlayerBalance,
   Settlement,
 } from '../../types/game';
+import { isPlayedRound } from '../../utils/accounting';
 import { archiveFinishedGameDay } from '../../utils/gameDayArchive';
 import { fingerprint } from '../sync/syncGameState';
 import { mergeSharedRounds, rebaseInFlightRounds } from './mergeSharedRounds';
@@ -289,8 +290,8 @@ export async function setSharedTableRole(
   });
   if (isCurrent(table.id, actor)) setBinding(remote, actor);
 }
-let refreshing: Promise<void> | null = null;
-export function refreshSharedTables(): Promise<void> {
+let refreshing: Promise<SharedTableRemote[] | undefined> | null = null;
+export function refreshSharedTables() {
   if (refreshing) return refreshing;
   refreshing = discoverSharedTables().finally(() => {
     refreshing = null;
@@ -442,6 +443,7 @@ async function discoverSharedTables() {
         ),
       }));
     }
+    return tables;
   } catch (reason) {
     if (useAuthStore.getState().user?.id === actor)
       useSharedTableStatus.setState({
@@ -474,15 +476,21 @@ export function saveSharedRound(
   opening: { table: GameTable; players: Player[] },
 ): Promise<SharedRoundResult> {
   const previous = running;
+  const actorAtRequest = useAuthStore.getState().user?.id;
   let mayHaveCommitted = false;
   const task = (async (): Promise<SharedRoundResult> => {
     if (previous) await previous;
-    const actor = userId();
-    if (!isCurrent(tableId, actor) || !isPresent(tableId, actor))
-      throw new Error(
-        'Konto oder Tisch hat sich geändert. Deine Eingabe bleibt erhalten.',
-      );
+    const actor = actorAtRequest;
+    const assertContext = () => {
+      if (!actor || !isCurrent(tableId, actor) || !isPresent(tableId, actor))
+        throw new Error(
+          'Konto oder Tisch hat sich geändert. Deine Eingabe bleibt erhalten.',
+        );
+    };
+    if (!actor) throw new Error('Bitte zuerst anmelden.');
+    assertContext();
     await synchronize(tableId);
+    assertContext();
     if (useSharedTableStatus.getState().conflict?.tableId === tableId)
       throw new Error(
         'Bitte zuerst den Tischkonflikt klären. Deine Eingabe bleibt erhalten.',
@@ -493,12 +501,7 @@ export function saveSharedRound(
         'Ausstehende Tischänderungen konnten nicht übertragen werden. Deine Eingabe bleibt erhalten.',
       );
     const localKey = fingerprint(local);
-    const assertContext = () => {
-      if (!isCurrent(tableId, actor) || !isPresent(tableId, actor))
-        throw new Error(
-          'Konto oder Tisch hat sich geändert. Deine Eingabe bleibt erhalten.',
-        );
-    };
+    const known = new Set(knownRoundIds);
     for (let attempt = 0; attempt < 3; attempt++) {
       const remote = await command('read', { p_table_id: tableId });
       assertContext();
@@ -515,28 +518,31 @@ export function saveSharedRound(
         throw new Error(
           'Du hast nur Leserechte. Deine Eingabe bleibt erhalten.',
         );
-      const known = new Set(knownRoundIds);
-      const additions = remote.payload.rounds.filter((round) => {
-        const creation = remote.payload.currentTable.roundHistory?.find(
-          (event) => event.roundId === round.id && event.action === 'created',
-        );
-        return (
-          !known.has(round.id) &&
-          !(creation?.actor.kind === 'account' && creation.actor.id === actor)
-        );
-      });
+      const creations = new Map(
+        remote.payload.currentTable.roundHistory
+          ?.filter((event) => event.action === 'created')
+          .map((event) => [event.roundId, event.actor]),
+      );
+      const additions = isPlayedRound(payload)
+        ? remote.payload.rounds.flatMap((round) => {
+            const author = creations.get(round.id);
+            if (
+              known.has(round.id) ||
+              !isPlayedRound(round) ||
+              round.misdealPlayerId ||
+              (author?.kind === 'account' && author.id === actor)
+            )
+              return [];
+            return [
+              { round, actorName: author?.name ?? 'Ein anderer Teilnehmer' },
+            ];
+          })
+        : [];
       if (additions.length)
         return {
           review: {
             remote,
-            rounds: additions.map((round) => ({
-              round,
-              actorName:
-                remote.payload.currentTable.roundHistory?.find(
-                  (event) =>
-                    event.roundId === round.id && event.action === 'created',
-                )?.actor.name ?? 'Ein anderer Teilnehmer',
-            })),
+            rounds: additions,
           },
         };
       if (

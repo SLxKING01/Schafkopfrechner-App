@@ -45,16 +45,16 @@ import {
 import {
   activePlayers,
   getCurrentDealerId,
-  hasPendingMisdeal,
   getNextDealerId,
+  hasPendingMisdeal,
   participationRevision,
   roundPlayers,
 } from '../utils/dealerOrder';
 import { normalizeGameOptions } from '../utils/formatGameOptions';
 import {
   archiveFinishedGameDay,
-  saveTableBeforeSwitch,
   mergeGameDayArchives,
+  saveTableBeforeSwitch,
 } from '../utils/gameDayArchive';
 import { outstandingBalances, paymentRevision } from '../utils/interimPayments';
 import { repriceRounds } from '../utils/repriceRounds';
@@ -642,20 +642,11 @@ export const useGameStore = create<GameStore>()(
       },
       createTable: (name, players, settings) => {
         const tableName = name.trim();
-        const uniquePlayers = players.filter(
-          (player, index, allPlayers) =>
-            allPlayers.findIndex(
-              (candidate) =>
-                candidate.name.trim().toLowerCase() ===
-                player.name.trim().toLowerCase(),
-            ) === index,
-        );
-
         if (
           !tableName ||
           (settings !== undefined && !exclusiveStockMode(settings)) ||
-          uniquePlayers.length < 2 ||
-          activePlayers(uniquePlayers).length > 5 ||
+          players.length < 2 ||
+          activePlayers(players).length > 5 ||
           !hasUniquePlayerIds(players) ||
           players.some((player) => !player.name.trim())
         ) {
@@ -673,12 +664,12 @@ export const useGameStore = create<GameStore>()(
               ...state.archivedGameDays.map(({ table }) => table),
             ].flatMap((table) => (table?.hashCode ? [table.hashCode] : [])),
             name: tableName,
-            players: uniquePlayers,
+            players,
             settings,
           }),
-          players: uniquePlayers,
+          players,
           rounds: [],
-          balances: calculateMvpBalances(uniquePlayers, []),
+          balances: calculateMvpBalances(players, []),
           settlements: [],
           activeGame: true,
           isOffline: false,

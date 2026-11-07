@@ -29,7 +29,7 @@ export function AuthShell({
   footer,
 }: AuthShellProps) {
   return (
-    <AuthBackground>
+    <AuthBackground withEdgeBorder={false}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboard}
