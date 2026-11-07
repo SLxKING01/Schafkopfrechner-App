@@ -48,16 +48,27 @@ beforeEach(async () => {
   await useGameStore.getState().persistGame();
 });
 
-it('keeps an open table and its rounds when switching is refused', async () => {
+it('saves an open table and its rounds so it can be resumed after switching', async () => {
   expect(await useGameStore.getState().createTable('Old', players)).toBe(true);
   useGameStore.getState().addRound(party);
   await useGameStore.getState().persistGame();
-  const old = useGameStore.getState();
+  const { currentTable: oldTable, rounds: oldRounds } = useGameStore.getState();
   useGameStore.getState().resetGame();
-  expect(await useGameStore.getState().createTable('New', players)).toBe(false);
-  expect(useGameStore.getState().currentTable).toEqual(old.currentTable);
-  expect(useGameStore.getState().rounds).toEqual(old.rounds);
-  expect(useGameStore.getState().archivedGameDays).toEqual([]);
+  expect(useGameStore.getState().currentTable).toEqual(oldTable);
+  expect(useGameStore.getState().createTable('New', players)).toBe(true);
+  await useGameStore.getState().persistGame();
+  await useGameStore.getState().hydrateGame();
+  expect(useGameStore.getState().currentTable?.name).toBe('New');
+  expect(useGameStore.getState().archivedGameDays).toEqual([
+    expect.objectContaining({
+      table: oldTable,
+      rounds: oldRounds,
+      completedAt: null,
+    }),
+  ]);
+  expect(useGameStore.getState().resumeTable(oldTable!.id)).toBe(true);
+  expect(useGameStore.getState().currentTable).toEqual(oldTable);
+  expect(useGameStore.getState().rounds).toEqual(oldRounds);
 });
 
 it('archives a completed table once and persists the replacement table', async () => {

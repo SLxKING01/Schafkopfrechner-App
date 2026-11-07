@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 it('renders card suits as icons instead of platform-dependent Unicode glyphs', () => {

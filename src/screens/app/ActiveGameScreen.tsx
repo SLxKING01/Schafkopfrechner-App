@@ -243,7 +243,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
-  const deleteCandidate = useRef<{
+  const [deleteCandidate, setDeleteCandidate] = useState<{
     tableId: string;
     roundId: string;
     eventId?: string;
@@ -349,7 +349,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     (round: GameRound, fromHistory: boolean) => {
       const table = useGameStore.getState().currentTable;
       if (!table || table.id !== round.tableId) return;
-      deleteCandidate.current = {
+      setDeleteCandidate({
         tableId: table.id,
         roundId: round.id,
         eventId: table.roundHistory
@@ -357,7 +357,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           .at(-1)?.id,
         fingerprint: roundHistoryFingerprint(round),
         fromHistory,
-      };
+      });
       pendingDeletion.current = undefined;
       setDeletionError('');
       setMenuVisible(false);
@@ -1258,7 +1258,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               accessibilityRole="header"
               style={[styles.menuTitle, styles.deleteTitle]}
             >
-              {deleteCandidate.current?.fromHistory
+              {deleteCandidate?.fromHistory
                 ? 'Spiel l\u00f6schen?'
                 : 'Letzte Runde zur\u00fccknehmen?'}
             </AppText>
@@ -1271,7 +1271,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               title={
                 deletionError
                   ? 'Erneut versuchen'
-                  : deleteCandidate.current?.fromHistory
+                  : deleteCandidate?.fromHistory
                     ? 'Spiel l\u00f6schen'
                     : 'Runde zur\u00fccknehmen'
               }
@@ -1285,7 +1285,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 setDeletionError('');
                 try {
                   const before = useGameStore.getState();
-                  const candidate = deleteCandidate.current;
+                  const candidate = deleteCandidate;
                   if (
                     !candidate ||
                     before.currentTable?.id !== candidate.tableId
