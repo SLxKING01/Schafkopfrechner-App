@@ -61,7 +61,14 @@ export function saveTableBeforeSwitch(
   }
   const { currentTable, players, rounds, balances, settlements } = state;
   return [
-    { table: currentTable, players, rounds, balances, settlements, completedAt: null },
+    {
+      table: currentTable,
+      players,
+      rounds,
+      balances,
+      settlements,
+      completedAt: null,
+    },
     ...archived.filter(({ table }) => table.id !== currentTable.id),
   ];
 }

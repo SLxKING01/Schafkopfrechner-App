@@ -2,8 +2,8 @@ import { ChevronRight } from 'lucide-react-native';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   type PressableProps,
+  StyleSheet,
   type ViewStyle,
 } from 'react-native';
 
