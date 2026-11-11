@@ -24,14 +24,7 @@ import {
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { useCallback } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
@@ -39,6 +32,7 @@ import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackParamList } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
 import { refreshOwnProfile } from '../../store/profileStore';
@@ -80,12 +74,12 @@ export function ProfileScreen() {
     const { error } = await signOut();
 
     if (error) {
-      Alert.alert('Logout fehlgeschlagen', error.message);
+      appAlert('Logout fehlgeschlagen', error.message);
     }
   }
 
   function showPrepared(setting: string) {
-    Alert.alert(
+    appAlert(
       setting,
       'Diese Einstellung wird später mit deinen Profil-Daten verbunden.',
     );

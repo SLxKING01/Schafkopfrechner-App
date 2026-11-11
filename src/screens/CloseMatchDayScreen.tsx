@@ -1,12 +1,13 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../components/ui/AppButton';
 import { AppCard } from '../components/ui/AppCard';
 import { AppSection } from '../components/ui/AppSection';
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
+import { appAlert } from '../lib/appAlert';
 import type { Balance } from '../models/Balance';
 import type { Settlement } from '../models/Settlement';
 import type { RootStackParamList } from '../navigation/types';
@@ -59,7 +60,7 @@ export function CloseMatchDayScreen({ navigation }: CloseMatchDayScreenProps) {
 
   function handleStartNextMatchDay() {
     if (!activeMatchDayId || !closeMatchDay(activeMatchDayId)) {
-      Alert.alert(
+      appAlert(
         'Abschluss nicht möglich',
         'Bitte prüfe den Spieltag und seine Einträge. Ungültige Abrechnungsdaten werden nicht abgeschlossen.',
       );

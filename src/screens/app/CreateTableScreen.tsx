@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -34,6 +33,7 @@ import {
 import { createDefaultTableSettings } from '../../constants/tableSettings';
 import { useFriendProfiles } from '../../hooks/useFriendProfiles';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
 import { useAuthStore } from '../../store/authStore';
@@ -148,10 +148,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
         (player) => player.name.trim().toLowerCase() === nextName.toLowerCase(),
       )
     ) {
-      Alert.alert(
-        'Name bereits vorhanden',
-        'Dieser Spieler ist schon am Tisch.',
-      );
+      appAlert('Name bereits vorhanden', 'Dieser Spieler ist schon am Tisch.');
       return;
     }
     setPlayers((currentPlayers) => [
@@ -216,7 +213,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     const didCreate = await createTable(tableName, players, tableSettings);
 
     if (!didCreate) {
-      Alert.alert(
+      appAlert(
         'Tisch nicht bereit',
         useGameStore.getState().activeGame
           ? 'Es läuft bereits ein Tisch. Bitte schließe diesen zuerst ab.'

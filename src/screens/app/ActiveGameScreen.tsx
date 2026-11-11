@@ -15,7 +15,6 @@ import {
 } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   type LayoutChangeEvent,
   type ListRenderItem,
@@ -60,6 +59,7 @@ import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAccountProfiles } from '../../hooks/useAccountProfiles';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
@@ -248,7 +248,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
-  // In-app dialog instead of Alert.alert, which is a no-op on react-native-web.
+  // Rendered in-app so it also works on react-native-web.
   const [finishDialog, setFinishDialog] = useState<FinishDialog | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<{
     tableId: string;
@@ -594,7 +594,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       await persistGame();
       navigation.navigate('AppTabs', { screen: 'GameLobby' });
     } catch {
-      Alert.alert(
+      appAlert(
         'Speichern fehlgeschlagen',
         'Dein Spiel bleibt geöffnet. Bitte versuche es erneut.',
       );
@@ -837,7 +837,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 useGameStore.getState().currentTable?.id ||
               !setPlayerOrder(data.map((p) => p.id))
             )
-              Alert.alert(
+              appAlert(
                 'Reihenfolge nicht gespeichert',
                 'Der Tisch oder die Spieler haben sich geändert. Bitte erneut versuchen.',
               );
@@ -1212,7 +1212,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           onSave={(ids) => {
             if (setPlayerOrder(ids)) setSeatOrderVisible(false);
             else
-              Alert.alert(
+              appAlert(
                 'Reihenfolge nicht gespeichert',
                 'Die Spieler haben sich geändert. Bitte öffne die Reihenfolge erneut.',
               );

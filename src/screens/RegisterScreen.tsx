@@ -1,12 +1,13 @@
 import { Apple, Lock, Mail, User } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
 import { SocialButton } from '../components/auth/SocialButton';
 import { AppText } from '../components/ui/AppText';
+import { appAlert } from '../lib/appAlert';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { register } from '../services/auth/register';
 import { useAuthStore } from '../store/authStore';
@@ -25,10 +26,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
   async function handleRegister() {
     if (!username.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert(
-        'Registrierung unvollständig',
-        'Bitte alle Felder ausfüllen.',
-      );
+      appAlert('Registrierung unvollständig', 'Bitte alle Felder ausfüllen.');
       return;
     }
 
@@ -37,14 +35,14 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       [...username.trim()].length > 40 ||
       /[\u0000-\u001f\u007f-\u009f]/.test(username)
     ) {
-      Alert.alert(
+      appAlert(
         'Anzeigename prüfen',
         'Bitte 2 bis 40 Zeichen ohne Zeilenumbrüche eingeben.',
       );
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(
+      appAlert(
         'Passwörter stimmen nicht überein',
         'Bitte prüfe deine Eingabe.',
       );
@@ -56,7 +54,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
     setIsSubmitting(false);
 
     if (result.error) {
-      Alert.alert('Registrierung fehlgeschlagen', result.error.message);
+      appAlert('Registrierung fehlgeschlagen', result.error.message);
       return;
     }
 
@@ -65,7 +63,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       return;
     }
 
-    Alert.alert(
+    appAlert(
       'Account erstellt',
       'Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.',
       [{ text: 'Zum Login', onPress: () => navigation.navigate('Login') }],
@@ -73,7 +71,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   }
 
   function showSocialPending() {
-    Alert.alert(
+    appAlert(
       'Social Login',
       'Apple und Google Login werden nach der Supabase Provider-Konfiguration aktiviert.',
     );

@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppAlertHost } from './src/components/AppAlertHost';
 import { AppLoadingScreen } from './src/components/AppLoadingScreen';
 import { AppViewport } from './src/components/preview/AppViewport';
 import { StorageNotice } from './src/components/StorageNotice';
@@ -31,6 +32,7 @@ export default function App() {
         <SafeAreaProvider>
           {fontsLoaded || fontError ? <RootNavigator /> : <AppLoadingScreen />}
           <StorageNotice />
+          <AppAlertHost />
           <StatusBar style="light" />
         </SafeAreaProvider>
       </GestureHandlerRootView>

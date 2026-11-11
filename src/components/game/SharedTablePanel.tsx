@@ -1,5 +1,6 @@
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { appAlert } from '../../lib/appAlert';
 import {
   loadSharedTableAfterConflict,
   syncSharedTable,
@@ -94,7 +95,7 @@ export function SharedTablePanel({
               accessibilityRole="button"
               accessibilityLabel="Aktuellen Tischstand laden"
               onPress={() =>
-                Alert.alert(
+                appAlert(
                   'Aktuellen Tischstand laden?',
                   'Deine noch nicht übertragenen Änderungen werden auf diesem Handy gesichert. Danach wird der gemeinsame Stand geladen; du kannst deine Eingabe erneut eintragen.',
                   [
@@ -104,7 +105,7 @@ export function SharedTablePanel({
                       onPress: () => {
                         void loadSharedTableAfterConflict().catch(
                           (reason: Error) =>
-                            Alert.alert('Stand nicht geladen', reason.message),
+                            appAlert('Stand nicht geladen', reason.message),
                         );
                       },
                     },
@@ -155,7 +156,7 @@ export function SharedTableConflictNotice() {
         accessibilityLabel="Gemeinsamen Stand nach Konflikt laden"
         style={styles.action}
         onPress={() =>
-          Alert.alert(
+          appAlert(
             'Gemeinsamen Stand laden?',
             'Deine ausstehenden Änderungen werden auf diesem Handy gesichert. Danach wird der Stand der anderen Handys geladen.',
             [
@@ -164,7 +165,7 @@ export function SharedTableConflictNotice() {
                 text: 'Stand laden',
                 onPress: () => {
                   void loadSharedTableAfterConflict().catch((reason: Error) =>
-                    Alert.alert('Stand nicht geladen', reason.message),
+                    appAlert('Stand nicht geladen', reason.message),
                   );
                 },
               },

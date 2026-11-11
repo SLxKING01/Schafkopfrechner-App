@@ -21,7 +21,6 @@ import {
 import type { ComponentType } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   type ListRenderItemInfo,
@@ -45,6 +44,7 @@ import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { SharedTableConflictNotice } from '../../components/game/SharedTablePanel';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackParamList } from '../../navigation/types';
 import {
   openSharedTable,
@@ -328,7 +328,7 @@ export function GameLobbyScreen() {
             else navigation.navigate('Settlement', { tableId: table.id });
           })
           .catch((reason: Error) =>
-            Alert.alert('Tisch nicht geöffnet', reason.message),
+            appAlert('Tisch nicht geöffnet', reason.message),
           );
         return;
       }
@@ -350,7 +350,7 @@ export function GameLobbyScreen() {
   }, [activeGame, currentTable, navigation]);
 
   const copyTable = useCallback((table: TablePreview) => {
-    Alert.alert(
+    appAlert(
       'Tisch kopieren',
       `${table.name} wird später als Vorlage für neue Runden verwendet.`,
     );
@@ -426,7 +426,7 @@ export function GameLobbyScreen() {
     )
       return;
     void hideTable(scope, tableId).catch((error: Error) =>
-      Alert.alert('Tisch nicht entfernt', error.message),
+      appAlert('Tisch nicht entfernt', error.message),
     );
   }, [activeGame, currentTable?.id, leaveTableCandidate, hideTable, scope]);
 
