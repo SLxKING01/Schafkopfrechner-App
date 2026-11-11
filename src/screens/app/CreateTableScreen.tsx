@@ -762,10 +762,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     minHeight: 56,
+    // Web inputs have an intrinsic width; let the field shrink instead of
+    // pushing the add button past the screen edge.
+    minWidth: 0,
     paddingHorizontal: authSpacing.lg,
   },
   addButton: {
     alignItems: 'center',
+    flexShrink: 0,
     backgroundColor: screenColors.gold,
     borderRadius: 20,
     flexDirection: 'row',
