@@ -1,24 +1,22 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { ArrowUpDown, Heart, Leaf, Users } from 'lucide-react-native';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
+import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
-import { theme } from '../constants/theme';
 import type { AuthStackScreenProps } from '../navigation/types';
+import { authColors, authTypography, theme } from '../theme';
 
 type OnboardingScreenProps = AuthStackScreenProps<'Onboarding'>;
 
 const colors = {
-  background: '#161816',
-  surface: '#2F6B2F',
-  surfaceDeep: '#203A20',
-  accent: '#D9A441',
-  text: '#F5F5F5',
+  background: authColors.background,
+  surfaceDeep: authColors.surface,
+  accent: authColors.gold,
+  text: authColors.textPrimary,
   mutedText: 'rgba(245, 245, 245, 0.66)',
   softText: 'rgba(245, 245, 245, 0.42)',
-  positive: '#5BBE63',
-  negative: '#D65A5A',
 };
 
 export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
@@ -32,21 +30,21 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
         <View style={[styles.patternSuit, styles.patternSuitTop]}>
           <CardSuitIcon
             suit="herz"
-            color="rgba(217, 164, 65, 0.06)"
+            color="rgba(212, 175, 55, 0.06)"
             size={132}
           />
         </View>
         <View style={[styles.patternSuit, styles.patternSuitMiddle]}>
           <CardSuitIcon
             suit="eichel"
-            color="rgba(217, 164, 65, 0.06)"
+            color="rgba(212, 175, 55, 0.06)"
             size={132}
           />
         </View>
         <View style={[styles.patternSuit, styles.patternSuitBottom]}>
           <CardSuitIcon
             suit="herz"
-            color="rgba(217, 164, 65, 0.06)"
+            color="rgba(212, 175, 55, 0.06)"
             size={132}
           />
         </View>
@@ -56,10 +54,10 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
         <View style={styles.hero}>
           <View style={styles.logoShadow}>
             <View style={styles.logo} aria-hidden>
-              <Ionicons name="leaf-outline" size={34} color={colors.accent} />
-              <Ionicons
-                name="heart-outline"
-                size={21}
+              <AppIcon icon={Leaf} size="xl" color={colors.accent} />
+              <AppIcon
+                icon={Heart}
+                size="md"
                 color={colors.accent}
                 style={styles.logoHeart}
               />
@@ -113,11 +111,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
           <View style={styles.featureCard}>
             <View style={styles.featureItem}>
               <View style={styles.featureIcon}>
-                <Ionicons
-                  name="people-outline"
-                  size={18}
-                  color={colors.accent}
-                />
+                <AppIcon icon={Users} size="sm" color={colors.accent} />
               </View>
               <AppText style={styles.featureText}>Mit Freunden spielen</AppText>
             </View>
@@ -126,11 +120,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
             <View style={styles.featureItem}>
               <View style={styles.featureIcon}>
-                <Ionicons
-                  name="swap-vertical-outline"
-                  size={18}
-                  color={colors.accent}
-                />
+                <AppIcon icon={ArrowUpDown} size="sm" color={colors.accent} />
               </View>
               <AppText style={styles.featureText}>
                 Automatisch abrechnen
@@ -197,7 +187,7 @@ const styles = StyleSheet.create({
   logo: {
     alignItems: 'center',
     backgroundColor: colors.surfaceDeep,
-    borderColor: 'rgba(217, 164, 65, 0.32)',
+    borderColor: 'rgba(212, 175, 55, 0.32)',
     borderRadius: 39,
     borderWidth: 1,
     height: 78,
@@ -213,14 +203,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 31,
+    fontSize: authTypography.title,
     fontWeight: '600',
     letterSpacing: 0,
     textAlign: 'center',
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 16,
+    fontSize: authTypography.body,
     lineHeight: 23,
     marginTop: theme.spacing.sm,
     textAlign: 'center',
@@ -242,14 +232,14 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
   },
   primaryButtonText: {
-    color: '#17150F',
-    fontSize: 17,
+    color: authColors.onGold,
+    fontSize: authTypography.button,
     fontWeight: '700',
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(47, 107, 47, 0.5)',
-    borderColor: 'rgba(217, 164, 65, 0.48)',
+    backgroundColor: authColors.control,
+    borderColor: 'rgba(212, 175, 55, 0.48)',
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: 'center',
@@ -258,7 +248,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '600',
   },
   buttonPressed: {
@@ -277,18 +267,18 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '600',
   },
   featureCard: {
-    backgroundColor: 'rgba(47, 107, 47, 0.42)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
+    backgroundColor: authColors.surfaceElevated,
+    borderColor: authColors.borderSoft,
     borderRadius: 24,
     borderWidth: 1,
     marginTop: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.lg,
-    shadowColor: '#000000',
+    shadowColor: authColors.shadow,
     shadowOffset: { height: 14, width: 0 },
     shadowOpacity: 0.24,
     shadowRadius: 22,
@@ -300,7 +290,7 @@ const styles = StyleSheet.create({
   },
   featureIcon: {
     alignItems: 'center',
-    backgroundColor: 'rgba(217, 164, 65, 0.12)',
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
     borderRadius: 18,
     height: 36,
     justifyContent: 'center',
@@ -309,7 +299,7 @@ const styles = StyleSheet.create({
   featureText: {
     color: colors.text,
     flex: 1,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '600',
   },
   featureDivider: {
@@ -331,11 +321,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: colors.softText,
-    fontSize: 12,
+    fontSize: authTypography.control,
   },
   versionText: {
     color: 'rgba(245, 245, 245, 0.28)',
-    fontSize: 11,
+    fontSize: authTypography.tiny,
     marginTop: theme.spacing.xs,
   },
 });

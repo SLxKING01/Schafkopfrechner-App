@@ -26,6 +26,7 @@ import { CardSuitIcon } from '../../components/game/CardSuitIcon';
 import { FriendChip } from '../../components/game/FriendChip';
 import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import {
   DEFAULT_USER_APPEARANCE,
@@ -38,6 +39,7 @@ import type { AppStackScreenProps } from '../../navigation/types';
 import { createLocalPlayer } from '../../services/game/addPlayer';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { authColors } from '../../theme/colors';
 import { formEntering, selectionEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
@@ -53,19 +55,19 @@ type TablePlayer = Player & {
 };
 
 const screenColors = {
-  background: '#0B1D16',
-  backgroundMid: '#10241C',
-  backgroundSoft: '#163328',
-  card: '#1A2D24',
-  cardElevated: '#20372D',
-  input: '#10241C',
-  gold: '#E7C65C',
-  text: '#F5F5F5',
-  muted: 'rgba(245, 245, 245, 0.62)',
-  soft: 'rgba(245, 245, 245, 0.36)',
-  border: 'rgba(231, 198, 92, 0.24)',
+  background: authColors.tableBackground,
+  backgroundMid: authColors.tableBackgroundMid,
+  backgroundSoft: authColors.tableBackgroundSoft,
+  card: authColors.tableCard,
+  cardElevated: authColors.tableCardElevated,
+  input: authColors.tableBackgroundMid,
+  gold: authColors.goldHighlight,
+  text: authColors.textPrimary,
+  muted: authColors.textMuted,
+  soft: authColors.textFaint,
+  border: 'rgba(242, 201, 76, 0.24)',
   greenBorder: 'rgba(111, 169, 114, 0.2)',
-  shadow: '#000000',
+  shadow: authColors.shadow,
 };
 
 const maxPlayers = 5;
@@ -281,7 +283,12 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                 pressed && styles.pressed,
               ]}
             >
-              <X color={screenColors.gold} size={22} strokeWidth={2.5} />
+              <AppIcon
+                icon={X}
+                size="lg"
+                weight="strong"
+                color={screenColors.gold}
+              />
             </Pressable>
           </Animated.View>
 
@@ -289,7 +296,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
             <View style={styles.headerSuit}>
               <CardSuitIcon
                 suit="herz"
-                color="rgba(231, 198, 92, 0.055)"
+                color="rgba(242, 201, 76, 0.055)"
                 size={92}
               />
             </View>
@@ -298,7 +305,12 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
           <Animated.View entering={formEntering} style={styles.createCard}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIcon}>
-                <Spade color={screenColors.gold} size={24} strokeWidth={2.4} />
+                <AppIcon
+                  icon={Spade}
+                  size="lg"
+                  weight="strong"
+                  color={screenColors.gold}
+                />
               </View>
               <View style={styles.cardHeaderText}>
                 <AppText style={styles.cardTitle}>Tisch einrichten</AppText>
@@ -368,7 +380,12 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                   pressed && canAddPlayer && styles.pressed,
                 ]}
               >
-                <Plus color="#17150B" size={18} strokeWidth={2.8} />
+                <AppIcon
+                  icon={Plus}
+                  size="sm"
+                  weight="strong"
+                  color="#17150B"
+                />
                 <AppText style={styles.addButtonText}>Hinzufügen</AppText>
               </Pressable>
             </View>
@@ -391,10 +408,10 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                     pressed && styles.pressed,
                   ]}
                 >
-                  <UserPlus
+                  <AppIcon
+                    icon={UserPlus}
+                    size="xs"
                     color={screenColors.gold}
-                    size={13}
-                    strokeWidth={2.25}
                   />
                   <AppText style={styles.friendPickerText}>Hinzufügen</AppText>
                 </Pressable>
@@ -472,7 +489,12 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               pressed && styles.floatingPressed,
             ]}
           >
-            <X color={screenColors.muted} size={28} strokeWidth={2.7} />
+            <AppIcon
+              icon={X}
+              size="xl"
+              weight="strong"
+              color={screenColors.muted}
+            />
           </Pressable>
 
           <Pressable
@@ -487,7 +509,12 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               pressed && canCreateTable && styles.floatingPressed,
             ]}
           >
-            <ArrowRight color="#17150B" size={30} strokeWidth={2.9} />
+            <AppIcon
+              icon={ArrowRight}
+              size="xl"
+              weight="strong"
+              color="#17150B"
+            />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -535,7 +562,12 @@ function PlayerPill({
           pressed && styles.removePressed,
         ]}
       >
-        <X color={screenColors.muted} size={15} strokeWidth={2.8} />
+        <AppIcon
+          icon={X}
+          size="xs"
+          weight="strong"
+          color={screenColors.muted}
+        />
       </Pressable>
     </View>
   );
@@ -571,11 +603,11 @@ function getManualPlayerAnimal(index: number): AnimalAvatarId {
 function getManualPlayerAccent(index: number) {
   const accents = [
     DEFAULT_USER_APPEARANCE.accentColor,
-    '#B8923C',
-    '#4B6478',
-    '#A6524B',
-    '#8B6742',
-    '#3F6B48',
+    PROFILE_ACCENTS.amber,
+    PROFILE_ACCENTS.mutedBlue,
+    PROFILE_ACCENTS.warmRed,
+    PROFILE_ACCENTS.bronze,
+    PROFILE_ACCENTS.forestGreen,
   ];
 
   return accents[index % accents.length];
@@ -591,7 +623,7 @@ const styles = StyleSheet.create({
     paddingTop: authSpacing.lg,
   },
   goldGlow: {
-    backgroundColor: 'rgba(231, 198, 92, 0.11)',
+    backgroundColor: 'rgba(242, 201, 76, 0.11)',
     borderRadius: 140,
     height: 280,
     position: 'absolute',
@@ -623,7 +655,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: screenColors.text,
-    fontSize: 36,
+    fontSize: authTypography.amount,
     fontWeight: '900',
     letterSpacing: 0,
     marginTop: authSpacing.xs,
@@ -687,8 +719,8 @@ const styles = StyleSheet.create({
   },
   cardIcon: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
-    borderColor: 'rgba(231, 198, 92, 0.2)',
+    backgroundColor: 'rgba(242, 201, 76, 0.12)',
+    borderColor: 'rgba(242, 201, 76, 0.2)',
     borderRadius: 24,
     borderWidth: 1,
     height: 52,
@@ -700,7 +732,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: screenColors.text,
-    fontSize: 21,
+    fontSize: authTypography.subtitle,
     fontWeight: '900',
   },
   cardCopy: {
@@ -723,7 +755,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     color: screenColors.text,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontWeight: '800',
     minHeight: 60,
     paddingHorizontal: authSpacing.lg,
@@ -742,7 +774,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: screenColors.text,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontWeight: '900',
   },
   playerCount: {
@@ -762,7 +794,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: screenColors.text,
     flex: 1,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '800',
     minHeight: 56,
     paddingHorizontal: authSpacing.lg,
@@ -785,8 +817,8 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   addButtonText: {
-    color: '#17150B',
-    fontSize: 13,
+    color: authColors.onGold,
+    fontSize: authTypography.caption,
     fontWeight: '900',
   },
   friendsSection: {
@@ -804,20 +836,20 @@ const styles = StyleSheet.create({
   },
   friendsTitle: {
     color: screenColors.text,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '900',
   },
   friendsCopy: {
     color: screenColors.soft,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '800',
     marginTop: 3,
   },
   friendPickerButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(231, 198, 92, 0.052)',
-    borderColor: 'rgba(231, 198, 92, 0.11)',
+    backgroundColor: 'rgba(242, 201, 76, 0.052)',
+    borderColor: 'rgba(242, 201, 76, 0.11)',
     borderRadius: authRadius.pill,
     borderWidth: 1,
     flexDirection: 'row',
@@ -828,7 +860,7 @@ const styles = StyleSheet.create({
   },
   friendPickerText: {
     color: screenColors.gold,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '800',
   },
   friendScroller: {
@@ -838,14 +870,14 @@ const styles = StyleSheet.create({
   },
   emptyPlayers: {
     backgroundColor: 'rgba(16, 36, 28, 0.74)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderColor: authColors.borderSoft,
     borderRadius: 24,
     borderWidth: 1,
     padding: authSpacing.lg,
   },
   emptyTitle: {
     color: screenColors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
   emptyCopy: {
@@ -878,13 +910,13 @@ const styles = StyleSheet.create({
   playerName: {
     color: screenColors.text,
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: authTypography.label,
     fontWeight: '800',
     maxWidth: 160,
   },
   removeButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 245, 245, 0.08)',
+    backgroundColor: authColors.borderSoft,
     borderRadius: authRadius.pill,
     height: 26,
     justifyContent: 'center',

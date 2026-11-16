@@ -7,6 +7,8 @@ import {
   reliableStorage,
   subscribeStorageIssues,
 } from '../storage/reliableStorage';
+import { authColors } from '../theme/colors';
+import { authTypography } from '../theme/typography';
 
 export function StorageNotice() {
   const issues = useSyncExternalStore(
@@ -52,17 +54,21 @@ const styles = StyleSheet.create({
     right: 12,
     zIndex: 1000,
     backgroundColor: '#4b2816',
-    borderColor: '#e8c85e',
+    borderColor: authColors.goldHighlight,
     borderWidth: 1,
     borderRadius: 16,
     padding: 16,
   },
-  text: { color: '#fff', fontSize: 14, lineHeight: 20 },
+  text: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.label,
+    lineHeight: 20,
+  },
   button: {
     minHeight: 44,
     justifyContent: 'center',
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
   },
-  action: { color: '#e8c85e', fontWeight: '700' },
+  action: { color: authColors.goldHighlight, fontWeight: '700' },
 });

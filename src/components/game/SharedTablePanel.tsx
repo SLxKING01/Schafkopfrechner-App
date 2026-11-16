@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import { tableAccess } from '../../utils/tableAccess';
 import { AppText } from '../ui/AppText';
 
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginVertical: 12,
   },
-  text: { color: authColors.textSecondary, fontSize: 13 },
+  text: { color: authColors.textSecondary, fontSize: authTypography.caption },
   link: { color: authColors.gold, fontWeight: '700' },
   action: { minHeight: 44, justifyContent: 'center' },
 });

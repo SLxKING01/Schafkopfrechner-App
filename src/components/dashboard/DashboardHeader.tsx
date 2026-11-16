@@ -7,6 +7,7 @@ import {
   authInteraction,
   authRadius,
 } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
 import { PageHeader } from '../ui/PageHeader';
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: authColors.gold,
-    fontSize: 20,
+    fontSize: authTypography.subtitle,
     fontWeight: '600',
   },
 });

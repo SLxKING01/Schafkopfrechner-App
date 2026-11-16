@@ -12,6 +12,7 @@ import type { ComponentType } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppIcon } from '../components/ui/AppIcon';
 import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { GameLobbyScreen } from '../screens/app/GameLobbyScreen';
 import { ProfileScreen } from '../screens/app/ProfileScreen';
@@ -32,7 +33,12 @@ type TabIconProps = {
 function TabIcon({ focused, color, icon: Icon }: TabIconProps) {
   return (
     <View style={styles.iconWrap}>
-      <Icon color={color} size={21} strokeWidth={focused ? 2.6 : 2} />
+      <AppIcon
+        icon={Icon}
+        size="md"
+        weight={focused ? 'strong' : 'regular'}
+        color={color}
+      />
     </View>
   );
 }

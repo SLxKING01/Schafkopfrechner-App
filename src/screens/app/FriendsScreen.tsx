@@ -30,6 +30,7 @@ import {
   useFriendsStore,
 } from '../../store/friendsStore';
 import { authColors as c, authRadius, authSpacing as sp } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   FriendAction,
   FriendCommand,
@@ -667,12 +668,16 @@ const s = StyleSheet.create({
     gap: sp.md,
   },
   code: {
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontVariant: ['tabular-nums'],
     letterSpacing: 1,
     color: c.gold,
   },
-  hint: { color: c.textSecondary, fontSize: 13, lineHeight: 20 },
+  hint: {
+    color: c.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 20,
+  },
   error: { color: c.errorText, lineHeight: 21 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
   tab: {
@@ -686,7 +691,12 @@ const s = StyleSheet.create({
   selected: { borderColor: c.gold, backgroundColor: c.surfaceElevated },
   section: { paddingVertical: sp.lg, gap: sp.sm },
   identity: { flexDirection: 'row', alignItems: 'center', gap: sp.md },
-  name: { flex: 1, flexShrink: 1, fontWeight: '600', fontSize: 17 },
+  name: {
+    flex: 1,
+    flexShrink: 1,
+    fontWeight: '600',
+    fontSize: authTypography.button,
+  },
   actions: { gap: sp.xs },
   action: { padding: sp.sm, minHeight: 48, justifyContent: 'center' },
   found: { gap: sp.md },

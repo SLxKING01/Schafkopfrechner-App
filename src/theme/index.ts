@@ -3,6 +3,12 @@ import { authRadius, authSpacing } from './spacing';
 import { authTypography } from './typography';
 
 export { authColors } from './colors';
+export {
+  type IconSize,
+  iconSizes,
+  iconStrokes,
+  type IconWeight,
+} from './icons';
 export { authShadows } from './shadows';
 export {
   authControlSizes,

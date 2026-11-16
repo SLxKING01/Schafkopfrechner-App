@@ -10,6 +10,7 @@ import {
   authSpacing as space,
   authTextStyles,
 } from '../../theme';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 export function DashboardSheet({
@@ -44,7 +45,7 @@ export function DashboardSheet({
                 pressed && authInteraction.pressed,
               ]}
             >
-              <X size={22} color={c.textPrimary} />
+              <AppIcon icon={X} size="lg" color={c.textPrimary} />
             </Pressable>
           </View>
           <ScrollView

@@ -35,6 +35,7 @@ import {
   authSpacing,
   authTextStyles,
 } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   CardSuit,
   CreateRoundPayload,
@@ -71,6 +72,7 @@ import {
 import { selectSauspielResult } from '../../utils/sauspielSelection';
 import { tableAccess } from '../../utils/tableAccess';
 import { GoldButton } from '../auth/GoldButton';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
@@ -1226,8 +1228,9 @@ export function RoundEntrySheet({
                 saving && authInteraction.disabled,
               ]}
             >
-              <ChevronLeft
-                size={authControlSizes.icon}
+              <AppIcon
+                icon={ChevronLeft}
+                size="lg"
                 color={authColors.textPrimary}
               />
             </Pressable>
@@ -2568,7 +2571,7 @@ const styles = StyleSheet.create({
   },
   dialogTitle: {
     color: authColors.textPrimary,
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontWeight: '700',
   },
   dialogDiscard: {

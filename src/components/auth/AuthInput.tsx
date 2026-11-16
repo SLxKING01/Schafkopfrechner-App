@@ -12,6 +12,8 @@ import {
 import { authControlSizes, authInteraction } from '../../theme';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
+import { AppIcon } from '../ui/AppIcon';
 
 type AuthInputProps = TextInputProps & {
   icon: ComponentType<LucideProps>;
@@ -45,7 +47,7 @@ export function AuthInput({
         },
       ]}
     >
-      <Icon color={authColors.gold} size={20} strokeWidth={1.9} />
+      <AppIcon icon={Icon} size="md" color={authColors.gold} />
       <TextInput
         {...props}
         accessibilityLabel={props.accessibilityLabel ?? props.placeholder}
@@ -76,13 +78,9 @@ export function AuthInput({
           ]}
         >
           {isHidden ? (
-            <Eye color={authColors.textSecondary} size={19} strokeWidth={1.8} />
+            <AppIcon icon={Eye} size="md" color={authColors.textSecondary} />
           ) : (
-            <EyeOff
-              color={authColors.textSecondary}
-              size={19}
-              strokeWidth={1.8}
-            />
+            <AppIcon icon={EyeOff} size="md" color={authColors.textSecondary} />
           )}
         </Pressable>
       ) : null}
@@ -104,7 +102,7 @@ const styles = StyleSheet.create({
   input: {
     color: authColors.textPrimary,
     flex: 1,
-    fontSize: 16,
+    fontSize: authTypography.body,
     marginLeft: authSpacing.md,
     paddingVertical: authSpacing.md,
   },

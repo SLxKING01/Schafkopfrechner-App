@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.52)',
   },
   sheetBackground: {
-    backgroundColor: '#0B1D16',
+    backgroundColor: authColors.tableBackground,
     borderColor: 'rgba(242, 201, 76, 0.22)',
     borderTopLeftRadius: authRadius.xl,
     borderTopRightRadius: authRadius.xl,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: authColors.textPrimary,
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontWeight: '900',
   },
   subtitle: {

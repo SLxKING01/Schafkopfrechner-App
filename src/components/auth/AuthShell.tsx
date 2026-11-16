@@ -11,6 +11,7 @@ import Animated from 'react-native-reanimated';
 import { authColors } from '../../theme/colors';
 import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import { AppText } from '../ui/AppText';
 import { AuthBackground } from './AuthBackground';
 import { AuthLogo } from './AuthLogo';
@@ -78,14 +79,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: authColors.textPrimary,
-    fontSize: 30,
+    fontSize: authTypography.title,
     fontWeight: '700',
     marginTop: authSpacing.xl,
     textAlign: 'center',
   },
   subtitle: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
     lineHeight: 22,
     marginTop: authSpacing.sm,
     maxWidth: 300,

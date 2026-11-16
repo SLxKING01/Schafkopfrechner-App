@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { GameRound, GameTable, Player } from '../../types/game';
 import { formatRoundGameType } from '../../utils/cardSuits';
 import { AppText } from '../ui/AppText';
@@ -138,7 +139,11 @@ const styles = StyleSheet.create({
     borderColor: authColors.borderSoft,
     gap: authSpacing.xs,
   },
-  title: { fontSize: 17, fontWeight: '600', padding: authSpacing.sm },
+  title: {
+    fontSize: authTypography.button,
+    fontWeight: '600',
+    padding: authSpacing.sm,
+  },
   item: {
     minHeight: authControlSizes.touch,
     padding: authSpacing.sm,
