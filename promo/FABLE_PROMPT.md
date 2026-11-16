@@ -26,7 +26,7 @@ Hintergrundinfos zu den Funktionen findest du in `docs/` (u. a. `erfassung-und-s
 Schlag mir **3 verschiedene Hook-Ideen** vor. Ich wähle eine aus.
 
 ## Spielkarten
-Verwende **nur** die Kartenbilder aus `promo/assets/cards/`. Lade keine Kartenbilder aus dem Internet und erfinde keine nach.
+Verwende für Karten-Motive die **eigenen Farbsymbole der App** (Eichel, Gras, Herz, Schellen) aus `src/components/game/CardSuitIcon.tsx` mit den Farben aus `src/utils/cardSuits.ts`. Daraus darfst du **stilisierte, eigene Karten** gestalten (z. B. abgerundete Karte mit großem Farbsymbol). **Keine** Kartenbilder aus dem Internet und **keine** Nachbildungen echter Kartenblätter (z. B. Bilder von Ober, Unter, König eines Verlags).
 
 ## App-Aufnahmen (machst du selbst)
 - Starte die App als **Web-Version** (`npx expo start --web`) und erstelle die Screenshots bzw. kurzen Aufnahmen mit **Playwright** (iPhone-Viewport, z. B. 430×932 bei deviceScaleFactor 3).
