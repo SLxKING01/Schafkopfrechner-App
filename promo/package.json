@@ -1,0 +1,24 @@
+{
+  "name": "schafkopfrechner-promo",
+  "private": true,
+  "type": "module",
+  "description": "Werbevideo (Reel) und App-Screenshots für den Schafkopfrechner. Unabhängig vom App-Code.",
+  "scripts": {
+    "capture": "node capture/run.mjs",
+    "studio": "node scripts/prepare.mjs && remotion studio video/index.ts",
+    "stills": "node scripts/render.mjs stills",
+    "draft": "node scripts/render.mjs draft",
+    "render": "node scripts/render.mjs final",
+    "render:live": "node scripts/render.mjs final --endCard=live",
+    "all": "npm run capture && npm run render"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.544",
+    "@remotion/bundler": "4.0.544",
+    "@remotion/renderer": "4.0.544",
+    "playwright": "1.63.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.544"
+  }
+}

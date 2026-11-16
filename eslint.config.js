@@ -15,6 +15,7 @@ module.exports = defineConfig([
       'coverage/**',
       'android/**',
       'ios/**',
+      'promo/**',
     ],
   },
   {
