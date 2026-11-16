@@ -547,7 +547,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
 const styles = StyleSheet.create({
   sectionTitle: {
     color: authColors.textPrimary,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontWeight: '700',
   },
   balanceRow: {

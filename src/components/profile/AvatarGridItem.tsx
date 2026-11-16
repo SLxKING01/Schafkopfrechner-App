@@ -10,6 +10,7 @@ import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import type { AnimalAvatarId } from '../../types/profile';
 import { AnimalAvatar } from '../game/AnimalAvatar';
+import { AppIcon } from '../ui/AppIcon';
 
 type AvatarGridItemProps = {
   accentColor: string;
@@ -66,7 +67,12 @@ export function AvatarGridItem({
         />
         {isSelected ? (
           <View style={styles.check}>
-            <Check color="#17150B" size={13} strokeWidth={3} />
+            <AppIcon
+              icon={Check}
+              size="xs"
+              weight="strong"
+              color={authColors.onGold}
+            />
           </View>
         ) : null}
       </Pressable>
@@ -79,7 +85,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     aspectRatio: 1,
     backgroundColor: 'rgba(13, 27, 19, 0.74)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderColor: authColors.borderSoft,
     borderRadius: authRadius.xl,
     borderWidth: 1,
     justifyContent: 'center',

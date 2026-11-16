@@ -16,6 +16,7 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { PlayerAccountsEditor } from '../../components/game/PlayerAccountsEditor';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
@@ -23,8 +24,10 @@ import { fingerprint } from '../../services/sync/syncGameState';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { authColors } from '../../theme/colors';
 import { formEntering } from '../../theme/motion';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { TableSettings } from '../../types/game';
 import { getStockBalanceCents } from '../../utils/accounting';
 import { tableAccess } from '../../utils/tableAccess';
@@ -32,14 +35,14 @@ import { tableAccess } from '../../utils/tableAccess';
 type EditTableScreenProps = AppStackScreenProps<'EditTable'>;
 
 const screenColors = {
-  background: '#0B1D16',
-  backgroundMid: '#10241C',
-  backgroundSoft: '#163328',
-  gold: '#E7C65C',
-  text: '#F5F5F5',
-  muted: 'rgba(245, 245, 245, 0.62)',
-  border: 'rgba(231, 198, 92, 0.24)',
-  shadow: '#000000',
+  background: authColors.tableBackground,
+  backgroundMid: authColors.tableBackgroundMid,
+  backgroundSoft: authColors.tableBackgroundSoft,
+  gold: authColors.goldHighlight,
+  text: authColors.textPrimary,
+  muted: authColors.textMuted,
+  border: 'rgba(242, 201, 76, 0.24)',
+  shadow: authColors.shadow,
 };
 
 export function EditTableScreen({ navigation }: EditTableScreenProps) {
@@ -161,7 +164,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
               pressed && styles.pressed,
             ]}
           >
-            <X color={screenColors.gold} size={22} strokeWidth={2.5} />
+            <AppIcon
+              icon={X}
+              size="lg"
+              weight="strong"
+              color={screenColors.gold}
+            />
           </Pressable>
         </Animated.View>
 
@@ -207,7 +215,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
             pressed && styles.floatingPressed,
           ]}
         >
-          <X color={screenColors.muted} size={28} strokeWidth={2.7} />
+          <AppIcon
+            icon={X}
+            size="xl"
+            weight="strong"
+            color={screenColors.muted}
+          />
         </Pressable>
         <Pressable
           accessibilityLabel="Regeln speichern"
@@ -220,7 +233,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
             pressed && styles.floatingPressed,
           ]}
         >
-          <Check color="#17150B" size={30} strokeWidth={3} />
+          <AppIcon
+            icon={Check}
+            size="xl"
+            weight="strong"
+            color={authColors.onGold}
+          />
         </Pressable>
       </View>
       <Modal
@@ -297,7 +315,7 @@ const styles = StyleSheet.create({
     paddingTop: authSpacing.lg,
   },
   goldGlow: {
-    backgroundColor: 'rgba(231, 198, 92, 0.11)',
+    backgroundColor: 'rgba(242, 201, 76, 0.11)',
     borderRadius: 140,
     height: 280,
     position: 'absolute',
@@ -317,21 +335,21 @@ const styles = StyleSheet.create({
   },
   kicker: {
     color: screenColors.gold,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '900',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   title: {
     color: screenColors.text,
-    fontSize: 34,
+    fontSize: authTypography.hero,
     fontWeight: '900',
     letterSpacing: 0,
     marginTop: authSpacing.xs,
   },
   subtitle: {
     color: screenColors.muted,
-    fontSize: 14,
+    fontSize: authTypography.label,
     fontWeight: '800',
     marginTop: 4,
   },
@@ -386,8 +404,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   saveFloating: {
-    backgroundColor: '#6FA972',
-    shadowColor: '#6FA972',
+    backgroundColor: authColors.accentGreen,
+    shadowColor: authColors.accentGreen,
     shadowOpacity: 0.32,
   },
   floatingPressed: {

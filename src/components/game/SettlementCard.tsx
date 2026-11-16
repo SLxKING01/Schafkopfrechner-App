@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: authColors.goldHighlight,
-    fontSize: 22,
+    fontSize: authTypography.subtitle,
     fontVariant: ['tabular-nums'],
     fontWeight: '900',
   },

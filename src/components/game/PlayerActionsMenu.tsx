@@ -19,6 +19,7 @@ import {
   authTextStyles,
 } from '../../theme';
 import type { Player } from '../../types/game';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type Props = {
@@ -128,7 +129,11 @@ export function PlayerActionsMenu({
                   onPress={() => setPlayerId(null)}
                   style={s.iconButton}
                 >
-                  <ChevronLeft size={20} color={authColors.textSecondary} />
+                  <AppIcon
+                    icon={ChevronLeft}
+                    size="md"
+                    color={authColors.textSecondary}
+                  />
                 </Pressable>
               ) : null}
               <AppText accessibilityRole="header" style={s.title}>
@@ -141,7 +146,7 @@ export function PlayerActionsMenu({
                 onPress={onClose}
                 style={s.iconButton}
               >
-                <X size={20} color={authColors.textSecondary} />
+                <AppIcon icon={X} size="md" color={authColors.textSecondary} />
               </Pressable>
             </View>
             {player ? (
@@ -162,8 +167,9 @@ export function PlayerActionsMenu({
                     onPress={() => void selectDealer(pendingAction)}
                     style={({ pressed }) => [s.action, pressed && s.pressed]}
                   >
-                    <Layers
-                      size={20}
+                    <AppIcon
+                      icon={Layers}
+                      size="md"
                       color={
                         isDealer && !needsRetry
                           ? authColors.textSecondary
@@ -195,7 +201,7 @@ export function PlayerActionsMenu({
                     onPress={() => void selectDealer('misdeal')}
                     style={({ pressed }) => [s.action, pressed && s.pressed]}
                   >
-                    <X size={20} color={authColors.error} />
+                    <AppIcon icon={X} size="md" color={authColors.error} />
                     <AppText style={s.text}>
                       {needsRetry ? 'Erneut sichern' : 'Vergeben?'}
                     </AppText>
@@ -216,9 +222,17 @@ export function PlayerActionsMenu({
                     style={({ pressed }) => [s.action, pressed && s.pressed]}
                   >
                     {player.isPaused ? (
-                      <Play size={20} color={authColors.goldHighlight} />
+                      <AppIcon
+                        icon={Play}
+                        size="md"
+                        color={authColors.goldHighlight}
+                      />
                     ) : (
-                      <Pause size={20} color={authColors.goldHighlight} />
+                      <AppIcon
+                        icon={Pause}
+                        size="md"
+                        color={authColors.goldHighlight}
+                      />
                     )}
                     <AppText style={s.text}>
                       {needsRetry
@@ -281,7 +295,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   card: {
-    backgroundColor: '#10251C',
+    backgroundColor: authColors.tableBackgroundMid,
     borderRadius: authRadius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: authColors.borderSoft,

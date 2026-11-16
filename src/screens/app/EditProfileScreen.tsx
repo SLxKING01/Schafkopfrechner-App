@@ -47,6 +47,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
 import { acceptOwnProfile, refreshOwnProfile } from '../../store/profileStore';
 import { authColors as c, authRadius, authSpacing as sp } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   OwnProfile,
   ProfileDraft,
@@ -699,7 +700,11 @@ const s = StyleSheet.create({
     gap: sp.sm,
   },
   preview: { alignItems: 'center', gap: sp.md, paddingVertical: sp.md },
-  hint: { color: c.textSecondary, fontSize: 13, lineHeight: 20 },
+  hint: {
+    color: c.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 20,
+  },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
   animals: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import { AppCard } from '../../components/ui/AppCard';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { useGameStore } from '../../store/gameStore';
+import { authColors } from '../../theme/colors';
 import { winningIds } from '../../utils/winningParty';
 
 export function TableArchiveScreen({
@@ -17,15 +18,15 @@ export function TableArchiveScreen({
       <ScrollView
         contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 120 }}
       >
-        <AppText variant="title" style={{ color: '#F5F5F5' }}>
+        <AppText variant="title" style={{ color: authColors.textPrimary }}>
           Tischarchiv
         </AppText>
-        <AppText style={{ color: '#F5F5F5' }}>
+        <AppText style={{ color: authColors.textPrimary }}>
           Auf diesem Geraet gespeichert. Mit einem Konto werden die Archive
           mitgesichert.
         </AppText>
         {archive.length === 0 ? (
-          <AppText style={{ color: '#F5F5F5' }}>
+          <AppText style={{ color: authColors.textPrimary }}>
             Noch keine archivierten Tische.
           </AppText>
         ) : (

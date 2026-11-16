@@ -15,6 +15,8 @@ import {
 } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import { getStockBalanceCents, isPlayedRound } from '../../utils/accounting';
 import { formatOverviewMoney } from '../../utils/gameOverview';
 import { GoldButton } from '../auth/GoldButton';
@@ -214,8 +216,11 @@ export function SyncStatus() {
 }
 const styles = StyleSheet.create({
   status: { gap: 2, paddingVertical: 4 },
-  caption: { color: '#A8B9AD', fontSize: 12 },
-  gold: { color: '#E7C65C', fontWeight: '700' },
+  caption: {
+    color: authColors.textMutedGreen,
+    fontSize: authTypography.control,
+  },
+  gold: { color: authColors.goldHighlight, fontWeight: '700' },
   action: { minHeight: 44, justifyContent: 'center' },
   modal: {
     flex: 1,
@@ -223,14 +228,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.65)',
   },
-  dialog: { maxHeight: '90%', backgroundColor: '#10241C', borderRadius: 20 },
+  dialog: {
+    maxHeight: '90%',
+    backgroundColor: authColors.tableBackgroundMid,
+    borderRadius: 20,
+  },
   content: { gap: 16, padding: 20 },
   summary: {
     padding: 12,
     gap: 6,
     borderWidth: 1,
     borderRadius: 12,
-    borderColor: '#536D57',
+    borderColor: authColors.inputBorder,
   },
-  error: { color: '#FFC3A3' },
+  error: { color: authColors.errorText },
 });

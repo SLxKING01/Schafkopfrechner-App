@@ -7,6 +7,7 @@ import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
 import { DashboardSheet } from '../../components/dashboard/DashboardSheet';
 import { DashboardTotals } from '../../components/dashboard/DashboardTotals';
 import { SchafkopfBackdrop } from '../../components/dashboard/SchafkopfBackdrop';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
@@ -97,7 +98,7 @@ export function DashboardScreen() {
                 pressed && authInteraction.pressed,
               ]}
             >
-              <ReceiptText size={28} color={c.textMutedGreen} />
+              <AppIcon icon={ReceiptText} size="xl" color={c.textMutedGreen} />
               <View style={s.rowCopy}>
                 <AppText style={s.paymentTitle}>
                   {unpaid.length}{' '}
@@ -107,7 +108,7 @@ export function DashboardScreen() {
                 </AppText>
                 <AppText style={s.small}>Abgeschlossene Spielabende</AppText>
               </View>
-              <ChevronRight size={22} color={c.textMutedGreen} />
+              <AppIcon icon={ChevronRight} size="lg" color={c.textMutedGreen} />
             </Pressable>
           </View>
         ) : null}
@@ -121,7 +122,7 @@ export function DashboardScreen() {
           ]}
         >
           <AppText style={s.secondary}>Alle Tische ansehen</AppText>
-          <ChevronRight size={22} color={c.textSecondary} />
+          <AppIcon icon={ChevronRight} size="lg" color={c.textSecondary} />
         </Pressable>
         {sheet === 'payments' ? (
           <DashboardSheet
@@ -148,7 +149,11 @@ export function DashboardScreen() {
                     {p.count} offene {p.count === 1 ? 'Zahlung' : 'Zahlungen'}
                   </AppText>
                 </View>
-                <ChevronRight size={22} color={c.textMutedGreen} />
+                <AppIcon
+                  icon={ChevronRight}
+                  size="lg"
+                  color={c.textMutedGreen}
+                />
               </Pressable>
             ))}
           </DashboardSheet>

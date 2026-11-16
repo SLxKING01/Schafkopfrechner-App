@@ -22,7 +22,6 @@ import {
   Volume2,
   WalletCards,
 } from 'lucide-react-native';
-import type { ComponentType } from 'react';
 import { useCallback } from 'react';
 import {
   Alert,
@@ -35,6 +34,7 @@ import {
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
+import { AppIcon, type AppIconComponent } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
@@ -47,7 +47,7 @@ import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 
 type SettingRow = {
-  icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
+  icon: AppIconComponent;
   title: string;
   subtitle?: string;
   tone?: 'default' | 'gold' | 'danger';
@@ -306,7 +306,7 @@ export function ProfileScreen() {
           onPress={handleLogout}
           style={({ pressed }) => [styles.logout, pressed && styles.pressed]}
         >
-          <LogOut color="#D65A5A" size={18} strokeWidth={2.2} />
+          <AppIcon icon={LogOut} size="sm" color={authColors.error} />
           <AppText style={styles.logoutText}>Logout</AppText>
         </Pressable>
       </ScrollView>
@@ -350,7 +350,7 @@ function SettingsRow({
   const isDanger = tone === 'danger';
   const isGold = tone === 'gold' || premium;
   const iconColor = isDanger
-    ? '#D65A5A'
+    ? authColors.error
     : isGold
       ? authColors.goldHighlight
       : authColors.textPrimary;
@@ -372,7 +372,7 @@ function SettingsRow({
           isDanger && styles.settingIconDanger,
         ]}
       >
-        <Icon color={iconColor} size={19} strokeWidth={2.25} />
+        <AppIcon icon={Icon} size="md" color={iconColor} />
       </View>
       <View style={styles.settingCopy}>
         <Text
@@ -387,11 +387,7 @@ function SettingsRow({
           </Text>
         ) : null}
       </View>
-      <ChevronRight
-        color={authColors.textSecondary}
-        size={18}
-        strokeWidth={2.2}
-      />
+      <AppIcon icon={ChevronRight} size="sm" color={authColors.textSecondary} />
     </Pressable>
   );
 }
@@ -439,7 +435,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: authColors.textPrimary,
-    fontSize: 22,
+    fontSize: authTypography.subtitle,
     fontWeight: '900',
   },
   email: {
@@ -522,7 +518,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dangerText: {
-    color: '#F29A9A',
+    color: authColors.errorText,
   },
   logout: {
     alignItems: 'center',
@@ -532,7 +528,7 @@ const styles = StyleSheet.create({
     padding: authSpacing.md,
   },
   logoutText: {
-    color: '#D65A5A',
+    color: authColors.error,
     fontSize: authTypography.body,
     fontWeight: '900',
   },

@@ -12,6 +12,8 @@ import Animated from 'react-native-reanimated';
 import { authColors } from '../../theme/colors';
 import { selectionEntering } from '../../theme/motion';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 export function RoundUndoNotice({
@@ -57,8 +59,9 @@ export function RoundUndoNotice({
   return (
     <Animated.View entering={selectionEntering} style={styles.notice}>
       <View style={styles.copy} accessibilityLiveRegion="polite">
-        <CheckCircle2
-          size={22}
+        <AppIcon
+          icon={CheckCircle2}
+          size="lg"
           color={authColors.accentGreen}
           {...(Platform.OS === 'web'
             ? { 'aria-hidden': true }
@@ -102,7 +105,7 @@ export function RoundUndoNotice({
         onPress={onDismiss}
         style={styles.action}
       >
-        <X size={18} color={authColors.textSecondary} />
+        <AppIcon icon={X} size="sm" color={authColors.textSecondary} />
       </Pressable>
       {error ? (
         <AppText accessibilityRole="alert" style={styles.error}>
@@ -133,12 +136,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: authSpacing.sm,
     flexGrow: 1,
   },
-  label: { fontSize: 15, color: authColors.textPrimary, flexShrink: 1 },
-  error: { flexBasis: '100%', color: authColors.textSecondary, fontSize: 13 },
+  label: {
+    fontSize: authTypography.label,
+    color: authColors.textPrimary,
+    flexShrink: 1,
+  },
+  error: {
+    flexBasis: '100%',
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+  },
   action: {
     minHeight: authControlSizes.touch,
     paddingHorizontal: authSpacing.sm,
     justifyContent: 'center',
   },
-  gold: { fontSize: 15, color: authColors.goldHighlight, fontWeight: '600' },
+  gold: {
+    fontSize: authTypography.label,
+    color: authColors.goldHighlight,
+    fontWeight: '600',
+  },
 });

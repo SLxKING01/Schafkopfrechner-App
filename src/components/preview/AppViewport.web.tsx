@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 
 import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import {
   phonePresets,
   phonePreviewScale,
@@ -159,7 +160,7 @@ const styles: Record<string, CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
-    fontSize: 14,
+    fontSize: authTypography.label,
     marginRight: 8,
   },
   controls: { display: 'flex', alignItems: 'center', gap: 6 },
@@ -174,7 +175,7 @@ const styles: Record<string, CSSProperties> = {
     color: authColors.textPrimary,
     cursor: 'pointer',
     fontFamily: 'inherit',
-    fontSize: 13,
+    fontSize: authTypography.caption,
   },
   active: {
     background: authColors.goldHighlight,
@@ -205,7 +206,7 @@ const styles: Record<string, CSSProperties> = {
   },
   hint: {
     color: authColors.textSecondary,
-    fontSize: 12,
+    fontSize: authTypography.control,
     margin: 0,
     textAlign: 'center',
     flexShrink: 0,

@@ -12,6 +12,7 @@ import { register } from '../services/auth/register';
 import { useAuthStore } from '../store/authStore';
 import { authColors } from '../theme/colors';
 import { authSpacing } from '../theme/spacing';
+import { authTypography } from '../theme/typography';
 
 type RegisterScreenProps = AuthStackScreenProps<'Register'>;
 
@@ -179,11 +180,11 @@ const styles = StyleSheet.create({
   },
   footerMuted: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
   },
   footerAccent: {
     color: authColors.goldHighlight,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '800',
   },
 });

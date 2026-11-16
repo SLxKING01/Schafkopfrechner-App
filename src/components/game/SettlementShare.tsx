@@ -17,6 +17,7 @@ import {
 } from '../../services/game/settlementImage';
 import { authColors } from '../../theme/colors';
 import { authControlSizes, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type {
   GameTable,
   Player,
@@ -274,7 +275,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingBottom: authSpacing.md,
   },
-  note: { color: authColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  note: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 19,
+  },
   error: { color: authColors.errorText },
   close: {
     minHeight: authControlSizes.touch,

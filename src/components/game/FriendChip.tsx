@@ -1,9 +1,12 @@
 import { Minus, Plus } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { FriendProfile } from '../../types/profile';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type FriendChipProps = {
@@ -61,12 +64,18 @@ export function FriendChip({
         ]}
       >
         {isSelected ? (
-          <Minus color="#17150B" size={14} strokeWidth={3} />
+          <AppIcon
+            icon={Minus}
+            size="xs"
+            weight="strong"
+            color={authColors.onGold}
+          />
         ) : (
-          <Plus
-            color={isDisabled ? 'rgba(245, 245, 245, 0.36)' : '#E7C65C'}
-            size={14}
-            strokeWidth={3}
+          <AppIcon
+            icon={Plus}
+            size="xs"
+            weight="strong"
+            color={isDisabled ? authColors.textFaint : authColors.goldHighlight}
           />
         )}
       </View>
@@ -89,7 +98,7 @@ const styles = StyleSheet.create({
     minHeight: 124,
     paddingHorizontal: authSpacing.md,
     paddingVertical: authSpacing.md,
-    shadowColor: '#000000',
+    shadowColor: authColors.shadow,
     shadowOffset: { height: 10, width: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -103,8 +112,8 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   onlineDot: {
-    backgroundColor: '#5BBE63',
-    borderColor: '#1A2D24',
+    backgroundColor: authColors.accentGreen,
+    borderColor: authColors.tableCard,
     borderRadius: 999,
     borderWidth: 2,
     bottom: 1,
@@ -114,28 +123,28 @@ const styles = StyleSheet.create({
     width: 13,
   },
   name: {
-    color: '#F5F5F5',
-    fontSize: 13,
+    color: authColors.textPrimary,
+    fontSize: authTypography.caption,
     fontWeight: '900',
     maxWidth: 72,
   },
   addBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
+    backgroundColor: 'rgba(242, 201, 76, 0.12)',
     borderRadius: authRadius.pill,
     height: 24,
     justifyContent: 'center',
     width: 24,
   },
   addBadgeDisabled: {
-    backgroundColor: 'rgba(245, 245, 245, 0.08)',
+    backgroundColor: authColors.borderSoft,
   },
   caption: {
     color: 'rgba(245, 245, 245, 0.46)',
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '800',
   },
   captionSelected: {
-    color: '#E7C65C',
+    color: authColors.goldHighlight,
   },
 });

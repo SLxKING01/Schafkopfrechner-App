@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { theme } from '../constants/theme';
+import { theme } from '../theme';
 import { AppButton } from './ui/AppButton';
 import { AppCard } from './ui/AppCard';
 import { AppText } from './ui/AppText';

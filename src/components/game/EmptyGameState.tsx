@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type EmptyGameStateProps = {
@@ -20,7 +21,7 @@ export function EmptyGameState({
 }: EmptyGameStateProps) {
   return (
     <View style={styles.card}>
-      <Icon color={authColors.goldHighlight} size={28} strokeWidth={2} />
+      <AppIcon icon={Icon} size="xl" color={authColors.goldHighlight} />
       <AppText style={styles.title}>{title}</AppText>
       <AppText style={styles.message}>{message}</AppText>
     </View>

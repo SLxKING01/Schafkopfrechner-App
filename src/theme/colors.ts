@@ -32,4 +32,21 @@ export const authColors = {
   overlay: 'rgba(0, 0, 0, 0.6)',
   transparent: 'transparent',
   disabled: '#34443A',
+  /** Muted text on dark green, e.g. hints and secondary rows */
+  textMuted: 'rgba(245, 245, 245, 0.62)',
+  /** Faint text such as placeholders and inactive labels */
+  textFaint: 'rgba(245, 245, 245, 0.38)',
+  // Table screens (lobby, active game, create/edit table)
+  tableBackground: '#0B1D16',
+  tableBackgroundMid: '#10241C',
+  tableBackgroundSoft: '#163328',
+  tableCard: '#1A2D24',
+  tableCardElevated: '#20372D',
+  /** Strong red surface for destructive confirmations */
+  dangerSurface: '#692B2C',
+  // Card suits
+  suitEichel: '#C8944D',
+  suitGras: '#6BA36E',
+  suitHerz: '#E0635C',
+  suitSchellen: '#F2C94C',
 };
