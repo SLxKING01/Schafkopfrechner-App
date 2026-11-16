@@ -1,0 +1,98 @@
+{
+  "viewport": {
+    "width": 430,
+    "height": 932
+  },
+  "insets": {
+    "top": 59,
+    "bottom": 34
+  },
+  "scale": 3,
+  "shots": {
+    "01-dashboard": "01-dashboard.png",
+    "10-statistik-gesamt": "10-statistik-gesamt.png",
+    "11-statistik-sepp": "11-statistik-sepp.png",
+    "11-statistik-vroni": "11-statistik-vroni.png",
+    "11-statistik-hias": "11-statistik-hias.png",
+    "11-statistik-resi": "11-statistik-resi.png",
+    "12-statistik-position": "12-statistik-position.png",
+    "13-statistik-spielarten": "13-statistik-spielarten.png",
+    "14-statistik-rollen": "14-statistik-rollen.png",
+    "02-tische": "02-tische.png",
+    "03-tisch": "03-tisch.png",
+    "v1-tisch-vorher": "v1-tisch-vorher.png",
+    "v2-verlauf-vorher": "v2-verlauf-vorher.png",
+    "04-spielauswahl": "04-spielauswahl.png",
+    "05-solo": "05-solo.png",
+    "06-herzsolo": "06-herzsolo.png",
+    "07-laufende": "07-laufende.png",
+    "08-schneider": "08-schneider.png",
+    "09-preisaufschluesselung": "09-preisaufschluesselung.png",
+    "09-tisch-nachher": "09-tisch-nachher.png",
+    "09-verlauf-nachher": "09-verlauf-nachher.png",
+    "v3-verlauf-nachher": "v3-verlauf-nachher.png",
+    "v4-tisch-nachher": "v4-tisch-nachher.png"
+  },
+  "taps": {
+    "tischOeffnen": {
+      "x": 229,
+      "y": 304
+    },
+    "ansager": {
+      "x": 134,
+      "y": 448
+    },
+    "solo": {
+      "x": 47,
+      "y": 253
+    },
+    "herz": {
+      "x": 263,
+      "y": 550
+    },
+    "laufende": {
+      "x": 369,
+      "y": 689
+    },
+    "schneider": {
+      "x": 345,
+      "y": 752
+    },
+    "speichern": {
+      "x": 203,
+      "y": 870
+    }
+  },
+  "boxes": {
+    "bilanz": {
+      "x": 41,
+      "y": 460,
+      "width": 151,
+      "height": 18
+    },
+    "betrag": {
+      "x": 87,
+      "y": 249,
+      "width": 120,
+      "height": 20
+    },
+    "saldoSepp": {
+      "x": 205,
+      "y": 439,
+      "width": 82,
+      "height": 19
+    },
+    "neueZeile": {
+      "x": 64,
+      "y": 434,
+      "width": 104,
+      "height": 16
+    },
+    "saldoVroni": {
+      "x": 205,
+      "y": 512,
+      "width": 82,
+      "height": 19
+    }
+  }
+}

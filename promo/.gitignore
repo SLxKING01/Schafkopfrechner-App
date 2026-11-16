@@ -1,0 +1,3 @@
+node_modules/
+# Von scripts/prepare.mjs erzeugt (Kopien von Screenshots, Schrift, Icon)
+public/
