@@ -7,12 +7,13 @@ Arbeite in **drei Phasen** und warte nach Phase 1 und Phase 2 jeweils auf meine 
 - **Einsatz:** Instagram/TikTok Reels
 - **Format:** 9:16, 1080×1920, 30 fps, H.264-MP4
 - **Länge:** 25–30 Sekunden
-- **Ton:** Musik + Texteinblendungen, **kein Sprecher**. Das Video muss auch ohne Ton verständlich sein.
-- **Musik:** `promo/assets/music.mp3` (lizenzfrei, von mir geliefert). Schnitte auf den Takt legen, am Ende ausblenden.
+- **Ton:** Nur Texteinblendungen, **kein Sprecher**. Render das Video **ohne Tonspur**. Die Musik füge ich später in Instagram/TikTok hinzu.
+- **Schnitt-Tempo:** Lege die Schnitte auf ein festes Raster von ~120 BPM (alle 0,5 s bzw. 1 s), damit später ein Song gut darunter passt.
 - **Stil:** modern, cleanes Design, **leicht bayerisch**. Hochdeutsch mit ein paar bayerischen Sprüchen, überall verständlich.
 - **Farben und Schrift:** exakt wie in der App (`src/theme/colors.ts`, `src/theme/typography.ts`, Schrift Inter). Animationen dürfen sich an `src/theme/motion.ts` orientieren.
 - **Kein Slogan vorhanden:** Schlag mir 5 Slogans vor.
-- **Schluss:** App-Icon (`assets/icon.png`), Name „Schafkopfrechner“, offizielles **„Laden im App Store“-Badge** (nur App Store, kein Google Play). Badge liegt in `promo/assets/app-store-badge.svg`.
+- **Schluss:** App-Icon (`assets/icon.png`), Name „Schafkopfrechner“ und Text **„Bald im App Store“**. Die App ist noch nicht veröffentlicht: Verwende **kein** Apple-Badge und kein Apple-Logo.
+- **Zweite Schluss-Variante vorbereiten:** Baue die Schlussszene so, dass ich sie später per Einstellung (z. B. `endCard: "soon" | "live"`) umstellen kann. In der Variante „live“ wird das offizielle Badge aus `promo/assets/app-store-badge.svg` angezeigt, sobald ich es dort ablege. Fehlt die Datei, darf nichts kaputtgehen.
 
 ## Inhalt: drei Funktionen, in dieser Reihenfolge
 1. **Runde schnell erfassen:** Spiel eintragen, Punkte und Tarife werden automatisch berechnet.
@@ -43,6 +44,6 @@ Verwende **nur** die Kartenbilder aus `promo/assets/cards/`. Lade keine Kartenbi
 ## Phasen
 1. **Storyboard (noch kein Code):** Tabelle mit Szene, Dauer, Einblendetext, Bild/Asset und Animation. Dazu die 3 Hook-Ideen und 5 Slogan-Vorschläge. → **Warten auf Freigabe.**
 2. **Aufnahmen und Entwurf:** Screenshots erzeugen, Video bauen, Standbilder jeder Szene plus ein Entwurfsrender in niedriger Auflösung zeigen. → **Warten auf Freigabe bzw. Korrekturen.**
-3. **Final:** Render in 1080×1920 nach `promo/out/schafkopfrechner-reel.mp4`. Zusätzlich ein Coverbild (1080×1920) für Instagram.
+3. **Final:** Render in 1080×1920 nach `promo/out/schafkopfrechner-reel.mp4` (Variante „Bald im App Store“). Zusätzlich ein Coverbild (1080×1920) für Instagram. Lege die Screenshots außerdem in voller Auflösung unter `promo/out/screenshots/` ab, damit ich sie später für den App-Store-Eintrag wiederverwenden kann.
 
 Frag nach, wenn etwas unklar ist, statt zu raten.
