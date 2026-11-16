@@ -384,7 +384,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
                   icon={Plus}
                   size="sm"
                   weight="strong"
-                  color="#17150B"
+                  color={authColors.onGold}
                 />
                 <AppText style={styles.addButtonText}>Hinzufügen</AppText>
               </Pressable>
@@ -513,7 +513,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
               icon={ArrowRight}
               size="xl"
               weight="strong"
-              color="#17150B"
+              color={authColors.onGold}
             />
           </Pressable>
         </View>
@@ -797,6 +797,8 @@ const styles = StyleSheet.create({
     fontSize: authTypography.body,
     fontWeight: '800',
     minHeight: 56,
+    // Lets the field shrink so the add button always stays inside the card.
+    minWidth: 0,
     paddingHorizontal: authSpacing.lg,
   },
   addButton: {
@@ -806,6 +808,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: authSpacing.xs,
     justifyContent: 'center',
+    flexShrink: 0,
     minHeight: 56,
     paddingHorizontal: authSpacing.md,
     shadowColor: screenColors.gold,

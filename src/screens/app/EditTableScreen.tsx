@@ -233,7 +233,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
             pressed && styles.floatingPressed,
           ]}
         >
-          <AppIcon icon={Check} size="xl" weight="strong" color="#17150B" />
+          <AppIcon
+            icon={Check}
+            size="xl"
+            weight="strong"
+            color={authColors.onGold}
+          />
         </Pressable>
       </View>
       <Modal

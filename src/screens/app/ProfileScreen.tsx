@@ -306,7 +306,7 @@ export function ProfileScreen() {
           onPress={handleLogout}
           style={({ pressed }) => [styles.logout, pressed && styles.pressed]}
         >
-          <AppIcon icon={LogOut} size="sm" color="#D65A5A" />
+          <AppIcon icon={LogOut} size="sm" color={authColors.error} />
           <AppText style={styles.logoutText}>Logout</AppText>
         </Pressable>
       </ScrollView>

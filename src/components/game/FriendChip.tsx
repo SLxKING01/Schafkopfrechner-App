@@ -64,7 +64,12 @@ export function FriendChip({
         ]}
       >
         {isSelected ? (
-          <AppIcon icon={Minus} size="xs" weight="strong" color="#17150B" />
+          <AppIcon
+            icon={Minus}
+            size="xs"
+            weight="strong"
+            color={authColors.onGold}
+          />
         ) : (
           <AppIcon
             icon={Plus}

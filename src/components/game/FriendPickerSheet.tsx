@@ -159,7 +159,7 @@ export function FriendPickerSheet({
                       icon={Minus}
                       size="sm"
                       weight="strong"
-                      color="#17150B"
+                      color={authColors.onGold}
                     />
                   ) : (
                     <AppIcon

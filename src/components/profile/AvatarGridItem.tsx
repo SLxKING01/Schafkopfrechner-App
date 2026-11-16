@@ -67,7 +67,12 @@ export function AvatarGridItem({
         />
         {isSelected ? (
           <View style={styles.check}>
-            <AppIcon icon={Check} size="xs" weight="strong" color="#17150B" />
+            <AppIcon
+              icon={Check}
+              size="xs"
+              weight="strong"
+              color={authColors.onGold}
+            />
           </View>
         ) : null}
       </Pressable>

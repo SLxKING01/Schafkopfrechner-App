@@ -599,7 +599,12 @@ export function GameLobbyScreen() {
           onPress={openCreateTable}
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         >
-          <AppIcon icon={Plus} size="xl" weight="strong" color="#17150B" />
+          <AppIcon
+            icon={Plus}
+            size="xl"
+            weight="strong"
+            color={authColors.onGold}
+          />
         </Pressable>
       ) : null}
 
@@ -685,7 +690,7 @@ const TableCard = memo(function TableCard({
                 icon={Pin}
                 size="lg"
                 weight="strong"
-                color="#17150B"
+                color={authColors.onGold}
                 fill={table.isFavorite ? authColors.onGold : 'transparent'}
               />
               <AppText style={styles.favoriteActionText}>
@@ -992,7 +997,12 @@ function LeaveTableSheet({
 
         <Animated.View style={styles.dialogCard}>
           <View style={styles.leaveIcon}>
-            <AppIcon icon={LogOut} size="lg" weight="strong" color="#DFA0A0" />
+            <AppIcon
+              icon={LogOut}
+              size="lg"
+              weight="strong"
+              color={authColors.errorText}
+            />
           </View>
           <AppText style={styles.sheetTitle}>Tisch verlassen?</AppText>
           <AppText style={styles.sheetSubtitle}>
