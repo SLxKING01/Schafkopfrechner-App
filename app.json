@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Schafkopfrechner-App",
+    "name": "Schafkopfrechner",
     "slug": "Schafkopfrechner-App",
     "version": "1.0.0",
     "scheme": "schafkopfrechner",
@@ -16,7 +16,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#07110B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

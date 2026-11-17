@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
 import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
+import { appVersion } from '../constants/appVersion';
 import { legalLinks, openLegalLink } from '../constants/legal';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { authColors, authTypography, theme } from '../theme';
@@ -152,7 +153,9 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
               ))}
             </View>
           ) : null}
-          <AppText style={styles.versionText}>Version 1.0.0</AppText>
+          {appVersion ? (
+            <AppText style={styles.versionText}>Version {appVersion}</AppText>
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
