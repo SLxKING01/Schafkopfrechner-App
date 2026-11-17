@@ -3,8 +3,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ChevronRight,
   CreditCard,
+  FileText,
   KeyRound,
   LogOut,
+  ShieldCheck,
   Trash2,
   UserRoundCog,
   Users,
@@ -25,6 +27,7 @@ import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppIcon, type AppIconComponent } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { legalLinks, openLegalLink } from '../../constants/legal';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
 import type { AppStackParamList } from '../../navigation/types';
@@ -151,6 +154,16 @@ export function ProfileScreen() {
     },
   ];
 
+  const legalRows: SettingRow[] = legalLinks.map((link) => ({
+    icon: link.key === 'privacy' ? ShieldCheck : FileText,
+    title: link.title,
+    subtitle:
+      link.key === 'privacy'
+        ? 'Wie deine Daten verarbeitet werden'
+        : 'Anbieter und Kontakt',
+    onPress: () => void openLegalLink(link),
+  }));
+
   return (
     <AuthBackground>
       <ScrollView
@@ -192,6 +205,9 @@ export function ProfileScreen() {
         ) : null}
         <SettingsSection title="Account" rows={accountRows} />
         <SettingsSection title="Datenschutz" rows={privacyRows} />
+        {legalRows.length ? (
+          <SettingsSection title="Rechtliches" rows={legalRows} />
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
