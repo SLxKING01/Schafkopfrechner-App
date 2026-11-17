@@ -1061,7 +1061,7 @@ export function RoundEntrySheet({
             ) !== openingParticipation
           )
             throw new Error(
-              'Die Besetzung oder Sitzordnung hat sich ge�ndert. Bitte die Eingabe schlie�en und erneut �ffnen.',
+              'Die Besetzung oder Sitzordnung hat sich geändert. Bitte die Eingabe schließen und erneut öffnen.',
             );
           const result = editingRound
             ? state.updateRound(editingRound.id, payload)
@@ -1259,7 +1259,7 @@ export function RoundEntrySheet({
                   {editingRound ? 'Mitgespielt' : 'Spielen'}:{' '}
                   {players.map((p) => p.name).join(', ')}
                   {editingRound?.roundContext
-                    ? ` � Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
+                    ? ` · Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
                     : ''}
                 </AppText>
               ) : null}

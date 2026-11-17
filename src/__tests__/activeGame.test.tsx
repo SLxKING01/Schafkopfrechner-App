@@ -1379,7 +1379,7 @@ it('pauses and reactivates through the centered player menu while keeping its ba
     view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Rufspiel' }),
   ).toHaveLength(0);
   await act(async () => row().props.onLongPress());
-  expect(button('Berkay als Geber ausw�hlen')).toBeUndefined();
+  expect(button('Berkay als Geber auswählen')).toBeUndefined();
   await act(async () => button('Berkay wieder aktivieren').props.onPress());
   expect(useGameStore.getState().players[0].isPaused).toBe(false);
   expect(useGameStore.getState().players.map((p) => p.id)).toEqual([

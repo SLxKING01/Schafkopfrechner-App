@@ -86,7 +86,7 @@ export function PlayerActionsMenu({
       setError(
         e instanceof Error
           ? e.message
-          : 'Die �nderung konnte nicht gespeichert werden.',
+          : 'Die Änderung konnte nicht gespeichert werden.',
       );
     } finally {
       lock.current = false;
