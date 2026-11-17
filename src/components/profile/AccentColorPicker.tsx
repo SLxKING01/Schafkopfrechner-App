@@ -60,10 +60,10 @@ function AccentChip({ accentId, isSelected, onSelect }: AccentChipProps) {
         accessibilityRole="button"
         onPress={() => onSelect(accentId)}
         onPressIn={() => {
-          scale.value = withSpring(0.92, { damping: 16, stiffness: 260 });
+          scale.set(withSpring(0.92, { damping: 16, stiffness: 260 }));
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 15, stiffness: 230 });
+          scale.set(withSpring(1, { damping: 15, stiffness: 230 }));
         }}
         style={[
           styles.chipWrap,
