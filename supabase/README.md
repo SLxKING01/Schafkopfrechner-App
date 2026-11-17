@@ -42,7 +42,7 @@ Die Vorlage **Reset Password** muss den Supabase-Bestätigungslink `{{ .Confirma
 
 ## Konto löschen
 
-Migration `20261117200000_account_deletion.sql` stellt das Löschen des eigenen Kontos in der App bereit (App Store Richtlinie 5.1.1(v), Google Play). Ablauf im Client (`src/services/auth/deleteAccount.ts`):
+Migration `20261117203204_account_deletion.sql` stellt das Löschen des eigenen Kontos in der App bereit (App Store Richtlinie 5.1.1(v), Google Play). Ablauf im Client (`src/services/auth/deleteAccount.ts`):
 
 1. `sk_account_release_photo()` entfernt den Profilfoto-Verweis, damit die Storage-Policy das Löschen der Dateien erlaubt.
 2. Die App löscht alle Dateien unter `<uid>/` im Bucket `profile-photos` über die Storage-API (direktes Löschen in `storage.objects` blockiert Supabase).
