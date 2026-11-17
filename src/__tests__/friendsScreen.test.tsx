@@ -10,6 +10,7 @@ import {
   readFriends,
 } from '../services/friends/friends';
 import { readFriendOperation } from '../services/friends/friendStorage';
+import { reportProfile } from '../services/moderation/reportProfile';
 import { useAuthStore } from '../store/authStore';
 import { resetFriendsSession } from '../store/friendsStore';
 import type { FriendEntry, FriendSearch, FriendsState } from '../types/friends';
@@ -20,6 +21,10 @@ jest.mock('../services/friends/friends', () => ({
   readFriends: jest.fn(),
   findFriend: jest.fn(),
   executeFriendCommand: jest.fn(),
+}));
+jest.mock('../services/moderation/reportProfile', () => ({
+  ...jest.requireActual('../services/moderation/reportProfile'),
+  reportProfile: jest.fn(async () => ({ ok: true })),
 }));
 jest.mock('../services/friends/friendStorage', () => ({
   readFriendOperation: jest.fn(async () => null),
@@ -345,5 +350,60 @@ it('hides old-account list and search data immediately on account change', async
   expect(json).not.toContain('Kontakt Anna');
   expect(json).not.toContain('AAAA-2222-BBBB');
   expect(json).toContain('Konto hat sich geändert');
+  await act(async () => ui.view.unmount());
+});
+
+it('reports a contact with a chosen reason and keeps the friendship unchanged', async () => {
+  jest
+    .mocked(readFriends)
+    .mockResolvedValue({ ...initial, friends: [{ ...entry, pairVersion: 2 }] });
+  const ui = await mount();
+  await ui.press('Melden');
+  expect(ui.button('Meldung senden').props.disabled).toBe(true);
+  const reasons = ui.view.root.findAll(
+    (n: { props: { accessibilityRole?: string; onPress?: unknown } }) =>
+      n.props.accessibilityRole === 'radio' &&
+      typeof n.props.onPress === 'function',
+  );
+  await act(async () => reasons[1].props.onPress());
+  await act(async () =>
+    ui.view.root
+      .findAllByType(TextInput)
+      .find(
+        (n: { props: { accessibilityLabel?: string } }) =>
+          n.props.accessibilityLabel === 'Beschreibung der Meldung',
+      )!
+      .props.onChangeText('Anstößiges Foto'),
+  );
+  await ui.press('Meldung senden');
+  expect(reportProfile).toHaveBeenCalledWith(
+    target,
+    'photo',
+    'Anstößiges Foto',
+  );
+  expect(executeFriendCommand).not.toHaveBeenCalled();
+  expect(JSON.stringify(ui.view.toJSON())).toContain('Meldung zu Kontakt Anna');
+  await act(async () => ui.view.unmount());
+});
+
+it('keeps the report dialog open with the error when sending fails', async () => {
+  jest
+    .mocked(readFriends)
+    .mockResolvedValue({ ...initial, friends: [{ ...entry, pairVersion: 2 }] });
+  jest
+    .mocked(reportProfile)
+    .mockResolvedValueOnce({ ok: false, message: 'Zu viele Meldungen.' });
+  const ui = await mount();
+  await ui.press('Melden');
+  const reasons = ui.view.root.findAll(
+    (n: { props: { accessibilityRole?: string; onPress?: unknown } }) =>
+      n.props.accessibilityRole === 'radio' &&
+      typeof n.props.onPress === 'function',
+  );
+  await act(async () => reasons[0].props.onPress());
+  await ui.press('Meldung senden');
+  const text = JSON.stringify(ui.view.toJSON());
+  expect(text).toContain('Zu viele Meldungen.');
+  expect(text).toContain('Konto melden');
   await act(async () => ui.view.unmount());
 });

@@ -49,3 +49,16 @@ Migration `20261117203204_account_deletion.sql` stellt das Löschen des eigenen 
 3. `sk_account_delete()` bricht ab, solange noch Fotos existieren, übergibt eigene gemeinsame Tische an ein anderes Mitglied (bevorzugt mit Schreibrecht; es erhält Schreibrecht) bzw. löscht Tische ohne weitere Mitglieder und löscht anschließend `auth.users`. Profil, Freundschaften, Einladungen, Cloud-Spielstand und PayPal.Me-Link folgen per `ON DELETE CASCADE`.
 
 `verify-account-deletion.sql` prüft den Ablauf in PGlite (`npm run test:database`).
+
+## Meldungen von Konten
+
+Migration `20261117214019_profile_reports.sql`: Unter **Profil → Freunde** kann jedes Konto in der Liste, in Anfragen und im Suchergebnis über **Melden** gemeldet werden (Apple-Richtlinie 1.2). Gespeichert werden Grund, optionale Beschreibung und ein Abbild von Anzeigename und Profilbild in `private.sk_profile_reports`. Dieselbe Person kann dasselbe Konto höchstens einmal pro Tag melden, insgesamt höchstens 20 Meldungen pro Tag.
+
+Offene Meldungen im SQL-Editor prüfen:
+
+```sql
+select r.created_at, r.reason, r.details, r.display_name, r.photo_path, r.target_id
+from private.sk_profile_reports r where r.status = 'open' order by r.created_at;
+```
+
+Nach der Prüfung `status` auf `actioned` oder `dismissed` setzen. Ein unpassendes Profil lässt sich zurücksetzen, indem Anzeigename und Bild in `private.sk_profiles` geändert werden; bei schweren Fällen das Konto unter Authentication → Users sperren oder löschen. Apple erwartet eine Bearbeitung innerhalb von 24 Stunden. Für eine Benachrichtigung bei neuen Meldungen eignet sich ein Database Webhook auf die Tabelle.
