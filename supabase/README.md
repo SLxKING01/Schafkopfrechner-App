@@ -39,3 +39,13 @@ Unter **Authentication → URL Configuration → Redirect URLs** müssen für di
 - Web: die jeweilige App-URL mit `?recovery=1`, zum Beispiel `http://localhost:8081/?recovery=1` für die lokale Webvorschau.
 
 Die Vorlage **Reset Password** muss den Supabase-Bestätigungslink `{{ .ConfirmationURL }}` verwenden. Die Mail wird auf demselben Gerät in der installierten App beziehungsweise im selben Browser geöffnet, in dem sie angefordert wurde. Für den nativen Rücksprung ist ein Build mit dem App-Schema erforderlich.
+
+## Konto löschen
+
+Migration `20261117200000_account_deletion.sql` stellt das Löschen des eigenen Kontos in der App bereit (App Store Richtlinie 5.1.1(v), Google Play). Ablauf im Client (`src/services/auth/deleteAccount.ts`):
+
+1. `sk_account_release_photo()` entfernt den Profilfoto-Verweis, damit die Storage-Policy das Löschen der Dateien erlaubt.
+2. Die App löscht alle Dateien unter `<uid>/` im Bucket `profile-photos` über die Storage-API (direktes Löschen in `storage.objects` blockiert Supabase).
+3. `sk_account_delete()` bricht ab, solange noch Fotos existieren, übergibt eigene gemeinsame Tische an ein anderes Mitglied (bevorzugt mit Schreibrecht; es erhält Schreibrecht) bzw. löscht Tische ohne weitere Mitglieder und löscht anschließend `auth.users`. Profil, Freundschaften, Einladungen, Cloud-Spielstand und PayPal.Me-Link folgen per `ON DELETE CASCADE`.
+
+`verify-account-deletion.sql` prüft den Ablauf in PGlite (`npm run test:database`).
