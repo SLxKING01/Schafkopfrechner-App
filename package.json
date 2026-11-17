@@ -17,7 +17,8 @@
     "test": "jest",
     "test:database": "node scripts/verify-shared-database.cjs",
     "test:watch": "jest --watch",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "check:legal": "node scripts/check-legal-site.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
