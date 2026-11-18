@@ -11,20 +11,24 @@ Statische Seiten für Datenschutzerklärung, Impressum und Konto-Löschung. Kein
 
 Gelb markierte `[Platzhalter]` vor der Veröffentlichung ersetzen. `npm run check:legal` schlägt fehl, solange noch welche drin sind.
 
-## Veröffentlichen mit Cloudflare Pages (kostenlos)
+## Veröffentlichen mit Cloudflare Workers (kostenlos)
 
-1. Auf [dash.cloudflare.com](https://dash.cloudflare.com) ein kostenloses Konto anlegen.
-2. **Workers & Pages → Erstellen → Pages → Mit Git verbinden**, GitHub verbinden und das Repo `Schafkopfrechner-App` wählen.
-3. Einstellungen:
-   - Projektname: `schafkopfrechner` (ergibt `https://schafkopfrechner.pages.dev`)
-   - Produktionszweig: `main`
-   - Framework: keines
-   - Build-Befehl: `node scripts/check-legal-site.cjs`
-   - Ausgabeverzeichnis: `legal-site`
-   - Umgebungsvariable: `SKIP_DEPENDENCY_INSTALL` = `true` (spart die Installation der App-Abhängigkeiten)
-4. **Speichern und bereitstellen.** Der Build schlägt absichtlich fehl, solange Platzhalter offen sind; so geht keine unfertige Seite online.
-5. Danach eintragen:
-   - `EXPO_PUBLIC_PRIVACY_URL=https://schafkopfrechner.pages.dev/datenschutz.html`
-   - `EXPO_PUBLIC_IMPRINT_URL=https://schafkopfrechner.pages.dev/impressum.html`
+`wrangler.jsonc` im Repo-Stamm beschreibt einen Worker `schafkopfrechner-app`, der nur den Ordner `legal-site/` ausliefert. `.assetsignore` hält diese README aus der Veröffentlichung heraus, `404.html` ist die Fehlerseite.
 
-Jeder Push auf `main` veröffentlicht Änderungen automatisch. Eine eigene Domain lässt sich später unter **Benutzerdefinierte Domains** ergänzen; dann die URLs oben anpassen.
+Einstellungen im Cloudflare-Dashboard unter **Workers & Pages → schafkopfrechner-app → Einstellungen → Build**:
+
+- Build-Befehl: `node scripts/check-legal-site.cjs`
+- Bereitstellungsbefehl: `npx wrangler deploy`
+- Zweig: `main` (bis zum Merge von #45: `claude/admiring-einstein-pdijow`)
+
+Der Build schlägt absichtlich fehl, solange Platzhalter offen sind.
+
+Die Seiten sind danach unter kurzen Adressen erreichbar; `.html`-Adressen leiten dorthin weiter:
+
+- `EXPO_PUBLIC_PRIVACY_URL=https://schafkopfrechner-app.<konto>.workers.dev/datenschutz`
+- `EXPO_PUBLIC_IMPRINT_URL=https://schafkopfrechner-app.<konto>.workers.dev/impressum`
+- Konto löschen (Google Play): `…/konto-loeschen`
+
+Die genaue `workers.dev`-Adresse zeigt das Dashboard. Eine eigene Domain lässt sich unter **Domains & Routes** ergänzen.
+
+Lokal testen: `npx wrangler dev`, dann http://localhost:8787 öffnen.
