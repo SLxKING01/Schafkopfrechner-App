@@ -1,0 +1,11 @@
+// Cloudflare Worker that only serves the legal pages in legal-site/ (no worker script).
+// Workers Builds: build command `node scripts/check-legal-site.cjs`, deploy command `npx wrangler deploy`.
+{
+  "$schema": "https://unpkg.com/wrangler@4.164.0/config-schema.json",
+  "name": "schafkopfrechner-app",
+  "compatibility_date": "2026-11-17",
+  "assets": {
+    "directory": "./legal-site",
+    "not_found_handling": "404-page"
+  }
+}

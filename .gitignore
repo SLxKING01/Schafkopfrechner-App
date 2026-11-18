@@ -49,3 +49,10 @@ yarn-error.*
 
 # Supabase CLI cache
 supabase/.temp/
+
+# Store screenshot intermediates
+scripts/store-screenshots/.raw/
+scripts/store-screenshots/.debug-*.png
+
+# Wrangler local dev state
+.wrangler/

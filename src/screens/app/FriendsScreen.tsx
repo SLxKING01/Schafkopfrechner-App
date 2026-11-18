@@ -13,6 +13,7 @@ import {
   ScrollView,
   SectionList,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -23,6 +24,12 @@ import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { assertFriendActor, findFriend } from '../../services/friends/friends';
+import {
+  REPORT_DETAILS_MAX,
+  REPORT_REASONS,
+  reportProfile,
+  type ReportReason,
+} from '../../services/moderation/reportProfile';
 import { useAuthStore } from '../../store/authStore';
 import {
   refreshFriends,
@@ -102,6 +109,13 @@ export function FriendsContent({
   const [searchError, setSearchError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [report, setReport] = useState<{
+    entry: FriendEntry;
+    reason: ReportReason | null;
+    details: string;
+    sending: boolean;
+    error: string;
+  } | null>(null);
   const searchSequence = useRef(0);
   const mutationLock = useRef(false);
   const alive = useRef(true);
@@ -239,6 +253,22 @@ export function FriendsContent({
     } as FriendEntry;
     await act(pending.action, entry, pending);
   }
+  async function sendReport() {
+    if (!report?.reason || report.sending) return;
+    setReport({ ...report, sending: true, error: '' });
+    const outcome = await reportProfile(
+      report.entry.profile.id,
+      report.reason,
+      report.details,
+    );
+    if (!alive.current) return;
+    if (outcome.ok) {
+      setReport(null);
+      setNotice(
+        `Danke, deine Meldung zu ${report.entry.profile.displayName} ist eingegangen. Wir prüfen sie zeitnah. Du kannst den Kontakt zusätzlich blockieren.`,
+      );
+    } else setReport({ ...report, sending: false, error: outcome.message });
+  }
   function rowActions(
     entry: FriendEntry,
     relation: FriendRelation | 'blocked',
@@ -280,6 +310,19 @@ export function FriendsContent({
             onPress={() => setConfirmation({ action: 'remove', entry })}
           />
         ) : null}
+        <TextAction
+          title="Melden"
+          disabled={currentActor !== actor}
+          onPress={() =>
+            setReport({
+              entry,
+              reason: null,
+              details: '',
+              sending: false,
+              error: '',
+            })
+          }
+        />
         {relation === 'blocked' ? (
           <TextAction
             title="Entblockieren"
@@ -606,6 +649,77 @@ export function FriendsContent({
           </View>
         ) : null}
       </Modal>
+      <Modal
+        visible={!!report}
+        transparent
+        animationType="none"
+        onRequestClose={() => {
+          if (!report?.sending) setReport(null);
+        }}
+      >
+        {report ? (
+          <View style={s.modal}>
+            <ScrollView
+              style={s.dialog}
+              contentContainerStyle={s.card}
+              keyboardShouldPersistTaps="handled"
+            >
+              <AppText accessibilityRole="header" variant="subtitle">
+                Konto melden
+              </AppText>
+              <ContactIdentity entry={report.entry} />
+              <AppText>
+                Was ist das Problem? Wir prüfen die Meldung und entfernen
+                unangemessene Inhalte. Die gemeldete Person erfährt nicht, wer
+                gemeldet hat.
+              </AppText>
+              <View accessibilityRole="radiogroup" style={s.reasons}>
+                {REPORT_REASONS.map((reason) => (
+                  <Pressable
+                    key={reason.id}
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      selected: report.reason === reason.id,
+                    }}
+                    disabled={report.sending}
+                    onPress={() => setReport({ ...report, reason: reason.id })}
+                    style={[s.tab, report.reason === reason.id && s.selected]}
+                  >
+                    <AppText>{reason.label}</AppText>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                accessibilityLabel="Beschreibung der Meldung"
+                placeholder="Optional: Was ist passiert?"
+                placeholderTextColor={c.textFaint}
+                multiline
+                maxLength={REPORT_DETAILS_MAX}
+                editable={!report.sending}
+                value={report.details}
+                onChangeText={(details) => setReport({ ...report, details })}
+                style={s.reportInput}
+              />
+              {report.error ? (
+                <AppText selectable accessibilityRole="alert" style={s.error}>
+                  {report.error}
+                </AppText>
+              ) : null}
+              <GoldButton
+                title="Meldung senden"
+                loading={report.sending}
+                disabled={!report.reason || report.sending}
+                onPress={() => void sendReport()}
+              />
+              <TextAction
+                title="Abbrechen"
+                disabled={report.sending}
+                onPress={() => setReport(null)}
+              />
+            </ScrollView>
+          </View>
+        ) : null}
+      </Modal>
     </AuthBackground>
   );
 }
@@ -698,6 +812,17 @@ const s = StyleSheet.create({
     fontSize: authTypography.button,
   },
   actions: { gap: sp.xs },
+  reasons: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
+  reportInput: {
+    minHeight: 96,
+    borderColor: c.inputBorder,
+    borderWidth: 1,
+    borderRadius: authRadius.md,
+    padding: sp.md,
+    color: c.textPrimary,
+    fontSize: authTypography.body,
+    textAlignVertical: 'top',
+  },
   action: { padding: sp.sm, minHeight: 48, justifyContent: 'center' },
   found: { gap: sp.md },
   modal: {
