@@ -1,7 +1,6 @@
 import { Handshake } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  Alert,
   Linking,
   Platform,
   Pressable,
@@ -28,6 +27,7 @@ import {
 } from '../../components/statistics/StatisticsPanels';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppText } from '../../components/ui/AppText';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import {
   allowedPaymentActions,
@@ -329,7 +329,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                               void journal
                                 .record(settlement.id, action)
                                 .catch(() =>
-                                  Alert.alert(
+                                  appAlert(
                                     'Zahlungsstatus konnte nicht geändert werden',
                                     'Der aktuelle Stand wird neu geladen. Bitte prüfe ihn und versuche es bei Bedarf erneut.',
                                   ),

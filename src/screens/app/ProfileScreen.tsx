@@ -12,15 +12,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
@@ -30,6 +22,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { legalLinks, openLegalLink } from '../../constants/legal';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackParamList } from '../../navigation/types';
 import { deleteAccount } from '../../services/auth/deleteAccount';
 import { useAuthStore } from '../../store/authStore';
@@ -73,7 +66,7 @@ export function ProfileScreen() {
     const { error } = await signOut();
 
     if (error) {
-      Alert.alert('Logout fehlgeschlagen', error.message);
+      appAlert('Logout fehlgeschlagen', error.message);
     }
   }
 
@@ -116,12 +109,7 @@ export function ProfileScreen() {
       'Gemeinsame Tische, die du erstellt hast, gehen an ein anderes Tischmitglied über; ohne weitere Mitglieder werden sie gelöscht. ' +
       'Dies kann nicht rückgängig gemacht werden.';
 
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${title}\n\n${message}`)) void runDeleteAccount();
-      return;
-    }
-
-    Alert.alert(title, message, [
+    appAlert(title, message, [
       { text: 'Abbrechen', style: 'cancel' },
       {
         text: 'Endgültig löschen',
@@ -139,8 +127,7 @@ export function ProfileScreen() {
 
     if (!result.ok) {
       const text = `Dein Konto wurde nicht gelöscht. ${result.message}`;
-      if (Platform.OS === 'web') window.alert(text);
-      else Alert.alert('Löschen fehlgeschlagen', text);
+      appAlert('Löschen fehlgeschlagen', text);
     }
   }
 

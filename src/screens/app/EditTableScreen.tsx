@@ -1,14 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,6 +12,7 @@ import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { normalizeTableSettings } from '../../constants/tableSettings';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { fingerprint } from '../../services/sync/syncGameState';
 import { reliableStorage } from '../../storage/reliableStorage';
@@ -101,7 +95,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         );
       navigation.goBack();
     } catch (error) {
-      Alert.alert(
+      appAlert(
         'Einstellungen nicht gespeichert',
         error instanceof Error ? error.message : 'Bitte erneut versuchen.',
       );

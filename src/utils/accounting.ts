@@ -1,6 +1,22 @@
 import type { PlayerBalance, StockAction } from '../types/game';
 
 type Participant = { id: string };
+
+/** Balances (plus any held stock) do not sum to zero; carries the gap. */
+export class BalanceMismatchError extends Error {
+  constructor(
+    readonly differenceCents: number,
+    readonly includesStock = false,
+  ) {
+    super(
+      includesStock
+        ? 'Die Salden und der Stock müssen zusammen null Cent ergeben.'
+        : 'Die Salden müssen zusammen null Cent ergeben.',
+    );
+    this.name = 'BalanceMismatchError';
+  }
+}
+
 type RoundInput = {
   participantIds?: string[];
   seatOrderIds?: string[];
@@ -91,6 +107,19 @@ export function customTransferCents(amounts: PlayerBalance[]): number | null {
     positive <= BigInt(Number.MAX_SAFE_INTEGER)
     ? Number(positive)
     : null;
+}
+
+/** Non-zero sum of an otherwise well-formed custom booking, else 0. */
+function customBookingGapCents(round: RoundInput): number {
+  if (!isCustomBooking(round) || !Array.isArray(round.customAmounts)) return 0;
+  let total = 0;
+  for (const entry of round.customAmounts) {
+    const cents = entry ? toSafeCents(entry.amount) : null;
+    if (cents === null) return 0;
+    total += cents;
+    if (!Number.isSafeInteger(total)) return 0;
+  }
+  return total;
 }
 
 export function isPlayedRound(round: {
@@ -303,6 +332,8 @@ export function calculateRoundBalances(
   const ledger = new Map(players.map(({ id }) => [id, 0]));
   let pot = 0;
   for (const round of rounds) {
+    const gap = customBookingGapCents(round);
+    if (gap) throw new BalanceMismatchError(gap);
     if (!isValidRound(round, players))
       throw new Error(
         'Ungültige Teilnehmer oder ungültiger Betrag in einem Spiel.',
@@ -390,15 +421,11 @@ export function calculateRoundBalances(
     amount: fromSafeCents(ledger.get(id)!),
   }));
   // While stock is held, the players' balances plus the pot sum to zero.
-  if (
-    balances.reduce(
-      (sum, balance) => sum + BigInt(toSafeCents(balance.amount)!),
-      BigInt(pot),
-    ) !== 0n
-  )
-    throw new Error(
-      'Die Salden und der Stock müssen zusammen null Cent ergeben.',
-    );
+  const total = balances.reduce(
+    (sum, balance) => sum + BigInt(toSafeCents(balance.amount)!),
+    BigInt(pot),
+  );
+  if (total !== 0n) throw new BalanceMismatchError(Number(total), pot > 0);
   return balances;
 }
 
@@ -420,7 +447,7 @@ function requireBalancedCents(balances: BalanceInput[]) {
     return { playerId, cents };
   });
   if (total !== 0 || credits !== debts)
-    throw new Error('Die Salden müssen zusammen null Cent ergeben.');
+    throw new BalanceMismatchError(credits - debts);
   return result;
 }
 
