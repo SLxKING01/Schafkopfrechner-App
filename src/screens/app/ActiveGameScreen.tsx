@@ -15,7 +15,6 @@ import {
 } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   type LayoutChangeEvent,
   type ListRenderItem,
@@ -61,6 +60,7 @@ import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAccountProfiles } from '../../hooks/useAccountProfiles';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
@@ -149,6 +149,11 @@ function triggerSelectionHaptic() {
 function triggerSaveHaptic() {
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
+
+type FinishDialog =
+  | { kind: 'archive' }
+  | { kind: 'stock'; potCents: number }
+  | { kind: 'message'; title: string; message: string };
 
 function formatAmount(amount: number) {
   return `${amount.toFixed(2).replace('.', ',')} €`;
@@ -246,6 +251,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
+  // Rendered in-app so it also works on react-native-web.
+  const [finishDialog, setFinishDialog] = useState<FinishDialog | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<{
     tableId: string;
     roundId: string;
@@ -530,62 +537,51 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     setRoundComposerVisible(false);
   }, []);
 
-  const finishDay = useCallback(() => {
-    triggerSelectionHaptic();
-    const complete = (resolution?: 'refund' | 'carry') => {
-      const finishedTableId = useGameStore.getState().currentTable?.id;
-      if (!finishGameDay(resolution)) {
-        Alert.alert(
-          'Abschluss nicht möglich',
-          'Bitte prüfe den aktiven Tisch und seine Rundeneinträge. Ungültige Abrechnungsdaten werden nicht abgeschlossen.',
-        );
+  const completeFinish = useCallback(
+    (resolution?: 'refund' | 'carry') => {
+      const store = useGameStore.getState();
+      const finishedTableId = store.currentTable?.id;
+      if (
+        resolution === 'refund' &&
+        !store.players.some((player) => !player.isPaused)
+      ) {
+        setFinishDialog({
+          kind: 'message',
+          title: 'Kein aktiver Spieler',
+          message:
+            'Bitte zuerst einen Spieler wieder aktivieren, damit der Stock verteilt werden kann.',
+        });
         return;
       }
+      if (!finishGameDay(resolution)) {
+        setFinishDialog({
+          kind: 'message',
+          title: 'Abschluss nicht möglich',
+          message:
+            useGameStore.getState().finishError ??
+            'Bitte prüfe den aktiven Tisch und seine Rundeneinträge. Ungültige Abrechnungsdaten werden nicht abgeschlossen.',
+        });
+        return;
+      }
+      setFinishDialog(null);
       if (finishedTableId) {
         navigation.navigate('Settlement', { tableId: finishedTableId });
       }
-    };
+    },
+    [finishGameDay, navigation],
+  );
+
+  const finishDay = useCallback(() => {
+    triggerSelectionHaptic();
     const pot = getStockBalanceCents(useGameStore.getState().rounds);
-    if (pot > 0) {
-      Alert.alert(
-        'Rest-Stock abschließen',
-        `${formatAmount(pot / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`,
-        [
-          { text: 'Abbrechen', style: 'cancel' },
-          {
-            text: 'Stock verteilen',
-            onPress: () => {
-              if (!useGameStore.getState().players.some((p) => !p.isPaused)) {
-                Alert.alert(
-                  'Kein aktiver Spieler',
-                  'Bitte zuerst einen Spieler wieder aktivieren, damit der Stock verteilt werden kann.',
-                );
-                return;
-              }
-              complete('refund');
-            },
-          },
-          { text: 'Stock übernehmen', onPress: () => complete('carry') },
-        ],
-      );
-    } else complete();
-  }, [finishGameDay, navigation]);
+    if (pot > 0) setFinishDialog({ kind: 'stock', potCents: pot });
+    else completeFinish();
+  }, [completeFinish]);
 
   const confirmArchiveTable = useCallback(() => {
     triggerSelectionHaptic();
-    Alert.alert(
-      'Tisch archivieren',
-      'Der Spieltag wird abgeschlossen und die Abrechnung vorbereitet.',
-      [
-        { style: 'cancel', text: 'Abbrechen' },
-        {
-          onPress: finishDay,
-          style: 'destructive',
-          text: 'Archivieren',
-        },
-      ],
-    );
-  }, [finishDay]);
+    setFinishDialog({ kind: 'archive' });
+  }, []);
 
   const openTableSettings = useCallback(() => {
     triggerSelectionHaptic();
@@ -601,7 +597,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       await persistGame();
       navigation.navigate('AppTabs', { screen: 'GameLobby' });
     } catch {
-      Alert.alert(
+      appAlert(
         'Speichern fehlgeschlagen',
         'Dein Spiel bleibt geöffnet. Bitte versuche es erneut.',
       );
@@ -844,7 +840,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 useGameStore.getState().currentTable?.id ||
               !setPlayerOrder(data.map((p) => p.id))
             )
-              Alert.alert(
+              appAlert(
                 'Reihenfolge nicht gespeichert',
                 'Der Tisch oder die Spieler haben sich geändert. Bitte erneut versuchen.',
               );
@@ -1230,7 +1226,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           onSave={(ids) => {
             if (setPlayerOrder(ids)) setSeatOrderVisible(false);
             else
-              Alert.alert(
+              appAlert(
                 'Reihenfolge nicht gespeichert',
                 'Die Spieler haben sich geändert. Bitte öffne die Reihenfolge erneut.',
               );
@@ -1255,6 +1251,88 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           setRoundComposerVisible(false);
         }}
       />
+      <Modal
+        transparent
+        visible={finishDialog !== null}
+        animationType="fade"
+        onRequestClose={() => setFinishDialog(null)}
+      >
+        <View style={styles.menuRoot}>
+          <Pressable
+            accessibilityLabel="Dialog schließen"
+            accessibilityRole="button"
+            style={styles.menuBackdrop}
+            onPress={() => setFinishDialog(null)}
+          />
+          {finishDialog ? (
+            <View
+              style={[styles.menuCard, styles.deleteDialog]}
+              accessibilityViewIsModal
+            >
+              <AppText
+                accessibilityRole="header"
+                style={[styles.menuTitle, styles.deleteTitle]}
+              >
+                {finishDialog.kind === 'archive'
+                  ? 'Tisch archivieren'
+                  : finishDialog.kind === 'stock'
+                    ? 'Rest-Stock abschließen'
+                    : finishDialog.title}
+              </AppText>
+              <AppText
+                accessibilityRole={
+                  finishDialog.kind === 'message' ? 'alert' : undefined
+                }
+                style={styles.menuText}
+              >
+                {finishDialog.kind === 'archive'
+                  ? 'Der Spieltag wird abgeschlossen und die Abrechnung vorbereitet.'
+                  : finishDialog.kind === 'stock'
+                    ? `${formatAmount(finishDialog.potCents / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`
+                    : finishDialog.message}
+              </AppText>
+              {finishDialog.kind === 'archive' ? (
+                <GoldButton
+                  title="Archivieren"
+                  accessibilityLabel="Archivieren bestätigen"
+                  onPress={finishDay}
+                />
+              ) : null}
+              {finishDialog.kind === 'stock' ? (
+                <>
+                  <GoldButton
+                    title="Stock verteilen"
+                    accessibilityLabel="Stock verteilen"
+                    onPress={() => completeFinish('refund')}
+                  />
+                  <GoldButton
+                    title="Stock übernehmen"
+                    accessibilityLabel="Stock übernehmen"
+                    onPress={() => completeFinish('carry')}
+                  />
+                </>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  finishDialog.kind === 'message'
+                    ? 'Hinweis schließen'
+                    : 'Abschluss abbrechen'
+                }
+                onPress={() => setFinishDialog(null)}
+                style={({ pressed }) => [
+                  styles.deleteCancel,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <AppText style={styles.deleteCancelText}>
+                  {finishDialog.kind === 'message' ? 'OK' : 'Abbrechen'}
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
       <Modal
         transparent
         visible={undoConfirmVisible}
