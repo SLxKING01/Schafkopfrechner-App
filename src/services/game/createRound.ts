@@ -8,7 +8,6 @@ export function createGameRound(
   tableId: string,
   payload: CreateRoundPayload,
 ): GameRound {
-  // TODO: sync round creation to Supabase Realtime tables later.
   return {
     ...(payload.participantIds
       ? { participantIds: [...payload.participantIds] }

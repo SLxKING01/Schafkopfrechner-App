@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
 import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
+import { appVersion } from '../constants/appVersion';
+import { legalLinks, openLegalLink } from '../constants/legal';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { authColors, authTypography, theme } from '../theme';
 
@@ -131,8 +133,29 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
         <View style={styles.footer}>
           <View style={styles.footerLine} />
-          <AppText style={styles.footerText}>Datenschutz · Impressum</AppText>
-          <AppText style={styles.versionText}>Version 1.0.0</AppText>
+          {legalLinks.length ? (
+            <View style={styles.legalRow}>
+              {legalLinks.map((link, index) => (
+                <View key={link.key} style={styles.legalRow}>
+                  {index > 0 ? (
+                    <AppText style={styles.footerText}>·</AppText>
+                  ) : null}
+                  <Pressable
+                    accessibilityRole="link"
+                    hitSlop={8}
+                    onPress={() => void openLegalLink(link)}
+                  >
+                    <AppText style={[styles.footerText, styles.legalLink]}>
+                      {link.title}
+                    </AppText>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {appVersion ? (
+            <AppText style={styles.versionText}>Version {appVersion}</AppText>
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
@@ -318,6 +341,14 @@ const styles = StyleSheet.create({
     height: 1,
     marginBottom: theme.spacing.lg,
     width: '42%',
+  },
+  legalRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  legalLink: {
+    textDecorationLine: 'underline',
   },
   footerText: {
     color: colors.softText,

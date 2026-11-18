@@ -1,28 +1,17 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  Bell,
-  Brush,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
   FileText,
-  HelpCircle,
   KeyRound,
-  LayoutGrid,
-  Lock,
   LogOut,
-  MessageSquareText,
   ShieldCheck,
-  Smartphone,
-  Sparkles,
-  TableProperties,
+  Trash2,
   UserRoundCog,
   Users,
-  Volume2,
-  WalletCards,
 } from 'lucide-react-native';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
@@ -30,10 +19,12 @@ import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppIcon, type AppIconComponent } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { legalLinks, openLegalLink } from '../../constants/legal';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
 import { appAlert } from '../../lib/appAlert';
 import type { AppStackParamList } from '../../navigation/types';
+import { deleteAccount } from '../../services/auth/deleteAccount';
 import { useAuthStore } from '../../store/authStore';
 import { refreshOwnProfile } from '../../store/profileStore';
 import { authColors } from '../../theme/colors';
@@ -63,6 +54,7 @@ export function ProfileScreen() {
   const accentColor = PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'];
   const email = user?.email ?? 'Nicht gesetzt';
   const userId = user?.id;
+  const [deleting, setDeleting] = useState(false);
   const openProfileEditor = () => navigation.navigate('EditProfile');
   useFocusEffect(
     useCallback(() => {
@@ -76,13 +68,6 @@ export function ProfileScreen() {
     if (error) {
       appAlert('Logout fehlgeschlagen', error.message);
     }
-  }
-
-  function showPrepared(setting: string) {
-    appAlert(
-      setting,
-      'Diese Einstellung wird später mit deinen Profil-Daten verbunden.',
-    );
   }
 
   const accountRows: SettingRow[] = [
@@ -117,137 +102,54 @@ export function ProfileScreen() {
     },
   ];
 
-  const gameRows: SettingRow[] = [
-    {
-      icon: CircleDollarSign,
-      title: 'Standard Einsatz',
-      subtitle: 'Für neue Runden voreinstellen',
-      onPress: () => showPrepared('Standard Einsatz'),
-    },
-    {
-      icon: Smartphone,
-      title: 'Haptisches Feedback',
-      subtitle: 'Vibration bei wichtigen Aktionen',
-      onPress: () => showPrepared('Haptisches Feedback'),
-    },
-    {
-      icon: Volume2,
-      title: 'Soundeffekte',
-      subtitle: 'Dezente Sounds für Spielaktionen',
-      onPress: () => showPrepared('Soundeffekte'),
-    },
-    {
-      icon: Brush,
-      title: 'Kartenstil',
-      subtitle: 'Traditionell, modern oder kompakt',
-      onPress: () => showPrepared('Kartenstil'),
-    },
-    {
-      icon: TableProperties,
-      title: 'Tisch-Einstellungen',
-      subtitle: 'Regeln und Anzeige pro Tisch',
-      onPress: () => showPrepared('Tisch-Einstellungen'),
-    },
-  ];
+  function confirmDeleteAccount() {
+    const title = 'Konto endgültig löschen?';
+    const message =
+      'Dein Profil, Profilfoto, Freundschaften, Einladungen, PayPal.Me-Link und die Cloud-Sicherung werden dauerhaft gelöscht. ' +
+      'Gemeinsame Tische, die du erstellt hast, gehen an ein anderes Tischmitglied über; ohne weitere Mitglieder werden sie gelöscht. ' +
+      'Dies kann nicht rückgängig gemacht werden.';
 
-  const designRows: SettingRow[] = [
-    {
-      icon: Sparkles,
-      title: 'Theme',
-      subtitle: 'Dunkelgrün Premium',
-      onPress: () => showPrepared('Theme'),
-    },
-    {
-      icon: Brush,
-      title: 'Karten-Design',
-      subtitle: 'Optik für Spielkarten und Symbole',
-      onPress: () => showPrepared('Karten-Design'),
-    },
-    {
-      icon: LayoutGrid,
-      title: 'Tabellen-Layout',
-      subtitle: 'Kompakt oder ausführlich',
-      onPress: () => showPrepared('Tabellen-Layout'),
-    },
-  ];
+    appAlert(title, message, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Endgültig löschen',
+        style: 'destructive',
+        onPress: () => void runDeleteAccount(),
+      },
+    ]);
+  }
 
-  const subscriptionRows: SettingRow[] = [
-    {
-      icon: Sparkles,
-      title: 'Premium verwalten',
-      subtitle: 'Status, Vorteile und Rechnungen',
-      tone: 'gold',
-      onPress: () => showPrepared('Premium verwalten'),
-    },
-    {
-      icon: WalletCards,
-      title: 'Verfügbare Abos',
-      subtitle: 'Monatlich, jährlich oder Verein',
-      tone: 'gold',
-      onPress: () => showPrepared('Verfügbare Abos'),
-    },
-    {
-      icon: CreditCard,
-      title: 'Abo kündigen',
-      subtitle: 'Premium bleibt bis Periodenende aktiv',
-      onPress: () => showPrepared('Abo kündigen'),
-    },
-  ];
+  async function runDeleteAccount() {
+    if (deleting) return;
+    setDeleting(true);
+    const result = await deleteAccount();
+    setDeleting(false);
+
+    if (!result.ok) {
+      const text = `Dein Konto wurde nicht gelöscht. ${result.message}`;
+      appAlert('Löschen fehlgeschlagen', text);
+    }
+  }
 
   const privacyRows: SettingRow[] = [
     {
-      icon: Bell,
-      title: 'Benachrichtigungen',
-      subtitle: 'Einladungen, Ergebnisse und Hinweise',
-      onPress: () => showPrepared('Benachrichtigungen'),
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Datenschutzeinstellungen',
-      subtitle: 'Sichtbarkeit und Datenfreigaben',
-      onPress: () => showPrepared('Datenschutzeinstellungen'),
-    },
-    {
-      icon: Smartphone,
-      title: 'Apps verwalten',
-      subtitle: 'Verbundene Geräte und Integrationen',
-      onPress: () => showPrepared('Apps verwalten'),
-    },
-    {
-      icon: Lock,
-      title: 'Konto schließen',
-      subtitle: 'Dauerhaft deaktivieren',
+      icon: Trash2,
+      title: deleting ? 'Konto wird gelöscht …' : 'Konto löschen',
+      subtitle: 'Profil und Cloud-Daten dauerhaft entfernen',
       tone: 'danger',
-      onPress: () => showPrepared('Konto schließen'),
+      onPress: deleting ? undefined : confirmDeleteAccount,
     },
   ];
 
-  const supportRows: SettingRow[] = [
-    {
-      icon: MessageSquareText,
-      title: 'Feedback senden',
-      subtitle: 'Ideen, Fehler und Wünsche teilen',
-      onPress: () => showPrepared('Feedback senden'),
-    },
-    {
-      icon: HelpCircle,
-      title: 'Hilfe',
-      subtitle: 'Regeln, Fragen und App-Support',
-      onPress: () => showPrepared('Hilfe'),
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Datenschutz',
-      subtitle: 'Wie deine Daten verarbeitet werden',
-      onPress: () => showPrepared('Datenschutz'),
-    },
-    {
-      icon: FileText,
-      title: 'Impressum',
-      subtitle: 'Rechtliche Angaben',
-      onPress: () => showPrepared('Impressum'),
-    },
-  ];
+  const legalRows: SettingRow[] = legalLinks.map((link) => ({
+    icon: link.key === 'privacy' ? ShieldCheck : FileText,
+    title: link.title,
+    subtitle:
+      link.key === 'privacy'
+        ? 'Wie deine Daten verarbeitet werden'
+        : 'Anbieter und Kontakt',
+    onPress: () => void openLegalLink(link),
+  }));
 
   return (
     <AuthBackground>
@@ -289,11 +191,10 @@ export function ProfileScreen() {
           </AppText>
         ) : null}
         <SettingsSection title="Account" rows={accountRows} />
-        <SettingsSection title="Spiel" rows={gameRows} />
-        <SettingsSection title="Design" rows={designRows} />
-        <SettingsSection title="Abo" rows={subscriptionRows} premium />
-        <SettingsSection title="Sicherheit & Datenschutz" rows={privacyRows} />
-        <SettingsSection title="Support" rows={supportRows} />
+        <SettingsSection title="Datenschutz" rows={privacyRows} />
+        {legalRows.length ? (
+          <SettingsSection title="Rechtliches" rows={legalRows} />
+        ) : null}
 
         <Pressable
           accessibilityRole="button"

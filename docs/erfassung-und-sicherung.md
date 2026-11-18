@@ -14,7 +14,7 @@ Schließen fragt bei einer geänderten Eingabe nach „Weiter bearbeiten“, „
 
 ## Spieleingabe vom iPhone-Sperrbildschirm
 
-Öffne die installierte App einmal. Halte danach den entsperrten Sperrbildschirm gedrückt, tippe auf **Anpassen → Sperrbildschirm** und wähle den Widget-Bereich unter der Uhr. Füge dort unter **Schafkopfrechner-App** das Widget **Spiel eintragen** hinzu und bestätige mit **Fertig**.
+Öffne die installierte App einmal. Halte danach den entsperrten Sperrbildschirm gedrückt, tippe auf **Anpassen → Sperrbildschirm** und wähle den Widget-Bereich unter der Uhr. Füge dort unter **Schafkopfrechner** das Widget **Spiel eintragen** hinzu und bestätige mit **Fertig**.
 
 Ein Tipp öffnet nach dem Entsperren die Spieleingabe, sofern ein geeigneter laufender Tisch gefunden wird. Bei mehreren verfügbaren Tischen wählst du einen aus. Das Widget zeigt keine Tisch- oder Kontodaten. Es ist in nativen iOS-Builds mit Widget-Erweiterung verfügbar.
 

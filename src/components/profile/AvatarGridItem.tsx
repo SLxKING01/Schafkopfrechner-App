@@ -43,7 +43,10 @@ export function AvatarGridItem({
         }}
         onPressOut={() => {
           scale.set(
-            withSpring(isSelected ? 1.04 : 1, { damping: 15, stiffness: 230 }),
+            withSpring(isSelected ? 1.04 : 1, {
+              damping: 15,
+              stiffness: 230,
+            }),
           );
         }}
         style={({ pressed }) => [

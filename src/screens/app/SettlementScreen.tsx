@@ -456,7 +456,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                 }
                 participation={
                   round.participantIds
-                    ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` � Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
+                    ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` · Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
                     : undefined
                 }
                 stockMovement={
