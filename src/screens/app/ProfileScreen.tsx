@@ -7,9 +7,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ChevronRight,
   CreditCard,
+  FileText,
+  Info,
   KeyRound,
-  Lock,
   LogOut,
+  Trash2,
   UserRoundCog,
   Users,
 } from 'lucide-react-native';
@@ -34,6 +36,7 @@ import type {
 } from '../../navigation/types';
 import { deleteAccount } from '../../services/auth/deleteAccount';
 import { useAuthStore } from '../../store/authStore';
+import { useFriendsStore } from '../../store/friendsStore';
 import { refreshOwnProfile } from '../../store/profileStore';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
@@ -81,7 +84,7 @@ export function ProfileScreen() {
     const { error } = await signOut();
 
     if (error) {
-      appAlert('Logout fehlgeschlagen', error.message);
+      appAlert('Abmelden fehlgeschlagen', error.message);
     }
   }
 
@@ -104,11 +107,18 @@ export function ProfileScreen() {
     }
   }
 
+  const newRequests = useFriendsStore((state) =>
+    userId && state.ownerId === userId
+      ? (state.state?.incoming.length ?? 0)
+      : 0,
+  );
   const accountRows: SettingRow[] = [
     {
       icon: Users,
       title: 'Freunde',
-      subtitle: 'Freundescodes, Anfragen und blockierte Kontakte',
+      subtitle: newRequests
+        ? `${newRequests} ${newRequests === 1 ? 'neue Anfrage' : 'neue Anfragen'}`
+        : 'Freundescodes, Anfragen und blockierte Kontakte',
       onPress: () => navigation.navigate('Friends'),
     },
     {
@@ -138,7 +148,7 @@ export function ProfileScreen() {
 
   const privacyRows: SettingRow[] = [
     {
-      icon: Lock,
+      icon: Trash2,
       title: 'Konto löschen',
       subtitle: 'Konto und persönliche Cloud-Daten dauerhaft löschen',
       tone: 'danger',
@@ -146,6 +156,19 @@ export function ProfileScreen() {
         setDeletionError('');
         setShowDeletion(true);
       },
+    },
+  ];
+
+  const legalRows: SettingRow[] = [
+    {
+      icon: FileText,
+      title: 'Datenschutzerklärung',
+      onPress: () => navigation.navigate('Legal', { page: 'privacy' }),
+    },
+    {
+      icon: Info,
+      title: 'Impressum',
+      onPress: () => navigation.navigate('Legal', { page: 'imprint' }),
     },
   ];
 
@@ -219,7 +242,11 @@ export function ProfileScreen() {
               title="Sicherheit & Datenschutz"
               rows={privacyRows}
             />
-
+          </>
+        ) : null}
+        <SettingsSection title="Rechtliches" rows={legalRows} />
+        {userId ? (
+          <>
             <Pressable
               accessibilityRole="button"
               onPress={handleLogout}
@@ -229,7 +256,7 @@ export function ProfileScreen() {
               ]}
             >
               <LogOut color="#D65A5A" size={18} strokeWidth={2.2} />
-              <AppText style={styles.logoutText}>Logout</AppText>
+              <AppText style={styles.logoutText}>Abmelden</AppText>
             </Pressable>
           </>
         ) : null}
@@ -332,9 +359,7 @@ function SettingsRow({
           {title}
         </Text>
         {subtitle ? (
-          <Text numberOfLines={1} style={styles.settingSubtitle}>
-            {subtitle}
-          </Text>
+          <Text style={styles.settingSubtitle}>{subtitle}</Text>
         ) : null}
       </View>
       <ChevronRight

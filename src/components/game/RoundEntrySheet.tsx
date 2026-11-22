@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   TextInput,
   useWindowDimensions,
   View,
@@ -71,6 +70,7 @@ import {
 import { selectSauspielResult } from '../../utils/sauspielSelection';
 import { tableAccess } from '../../utils/tableAccess';
 import { GoldButton } from '../auth/GoldButton';
+import { AppSwitch } from '../ui/AppSwitch';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
@@ -1763,7 +1763,7 @@ export function RoundEntrySheet({
                                       Durchmarsch
                                     </AppText>
                                     <View style={styles.switchColumn}>
-                                      <Switch
+                                      <AppSwitch
                                         thumbColor={authColors.textPrimary}
                                         trackColor={{
                                           true: authColors.gold,
@@ -1810,7 +1810,7 @@ export function RoundEntrySheet({
                                     {formatOverviewMoney(stockBefore)}
                                   </AppText>
                                   <View style={styles.switchColumn}>
-                                    <Switch
+                                    <AppSwitch
                                       thumbColor={authColors.textPrimary}
                                       trackColor={{
                                         true: authColors.gold,
@@ -1921,7 +1921,7 @@ export function RoundEntrySheet({
                                           : 'Schwarz'}
                                       </AppText>
                                       <View style={styles.switchColumn}>
-                                        <Switch
+                                        <AppSwitch
                                           thumbColor={authColors.textPrimary}
                                           trackColor={{
                                             true: authColors.gold,
@@ -1971,7 +1971,7 @@ export function RoundEntrySheet({
                                         Kontra
                                       </AppText>
                                       <View style={styles.switchColumn}>
-                                        <Switch
+                                        <AppSwitch
                                           thumbColor={authColors.textPrimary}
                                           trackColor={{
                                             true: authColors.gold,

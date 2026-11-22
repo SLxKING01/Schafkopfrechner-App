@@ -29,6 +29,7 @@ import { QuickRoundScreen } from '../screens/app/QuickRoundScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
 import { TableInvitationsScreen } from '../screens/app/TableInvitationsScreen';
 import { TableStatisticsScreen } from '../screens/app/TableStatisticsScreen';
+import { LegalScreen } from '../screens/LegalScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
@@ -108,6 +109,11 @@ function AuthStackNavigator() {
         options={{ headerShown: false }}
       />
       <AuthStack.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={{ headerShown: false }}
+      />
+      <AuthStack.Screen
         name="MainTabs"
         component={AppStackNavigator}
         options={{ headerShown: false }}
@@ -115,7 +121,7 @@ function AuthStackNavigator() {
       <AuthStack.Screen
         name="MatchDayDetails"
         component={MatchDayDetailsScreen}
-        options={{ title: 'Spieltag' }}
+        options={{ title: 'Spieltag', headerShown: false }}
       />
     </AuthStack.Navigator>
   );
@@ -140,11 +146,16 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="PayPalMe"
         component={PayPalMeScreen}
-        options={{ title: 'PayPal.Me-Link' }}
+        options={{ headerShown: false }}
       />
       <AppStack.Screen
         name="RequestPassword"
         component={RequestPasswordScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="Legal"
+        component={LegalScreen}
         options={{ headerShown: false }}
       />
       <AppStack.Screen
@@ -155,7 +166,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="PersonalSettlements"
         component={PersonalSettlementsScreen}
-        options={{ title: 'Persönliche Abrechnungen' }}
+        options={{ headerShown: false }}
       />
       <AppStack.Screen
         name="TableInvitations"
@@ -175,7 +186,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="QuickRound"
         component={QuickRoundScreen}
-        options={{ title: 'Spiel eintragen' }}
+        options={{ title: 'Spiel eintragen', headerShown: false }}
       />
       <AppStack.Screen
         name="EditTable"
@@ -185,7 +196,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="MatchDayDetails"
         component={MatchDayDetailsScreen}
-        options={{ title: 'Spieltag' }}
+        options={{ title: 'Spieltag', headerShown: false }}
       />
       <AppStack.Screen
         name="Settlement"
@@ -276,6 +287,18 @@ export function RootNavigator() {
       navigation.navigate('AuthStack', { screen: 'Login' });
   }
 
+  function requestNewRecoveryLink() {
+    clearRecoverySession();
+    setRecovery(null);
+    if (!navigation.isReady()) return;
+    if (isAuthenticated)
+      navigation.navigate('AppStack', {
+        screen: 'RequestPassword',
+        params: { fromAccount: true },
+      });
+    else navigation.navigate('AuthStack', { screen: 'RequestPassword' });
+  }
+
   useEffect(() => {
     if (Platform.OS !== 'ios' || usesExpoGoIOSStack) return;
     let mounted = true;
@@ -304,10 +327,11 @@ export function RootNavigator() {
     };
   }, []);
 
+  const guestMode = useGuestModeStore((state) => state.enabled);
   useEffect(() => {
     if (
       loading ||
-      !isAuthenticated ||
+      (!isAuthenticated && !guestMode) ||
       !quickRoundPending ||
       !navigationReady ||
       !navigation.isReady()
@@ -321,10 +345,17 @@ export function RootNavigator() {
         ...CommonActions.setParams({ quickRound: true }),
         source: route.key,
       });
-    } else {
+    } else if (isAuthenticated) {
       navigation.navigate('AppStack', { screen: 'QuickRound', initial: false });
+    } else {
+      // Guests use the app inside the AuthStack ("MainTabs").
+      navigation.navigate('AuthStack', {
+        screen: 'MainTabs',
+        params: { screen: 'QuickRound', initial: false },
+      });
     }
   }, [
+    guestMode,
     isAuthenticated,
     loading,
     navigation,
@@ -377,6 +408,7 @@ export function RootNavigator() {
           <ResetPasswordScreen
             code={recovery.code}
             onClose={closeRecovery}
+            onRequestNewLink={requestNewRecoveryLink}
             closeLabel={isAuthenticated ? 'Zurück zur App' : 'Zur Anmeldung'}
           />
         </Modal>

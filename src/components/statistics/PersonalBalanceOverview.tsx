@@ -41,9 +41,11 @@ function balanceDays(entries: StatisticsEntry[]) {
 export function PersonalBalanceOverview({
   entries,
   summary,
+  title = 'Spielbilanz',
 }: {
   entries: StatisticsEntry[];
   summary: StatisticsSummary;
+  title?: string;
 }) {
   const { days, undated } = useMemo(() => balanceDays(entries), [entries]);
   const [selectedDay, setSelectedDay] = useState<number>();
@@ -86,7 +88,7 @@ export function PersonalBalanceOverview({
     <View style={s.container}>
       <View style={s.headline}>
         <AppText accessibilityRole="header" style={s.heading}>
-          Spielbilanz
+          {title}
         </AppText>
         <AppText
           selectable

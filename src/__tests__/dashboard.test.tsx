@@ -155,12 +155,12 @@ it('offers only personal and table scopes, then shows player statistics inside t
   expect(button('C, Statistiktisch')).toBeUndefined();
   expect(button('Statistik für C')).toBeUndefined();
   await act(async () => button('Statistiktisch, 2 Spiele').props.onPress());
-  await act(async () => button('Statistik für C').props.onPress());
-  expect(
-    button('Spielbilanz im Verlauf').props.accessibilityValue.text,
-  ).toContain('+0,20 €');
-  await act(async () => action('Alle am Tisch').props.onPress());
-  expect(JSON.stringify(view.toJSON())).toContain('Sauspiel-Partnerschaften');
+  // The table view shows the whole table only; no per-player switch.
+  expect(button('Statistik für C')).toBeUndefined();
+  expect(JSON.stringify(view.toJSON())).not.toContain(
+    'Tischstatistik separat öffnen',
+  );
+  expect(JSON.stringify(view.toJSON())).toContain('Rufspiel-Partnerschaften');
   await act(async () => button('Partnerschaft A und B öffnen').props.onPress());
   expect(JSON.stringify(view.toJSON())).toContain(
     'Gemeinsame Spiele nach Farbe',
@@ -207,11 +207,16 @@ async function mountDashboard() {
   };
   return { view: view!, button, press };
 }
-it('keeps an empty dashboard focused on personal statistics and the table tab', async () => {
+it('keeps an empty guest dashboard focused on sign-in, a new table and the table tab', async () => {
   const ui = await mountDashboard();
-  expect(ui.button('Gesamtbilanz: 0,00 €')).toBeTruthy();
-  expect(ui.button('Spiele gesamt: 0')).toBeTruthy();
+  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
+  expect(ui.button('Spiele gesamt: –')).toBeTruthy();
   expect(ui.button('Gewinnquote: –')).toBeTruthy();
+  await ui.press('Anmelden');
+  expect(mockNavigate).toHaveBeenCalledWith('Login');
+  await ui.press('Neuer Tisch');
+  expect(mockNavigate).toHaveBeenCalledWith('CreateTable');
+  expect(JSON.stringify(ui.view.toJSON())).not.toContain('Letzte Tische');
   expect(JSON.stringify(ui.view.toJSON())).not.toContain('Schnellzugriff');
   expect(JSON.stringify(ui.view.toJSON())).not.toContain('Letzte Spiele');
   expect(
@@ -290,9 +295,13 @@ it('counts unpaid tables rather than transfer rows and offers each table when se
   });
   await act(async () => ui.view.unmount());
 });
-it('opens the table overview and profile without offering a blocked new table action', async () => {
+it('offers to continue the running table instead of a blocked new table action', async () => {
   table();
   const ui = await mountDashboard();
+  expect(JSON.stringify(ui.view.toJSON())).toContain('Läuft gerade');
+  expect(ui.button('Neuer Tisch')).toBeUndefined();
+  await ui.press('Weiterspielen an Echter Tisch');
+  expect(mockNavigate).toHaveBeenCalledWith('ActiveGame');
   await ui.press('Alle Tische ansehen');
   expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
   await ui.press('Alle Tische ansehen');
@@ -406,7 +415,7 @@ it.each([
     await act(async () => ui.view.unmount());
   },
 );
-it('shows no table cards on the dashboard even when local and shared tables exist', async () => {
+it('shows only the running local table, not shared tables, on the dashboard', async () => {
   useGameStore.getState().createTable(
     'Nur im Tischreiter',
     ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
@@ -429,9 +438,66 @@ it('shows no table cards on the dashboard even when local and shared tables exis
   });
   const ui = await mountDashboard();
   const rendered = JSON.stringify(ui.view.toJSON());
-  expect(rendered).not.toContain('Nur im Tischreiter');
+  expect(rendered).toContain('Nur im Tischreiter');
   expect(rendered).not.toContain('Gemeinsamer Tisch');
   expect(rendered).not.toContain('Tisch erstellen');
   expect(ui.button('Alle Tische ansehen')).toBeTruthy();
   await act(async () => ui.view.unmount());
+});
+
+it('lists recently finished tables with their payment state', async () => {
+  for (const name of ['Erster Tisch', 'Zweiter Tisch']) {
+    useGameStore.getState().createTable(
+      name,
+      ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
+    );
+    seedLegacyRound({
+      gameType: 'solo',
+      winnerId: 'a',
+      loserIds: ['b', 'c', 'd'],
+      amount: 1.5,
+    });
+    await useGameStore.getState().finishGameDay();
+  }
+  const ui = await mountDashboard();
+  const rendered = JSON.stringify(ui.view.toJSON());
+  expect(rendered).toContain('Letzte Tische');
+  expect(rendered).toContain('3 Zahlungen offen');
+  await ui.press('Zweiter Tisch öffnen');
+  expect(mockNavigate).toHaveBeenCalledWith('Settlement', {
+    tableId: useGameStore
+      .getState()
+      .archivedGameDays.find((day) => day.table.name === 'Zweiter Tisch')!.table
+      .id,
+  });
+  await act(async () => ui.view.unmount());
+});
+
+it('shows a guest their own games at tables they created', async () => {
+  useGameStore.getState().createTable(
+    'Gasttisch',
+    ['a', 'b', 'c', 'd'].map((id) => ({
+      id,
+      name: id === 'a' ? 'Gast' : id.toUpperCase(),
+      isLocal: true,
+      ...(id === 'a' ? { guestSelf: true } : {}),
+    })),
+  );
+  seedLegacyRound({
+    gameType: 'rufspiel',
+    winnerId: 'a',
+    winnerIds: ['a', 'b'],
+    loserIds: ['c', 'd'],
+    declarerId: 'a',
+    partnerId: 'b',
+    amount: 0.4,
+  });
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<StatisticsScreen />);
+  });
+  const rendered = JSON.stringify(view!.toJSON());
+  expect(rendered).toContain('Bilanz als Gast');
+  expect(rendered).toContain('+0,20 €');
+  await act(async () => view!.unmount());
 });

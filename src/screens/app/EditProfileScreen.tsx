@@ -20,7 +20,10 @@ import { AuthInput } from '../../components/auth/AuthInput';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
+import { AppButton } from '../../components/ui/AppButton';
 import { AppText } from '../../components/ui/AppText';
+import { Notice } from '../../components/ui/Notice';
+import { PageHeader } from '../../components/ui/PageHeader';
 import {
   ANIMAL_AVATAR_IDS,
   ANIMAL_AVATAR_LABELS,
@@ -326,61 +329,58 @@ export function ProfileEditor({
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.content}
         >
-          <View style={s.heading}>
-            <AppText accessibilityRole="header" variant="subtitle">
-              Profil bearbeiten
-            </AppText>
-            <Pressable
-              accessibilityRole="button"
-              onPress={requestClose}
-              disabled={busy || picking || loading}
-              style={s.action}
-            >
-              <AppText>Abbrechen</AppText>
-            </Pressable>
-          </View>
+          <PageHeader
+            title="Profil bearbeiten"
+            onBack={requestClose}
+            action={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Abbrechen"
+                onPress={requestClose}
+                disabled={busy || picking || loading}
+                style={s.cancel}
+              >
+                <AppText style={s.cancelText}>Abbrechen</AppText>
+              </Pressable>
+            }
+          />
           <View style={s.preview}>
             <ProfileAvatar
               profile={draft.fields}
               previewUri={draft.photoUri}
-              size={96}
+              size={84}
             />
             <AppText style={s.hint}>
-              Vorschau · Erst „Speichern“ übernimmt Änderungen.
+              Vorschau · wird erst mit „Speichern“ übernommen
             </AppText>
           </View>
-          <GoldButton
-            title={picking ? 'Foto wird vorbereitet …' : 'Foto auswählen'}
-            disabled={disabled}
-            onPress={choosePhoto}
-          />
-          <View style={s.actions}>
-            <Pressable
-              accessibilityRole="button"
+          <View style={s.choiceRow}>
+            <AppButton
+              title={picking ? 'Lädt …' : 'Foto wählen'}
+              variant="secondary"
+              disabled={disabled}
+              onPress={choosePhoto}
+              style={s.choice}
+            />
+            <AppButton
+              title="Tieravatar"
+              variant="secondary"
               disabled={disabled}
               onPress={() => setShowAnimals(!showAnimals)}
-              style={s.action}
-            >
-              <AppText>Tieravatar wählen</AppText>
-            </Pressable>
-            {draft.fields.avatarKind === 'photo' || draft.photoUri ? (
-              <Pressable
-                accessibilityRole="button"
-                disabled={disabled}
-                onPress={() =>
-                  patch(
-                    {
-                      avatarKind: draft.fields.animalId ? 'animal' : 'none',
-                      photoPath: null,
-                    },
-                    null,
-                  )
-                }
-                style={s.action}
-              >
-                <AppText>Foto entfernen</AppText>
-              </Pressable>
-            ) : null}
+              style={s.choice}
+            />
+            <AppButton
+              title="Kein Bild"
+              variant="secondary"
+              disabled={disabled}
+              onPress={() =>
+                patch(
+                  { avatarKind: 'none', animalId: null, photoPath: null },
+                  null,
+                )
+              }
+              style={s.choice}
+            />
           </View>
           {showAnimals ? (
             <View style={s.animals}>
@@ -409,26 +409,13 @@ export function ProfileEditor({
                   />
                 </Pressable>
               ))}
-              <Pressable
-                accessibilityRole="button"
-                disabled={disabled}
-                onPress={() =>
-                  patch(
-                    { avatarKind: 'none', animalId: null, photoPath: null },
-                    null,
-                  )
-                }
-                style={s.action}
-              >
-                <AppText>Kein Bild</AppText>
-              </Pressable>
             </View>
           ) : null}
           {initialProfile.avatarKind === 'none' && !initialProfile.photoPath ? (
-            <Pressable
-              accessibilityRole="button"
+            <AppButton
+              title="Look von diesem Gerät übernehmen"
+              variant="secondary"
               disabled={disabled}
-              style={s.action}
               onPress={() =>
                 patch(
                   {
@@ -440,11 +427,9 @@ export function ProfileEditor({
                   null,
                 )
               }
-            >
-              <AppText>Look von diesem Gerät übernehmen</AppText>
-            </Pressable>
+            />
           ) : null}
-          <AppText>Anzeigename *</AppText>
+          <AppText style={s.label}>Anzeigename *</AppText>
           <AuthInput
             icon={User}
             accessibilityLabel="Anzeigename"
@@ -464,7 +449,7 @@ export function ProfileEditor({
           ) : null}
           {email ? (
             <View>
-              <AppText>E-Mail-Adresse</AppText>
+              <AppText style={s.label}>E-Mail-Adresse</AppText>
               <AppText selectable style={s.hint}>
                 {email}
               </AppText>
@@ -476,7 +461,9 @@ export function ProfileEditor({
           <AppText style={s.hint}>
             Freiwillig und nur für dich sichtbar.
           </AppText>
-          <AppText>Vorname</AppText>
+          <AppText style={s.label}>
+            Vorname <AppText style={s.private}>· privat</AppText>
+          </AppText>
           <AuthInput
             icon={User}
             accessibilityLabel="Vorname"
@@ -489,7 +476,9 @@ export function ProfileEditor({
           {errors.firstName ? (
             <AppText style={s.error}>{errors.firstName}</AppText>
           ) : null}
-          <AppText>Nachname</AppText>
+          <AppText style={s.label}>
+            Nachname <AppText style={s.private}>· privat</AppText>
+          </AppText>
           <AuthInput
             icon={User}
             accessibilityLabel="Nachname"
@@ -502,7 +491,9 @@ export function ProfileEditor({
           {errors.lastName ? (
             <AppText style={s.error}>{errors.lastName}</AppText>
           ) : null}
-          <AppText>Geburtsdatum</AppText>
+          <AppText style={s.label}>
+            Geburtsdatum <AppText style={s.private}>· privat</AppText>
+          </AppText>
           <AuthInput
             icon={CalendarDays}
             accessibilityLabel="Geburtsdatum"
@@ -529,18 +520,20 @@ export function ProfileEditor({
             }}
             hasError={!!errors.birthDate}
           />
-          <AppText style={s.hint}>
-            Optional. Acht Ziffern eingeben, zum Beispiel 05031990. Die Punkte
-            werden automatisch ergänzt. Das Datum bleibt privat.
-          </AppText>
+          <AppText style={s.hint}>Optional, z. B. 05031990.</AppText>
           {errors.birthDate ? (
             <AppText selectable style={s.error}>
               {errors.birthDate}
             </AppText>
           ) : null}
-          <AppText accessibilityRole="header" variant="subtitle">
-            Akzentfarbe
-          </AppText>
+          <View style={s.accentHeading}>
+            <AppText accessibilityRole="header" style={s.label}>
+              Akzentfarbe
+            </AppText>
+            <AppText style={s.hint}>
+              {PROFILE_ACCENT_LABELS[draft.fields.accentId]}
+            </AppText>
+          </View>
           <View style={s.actions}>
             {(
               Object.keys(PROFILE_ACCENTS) as (keyof typeof PROFILE_ACCENTS)[]
@@ -563,17 +556,14 @@ export function ProfileEditor({
               />
             ))}
           </View>
-          {error ? (
-            <AppText selectable accessibilityRole="alert" style={s.error}>
-              {error}
-            </AppText>
-          ) : null}
+          {error ? <Notice>{error}</Notice> : null}
           {conflict ? (
             <View style={s.card}>
               <AppText>
                 Das Profil wurde auf einem anderen Gerät geändert.
               </AppText>
-              <GoldButton
+              <AppButton
+                variant="secondary"
                 title={
                   showConflict
                     ? 'Serverstand ausblenden'
@@ -594,12 +584,14 @@ export function ProfileEditor({
                   </AppText>
                 </>
               ) : null}
-              <GoldButton
+              <AppButton
+                variant="secondary"
                 title="Serverstand übernehmen"
                 disabled={busy}
                 onPress={() => rebase(false)}
               />
-              <GoldButton
+              <AppButton
+                variant="secondary"
                 title="Eigene Änderungen auf diesen Stand anwenden"
                 disabled={busy}
                 onPress={() => rebase(true)}
@@ -607,7 +599,8 @@ export function ProfileEditor({
             </View>
           ) : null}
           {draftLoadFailed ? (
-            <GoldButton
+            <AppButton
+              variant="secondary"
               title="Entwurf erneut laden"
               onPress={() => {
                 setLoading(true);
@@ -617,6 +610,8 @@ export function ProfileEditor({
               }}
             />
           ) : null}
+        </ScrollView>
+        <View style={s.bottomBar}>
           <GoldButton
             title={
               draft.uncertain ? 'Speicherstand prüfen' : 'Profil speichern'
@@ -633,7 +628,7 @@ export function ProfileEditor({
             loading={busy}
             onPress={save}
           />
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
       <Modal
         visible={closeChoice}
@@ -653,24 +648,22 @@ export function ProfileEditor({
                 ? 'Die Serverantwort ist unklar. Behalte den Entwurf und prüfe den Speicherstand erneut.'
                 : 'Deine Änderungen sind noch nicht gespeichert.'}
             </AppText>
-            {error ? (
-              <AppText selectable accessibilityRole="alert" style={s.error}>
-                {error}
-              </AppText>
-            ) : null}
+            {error ? <Notice>{error}</Notice> : null}
             <GoldButton
               title="Weiter bearbeiten"
               disabled={busy}
               onPress={() => setCloseChoice(false)}
             />
-            <GoldButton
+            <AppButton
               title="Entwurf behalten"
+              variant="secondary"
               disabled={busy}
               onPress={() => leave(true)}
             />
             {!draft.uncertain ? (
-              <GoldButton
+              <AppButton
                 title="Änderungen verwerfen"
+                variant="danger"
                 disabled={busy}
                 onPress={() => leave(false)}
               />
@@ -691,12 +684,24 @@ const s = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  heading: {
+  cancel: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  cancelText: { color: c.goldHighlight, fontSize: 15, fontWeight: '700' },
+  choiceRow: { flexDirection: 'row', gap: sp.sm },
+  choice: { flex: 1, paddingHorizontal: sp.sm },
+  label: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
+  private: { color: c.textSecondary, fontSize: 15, fontWeight: '400' },
+  accentHeading: {
+    alignItems: 'baseline',
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
     gap: sp.sm,
+    marginTop: sp.sm,
+  },
+  bottomBar: {
+    backgroundColor: c.background,
+    borderTopColor: c.borderSoft,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: sp.lgPlus,
+    paddingVertical: sp.md,
   },
   preview: { alignItems: 'center', gap: sp.md, paddingVertical: sp.md },
   hint: { color: c.textSecondary, fontSize: 13, lineHeight: 20 },

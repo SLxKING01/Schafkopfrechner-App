@@ -21,31 +21,17 @@ jest.mock('react-native', () => {
 });
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
+  useFocusEffect: (effect: () => void | (() => void)) =>
+    jest.requireActual('react').useEffect(effect, [effect]),
 }));
 jest.mock('../lib/supabase', () => ({
   isSupabaseConfigured: false,
   supabase: {},
 }));
-jest.mock('lucide-react-native', () => {
-  const View = jest.requireActual('react-native').View;
-  return {
-    Bell: View,
-    Handshake: View,
-    ChevronRight: View,
-    Copy: View,
-    GripVertical: View,
-    Heart: View,
-    Leaf: View,
-    LogOut: View,
-    Nut: View,
-    Pencil: View,
-    Pin: View,
-    Plus: View,
-    Settings: View,
-    Spade: View,
-    ArrowRight: View,
-  };
-});
+jest.mock(
+  'lucide-react-native',
+  () => new Proxy({}, { get: () => jest.requireActual('react-native').View }),
+);
 jest.mock('expo-blur', () => ({
   BlurView: jest.requireActual('react-native').View,
 }));
@@ -231,12 +217,15 @@ it.each(['web', 'ios'] as const)(
         typeof node.props.onLeave === 'function',
     )[0];
     await act(async () => card.props.onLeave(table));
-    const dialog = view.root.findAll(
-      (node: { props: { visible?: boolean; onConfirm?: unknown } }) =>
-        node.props.visible === true &&
-        typeof node.props.onConfirm === 'function',
-    )[0];
-    await act(async () => dialog.props.onConfirm());
+    // A running table cannot be left: the user gets an explanation instead
+    // of a confirmation that would do nothing.
+    expect(
+      view.root.findAll(
+        (node: { props: { visible?: boolean; onConfirm?: unknown } }) =>
+          node.props.visible === true &&
+          typeof node.props.onConfirm === 'function',
+      ),
+    ).toHaveLength(0);
     expect(
       view.root
         .findByType(FlatList)

@@ -23,7 +23,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -57,6 +56,7 @@ import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { appAlert } from '../../components/ui/AppDialog';
+import { AppSwitch } from '../../components/ui/AppSwitch';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAccountProfiles } from '../../hooks/useAccountProfiles';
@@ -593,7 +593,15 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           { text: 'Stock übernehmen', onPress: () => completeDay('carry') },
         ],
       );
-    } else completeDay();
+    } else
+      appAlert(
+        'Spieltag abschließen?',
+        'Danach können an diesem Tisch keine Spiele mehr eingetragen werden. Die Abrechnung wird erstellt.',
+        [
+          { text: 'Abbrechen', style: 'cancel' },
+          { text: 'Abschließen', onPress: () => completeDay() },
+        ],
+      );
   }, [completeDay]);
 
   const confirmArchiveTable = useCallback(() => {
@@ -977,7 +985,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                     Spielwert ×2, zusätzlich zu den Legern
                   </AppText>
                 </View>
-                <Switch
+                <AppSwitch
                   accessibilityLabel="Turbo Ramsch"
                   disabled={!canWrite}
                   accessibilityHint="Verdoppelt den Spielwert zusätzlich zu den Legern"

@@ -7,6 +7,7 @@ import { GoldButton } from '../components/auth/GoldButton';
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
 import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { SyncStatus } from '../components/game/SyncStatus';
+import { pressAppDialogButton } from '../components/ui/AppDialog';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
@@ -953,7 +954,7 @@ it.each([false, true])(
         />,
       );
     });
-    for (const label of ['Runde erstellen schließen', 'Abbrechen']) {
+    for (const label of ['Neuer Tisch schließen', 'Abbrechen']) {
       const button = view.root
         .findAllByProps({ accessibilityLabel: label })
         .find(
@@ -972,6 +973,40 @@ it.each([false, true])(
     await act(async () => view.unmount());
   },
 );
+
+it('starts a new table from a finished table as template', async () => {
+  await act(async () => useGameStore.getState().finishGameDay());
+  const template = useGameStore.getState().archivedGameDays[0].table;
+  const replace = jest.fn();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <CreateTableScreen
+        navigation={{ navigate, replace, canGoBack: () => true } as never}
+        route={{ params: { templateTableId: template.id } } as never}
+      />,
+    );
+  });
+  const rendered = JSON.stringify(view!.toJSON());
+  for (const name of ['Berkay', 'Flo', 'Simon', 'Andi'])
+    expect(rendered).toContain(name);
+  expect(rendered).toContain('Vorlage');
+  const start = view!.root
+    .findAllByProps({ accessibilityLabel: 'Tisch starten' })
+    .find(
+      (node: { props: { onPress?: unknown } }) =>
+        typeof node.props.onPress === 'function',
+    )!;
+  await act(async () => start.props.onPress());
+  expect(replace).toHaveBeenCalledWith('ActiveGame');
+  const state = useGameStore.getState();
+  expect(state.currentTable?.id).not.toBe(template.id);
+  expect(state.players.map((player) => player.name)).toEqual(
+    expect.arrayContaining(['Berkay', 'Flo', 'Simon', 'Andi']),
+  );
+  expect(state.currentTable?.settings).toEqual(template.settings);
+  await act(async () => view!.unmount());
+});
 
 it.each([false, true])(
   'applies Turbo Ramsch to saved amounts, with Leger=%s',
@@ -1053,6 +1088,8 @@ it('opens the exact newly closed table rather than a previously viewed archive',
         typeof node.props.onPress === 'function',
     )!;
   await act(async () => button.props.onPress());
+  expect(navigate).not.toHaveBeenCalledWith('Settlement', { tableId });
+  await act(async () => pressAppDialogButton('Abschließen'));
   expect(navigate).toHaveBeenCalledWith('Settlement', { tableId });
   expect(
     useGameStore

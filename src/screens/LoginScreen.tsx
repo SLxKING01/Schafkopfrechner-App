@@ -1,6 +1,6 @@
 import { Lock, Mail } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -11,10 +11,12 @@ import Animated, {
 import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
+import { AppSwitch } from '../components/ui/AppSwitch';
 import { AppText } from '../components/ui/AppText';
 import { isSupabaseConfigured } from '../lib/supabase';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { login } from '../services/auth/login';
+import { rememberSessionChoice } from '../services/auth/sessionPersistence';
 import { useAuthStore } from '../store/authStore';
 import { authColors } from '../theme/colors';
 import { authSpacing } from '../theme/spacing';
@@ -111,6 +113,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
       return;
     }
 
+    await rememberSessionChoice(rememberMe).catch(() => undefined);
     setSession(result.session);
   }
 
@@ -174,12 +177,13 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
 
         <View style={styles.options}>
           <View style={styles.rememberRow}>
-            <Switch
+            <AppSwitch
               accessibilityLabel="Angemeldet bleiben"
               disabled={isSubmitting}
               ios_backgroundColor="rgba(245, 245, 245, 0.16)"
               onValueChange={setRememberMe}
               thumbColor={rememberMe ? authColors.goldHighlight : '#D1D5DB'}
+              accessibilityHint="Ausgeschaltet endet die Anmeldung, wenn du die App oder den Browser schließt."
               trackColor={{
                 false: 'rgba(245, 245, 245, 0.16)',
                 true: 'rgba(212, 175, 55, 0.42)',

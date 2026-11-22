@@ -29,6 +29,10 @@ it('offers all eligible tables and excludes hidden, read-only and completed tabl
   expect(
     quickRoundTables(state, [remote], 'user', []).map(({ id }) => id),
   ).toEqual([table.id, remote.id]);
+  // Guests only see their local table, never shared ones.
+  expect(
+    quickRoundTables(state, [remote], undefined, []).map(({ id }) => id),
+  ).toEqual([table.id]);
   expect(
     quickRoundTables(state, [{ ...remote, role: 'read' }], 'user', [table.id]),
   ).toEqual([]);
@@ -37,9 +41,10 @@ it('offers all eligible tables and excludes hidden, read-only and completed tabl
   ).toEqual([]);
 });
 
-it('requires a signed-in writer and four actual participants at open time', () => {
+it('requires write access and four actual participants at open time', () => {
   expect(canOpenQuickRound(table, players, true, 'user')).toBe(true);
-  expect(canOpenQuickRound(table, players, true, undefined)).toBe(false);
+  // Guests may use their own local table.
+  expect(canOpenQuickRound(table, players, true, undefined)).toBe(true);
   expect(canOpenQuickRound(table, players.slice(1), true, 'user')).toBe(false);
   expect(canOpenQuickRound(table, players, false, 'user')).toBe(false);
   const readOnly = {
@@ -55,4 +60,12 @@ it('requires a signed-in writer and four actual participants at open time', () =
     },
   };
   expect(canOpenQuickRound(readOnly, players, true, 'user')).toBe(false);
+  expect(
+    canOpenQuickRound(
+      { ...readOnly, shared: { ...readOnly.shared, role: 'write' } },
+      players,
+      true,
+      undefined,
+    ),
+  ).toBe(false);
 });

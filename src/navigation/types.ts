@@ -1,24 +1,28 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import type { LegalPage } from '../constants/legal';
+
 export type AuthStackParamList = {
   Onboarding: undefined;
   Login: undefined;
   RequestPassword: { email?: string } | undefined;
   Register: undefined;
-  MainTabs: undefined;
+  Legal: { page: LegalPage };
+  MainTabs: NavigatorScreenParams<AppStackParamList> | undefined;
   MatchDayDetails: { matchDayId: string };
 };
 
 export type AppStackParamList = {
   PersonalSettlements: undefined;
+  Legal: { page: LegalPage };
   TableInvitations: { tableId?: string } | undefined;
   Friends: undefined;
   EditProfile: undefined;
   PayPalMe: undefined;
   RequestPassword: { email?: string; fromAccount: true };
   AppTabs: NavigatorScreenParams<AppTabParamList> | undefined;
-  CreateTable: undefined;
+  CreateTable: { templateTableId?: string } | undefined;
   EditTable: undefined;
   MatchDayDetails: { matchDayId: string };
   ActiveGame: { roundId?: string; quickRound?: true | string } | undefined;

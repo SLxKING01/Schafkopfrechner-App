@@ -1,11 +1,21 @@
 import { useIsFocused } from '@react-navigation/native';
 import * as Crypto from 'expo-crypto';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react-native';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { AppState, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
+import { AppButton } from '../../components/ui/AppButton';
 import { AppText } from '../../components/ui/AppText';
+import { Notice } from '../../components/ui/Notice';
+import { PageHeader } from '../../components/ui/PageHeader';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { readFriends } from '../../services/friends/friends';
 import {
@@ -41,8 +51,10 @@ export function TableInvitationsScreen({
     return (
       <AuthBackground>
         <View style={s.content}>
-          <AppText>Bitte zuerst anmelden.</AppText>
-          <Action title="Zurück" onPress={() => navigation.goBack()} />
+          <PageHeader title="Einladungen" onBack={() => navigation.goBack()} />
+          <Notice tone="info">
+            Einladungen gibt es nur mit einem Account.
+          </Notice>
         </View>
       </AuthBackground>
     );
@@ -87,6 +99,8 @@ export function InvitationsContent({
   const [friendId, setFriendId] = useState('');
   const [role, setRole] = useState<'read' | 'write'>('read');
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [tab, setTab] = useState<'received' | 'sent'>('received');
   const gate = useRef(false);
   const alive = useRef(true);
   const validActor = useCallback(
@@ -154,8 +168,15 @@ export function InvitationsContent({
             ? 'Einladung angenommen. Der gemeinsame Tisch steht jetzt unter „Tische“.'
             : command.action === 'cancel'
               ? 'Einladung zurückgezogen.'
-              : 'Änderung bestätigt.',
+              : command.action === 'send'
+                ? 'Einladung verschickt.'
+                : 'Erledigt.',
         );
+        if (command.action === 'send') {
+          setStep(1);
+          setPlayerId('');
+          setFriendId('');
+        }
       }
       // Membership is confirmed before discovery; opening remains an explicit action.
       if (useAuthStore.getState().user?.id === actor)
@@ -229,7 +250,11 @@ export function InvitationsContent({
   if (currentActor !== actor)
     return (
       <AuthBackground>
-        <AppText>Das Konto hat sich geändert.</AppText>
+        <View style={s.content}>
+          <Notice tone="info">
+            Das Konto hat sich geändert. Bitte die Seite erneut öffnen.
+          </Notice>
+        </View>
       </AuthBackground>
     );
   const disabled = loading || busy || !!pending || storageError || !state;
@@ -269,7 +294,7 @@ export function InvitationsContent({
       if (validActor()) {
         setRevoking(null);
         setNotice(
-          'Tischzugriff entzogen. Die persönliche Abrechnung bleibt zugänglich.',
+          'Tischzugriff entzogen. Die Abrechnung bleibt unter „Frühere Abrechnungen“ zugänglich.',
         );
       }
     } catch {
@@ -280,44 +305,56 @@ export function InvitationsContent({
     }
   }
 
+  const received = entries.filter((i) => i.recipient.id === actor);
+  const sent = entries.filter((i) => i.recipient.id !== actor);
+  const shown = tableId ? entries : tab === 'received' ? received : sent;
+  const roleLabel = (r: 'read' | 'write') =>
+    r === 'write' ? 'Spiele eintragen' : 'Nur ansehen';
+
   return (
     <AuthBackground>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={s.content}
-        data={entries}
+        data={shown}
         keyExtractor={(i) => i.id}
+        refreshing={loading && !!state}
+        onRefresh={() => {
+          setLoading(true);
+          void load();
+        }}
         ListHeaderComponent={
           <View style={s.stack}>
-            <View style={s.row}>
-              <AppText variant="subtitle" accessibilityRole="header">
-                Tischeinladungen
-              </AppText>
-              <Action title="Zurück" onPress={onBack} />
-            </View>
-            <AppText>
-              Erst nach ausdrücklicher Annahme wird ein Konto mit dem
-              ausgewählten Spielerplatz verbunden.
-            </AppText>
-            <Action
-              title={loading ? 'Wird geladen …' : 'Einladungen aktualisieren'}
-              disabled={loading || busy}
-              onPress={() => {
-                setLoading(true);
-                void load();
-              }}
+            <PageHeader
+              title="Einladungen"
+              subtitle={tableId && table ? table.name : undefined}
+              onBack={onBack}
             />
-            {!!error && <AppText accessibilityRole="alert">{error}</AppText>}
-            {!!notice && <AppText accessibilityRole="alert">{notice}</AppText>}
+            <AppText style={s.hint}>
+              Erst wenn eine Einladung angenommen wird, wird das Konto mit dem
+              Spielerplatz verbunden.
+            </AppText>
+            {!!error && <Notice>{error}</Notice>}
+            {!!error && (
+              <AppButton
+                title="Erneut laden"
+                variant="secondary"
+                disabled={loading || busy}
+                onPress={() => {
+                  setLoading(true);
+                  void load();
+                }}
+              />
+            )}
+            {!!notice && <Notice tone="success">{notice}</Notice>}
             {pending && (
               <View style={s.card}>
                 <AppText>
-                  Ein Auftrag ist noch nicht abschließend bestätigt. Prüfe
-                  denselben Auftrag erneut; weitere Änderungen bleiben bis dahin
-                  gesperrt.
+                  Eine Änderung ist noch nicht abschließend bestätigt. Prüfe sie
+                  erneut; weitere Änderungen sind bis dahin gesperrt.
                 </AppText>
-                <Action
-                  title="Auftrag prüfen"
+                <AppButton
+                  title="Erneut prüfen"
                   disabled={busy || loading || storageError}
                   onPress={() => void run(pending)}
                 />
@@ -325,178 +362,307 @@ export function InvitationsContent({
             )}
             {members?.some((member) => member.userId !== actor) ? (
               <View style={s.card}>
-                <AppText variant="subtitle">Tischzugriffe</AppText>
+                <AppText style={s.cardTitle}>Wer hat Zugriff?</AppText>
                 {members
                   .filter((member) => member.userId !== actor)
-                  .map((member) => (
-                    <View key={member.userId} style={s.stack}>
-                      <Action
-                        title={`Zugriff entziehen: ${players.find((p) => p.userId === member.userId)?.name ?? 'Teilnehmer'}`}
-                        disabled={busy}
-                        onPress={() => setRevoking(member.userId)}
-                      />
-                      {revoking === member.userId ? (
-                        <>
-                          <AppText>
-                            Spielerplatz und Abrechnung bleiben erhalten. Der
-                            Zugriff auf den Tisch endet.
-                          </AppText>
-                          <Action
-                            title="Entzug bestätigen"
-                            disabled={busy}
-                            onPress={() => void revoke(member.userId)}
-                          />
-                          <Action
-                            title="Abbrechen"
-                            disabled={busy}
-                            onPress={() => setRevoking(null)}
-                          />
-                        </>
-                      ) : null}
-                    </View>
-                  ))}
+                  .map((member) => {
+                    const name =
+                      players.find((p) => p.userId === member.userId)?.name ??
+                      'Teilnehmer';
+                    return (
+                      <View key={member.userId} style={s.stack}>
+                        <View style={s.memberRow}>
+                          <View style={s.flex}>
+                            <AppText style={s.strong}>{name}</AppText>
+                            <AppText style={s.hint}>
+                              {roleLabel(member.role)}
+                            </AppText>
+                          </View>
+                          {revoking !== member.userId ? (
+                            <AppButton
+                              title="Entziehen"
+                              accessibilityLabel={`Zugriff entziehen: ${name}`}
+                              variant="danger"
+                              disabled={busy}
+                              onPress={() => setRevoking(member.userId)}
+                            />
+                          ) : null}
+                        </View>
+                        {revoking === member.userId ? (
+                          <>
+                            <AppText style={s.hint}>
+                              Spielerplatz und Abrechnung bleiben erhalten. Nur
+                              der Zugriff auf den Tisch endet.
+                            </AppText>
+                            <View style={s.buttonRow}>
+                              <AppButton
+                                title="Zugriff entziehen"
+                                variant="danger"
+                                disabled={busy}
+                                onPress={() => void revoke(member.userId)}
+                                style={s.flex}
+                              />
+                              <AppButton
+                                title="Abbrechen"
+                                variant="secondary"
+                                disabled={busy}
+                                onPress={() => setRevoking(null)}
+                                style={s.flex}
+                              />
+                            </View>
+                          </>
+                        ) : null}
+                      </View>
+                    );
+                  })}
               </View>
             ) : null}
             {canInvite ? (
-              <View style={s.card}>
-                <AppText variant="subtitle">
-                  Freund zu „{table.name}“ einladen
+              <View style={[s.card, s.inviteCard]}>
+                <AppText style={s.cardTitle}>Freund einladen</AppText>
+                <AppText style={s.hint}>
+                  Schritt {step} von 3 ·{' '}
+                  {step === 1
+                    ? 'Spielerplatz'
+                    : step === 2
+                      ? 'Freund'
+                      : 'Berechtigung'}
                 </AppText>
-                <AppText>
-                  1. Spielerplatz auswählen. Name, bisherige Spiele und Saldo
-                  dieses Platzes bleiben erhalten.
-                </AppText>
-                {eligibleSeats.map((p) => (
-                  <Action
-                    key={p.id}
-                    title={`Platz: ${p.name}`}
-                    selected={playerId === p.id}
-                    disabled={disabled}
-                    onPress={() => {
-                      setPlayerId(p.id);
-                      setFriendId('');
-                    }}
-                  />
-                ))}
-                {!eligibleSeats.length && (
-                  <AppText>Alle Spielerplätze sind bereits verknüpft.</AppText>
-                )}
-                <AppText>2. Freund auswählen.</AppText>
-                {eligibleFriends.map((f) => (
-                  <View key={f.id} style={s.row}>
-                    <ProfileAvatar profile={f} size={32} />
-                    <View style={s.flex}>
-                      <Action
+                {step === 1 ? (
+                  <>
+                    <AppText style={s.hint}>
+                      Name, bisherige Spiele und Saldo des Platzes bleiben
+                      erhalten.
+                    </AppText>
+                    {eligibleSeats.map((p) => (
+                      <Choice
+                        key={p.id}
+                        label={`Platz: ${p.name}`}
+                        title={p.name}
+                        selected={playerId === p.id}
+                        disabled={disabled}
+                        onPress={() => {
+                          setPlayerId(p.id);
+                          setFriendId('');
+                        }}
+                      />
+                    ))}
+                    {!eligibleSeats.length && (
+                      <AppText style={s.hint}>
+                        Alle Spielerplätze sind bereits mit einem Konto
+                        verbunden.
+                      </AppText>
+                    )}
+                    <AppButton
+                      title="Weiter"
+                      disabled={disabled || !selectedSeat}
+                      onPress={() => setStep(2)}
+                    />
+                  </>
+                ) : null}
+                {step === 2 ? (
+                  <>
+                    {eligibleFriends.map((f) => (
+                      <Choice
+                        key={f.id}
+                        label={f.displayName}
                         title={f.displayName}
+                        avatar={<ProfileAvatar profile={f} size={32} />}
                         selected={friendId === f.id}
                         disabled={disabled}
                         onPress={() => setFriendId(f.id)}
                       />
+                    ))}
+                    {!friends.length && !loading && (
+                      <AppText style={s.hint}>
+                        Noch keine Freunde. Füge zuerst unter Profil → Freunde
+                        einen Kontakt hinzu.
+                      </AppText>
+                    )}
+                    <View style={s.buttonRow}>
+                      <AppButton
+                        title="Zurück"
+                        variant="secondary"
+                        onPress={() => setStep(1)}
+                        style={s.flex}
+                      />
+                      <AppButton
+                        title="Weiter"
+                        disabled={
+                          disabled ||
+                          !eligibleFriends.some((f) => f.id === friendId)
+                        }
+                        onPress={() => setStep(3)}
+                        style={s.flex}
+                      />
                     </View>
-                  </View>
-                ))}
-                {!friends.length && !loading && (
-                  <AppText>
-                    Noch keine Freunde geladen. Füge zuerst unter Profil →
-                    Freunde einen Kontakt hinzu oder aktualisiere die Liste.
-                  </AppText>
-                )}
-                <AppText>3. Berechtigung auswählen.</AppText>
-                <View style={s.row}>
-                  {(['read', 'write'] as const).map((r) => (
-                    <Action
-                      key={r}
-                      title={r === 'write' ? 'Schreiben' : 'Lesen'}
-                      selected={r === role}
-                      disabled={disabled}
-                      onPress={() => setRole(r)}
-                    />
-                  ))}
-                </View>
-                <AppText>
-                  {role === 'write'
-                    ? 'Spiele erfassen, korrigieren, löschen und wiederherstellen. Verwaltung bleibt beim Ersteller.'
-                    : 'Tisch, Spiele und Salden ansehen; keine Änderungen.'}
-                </AppText>
-                <Action
-                  title="Einladung senden"
-                  disabled={
-                    disabled ||
-                    !selectedSeat ||
-                    !eligibleFriends.some((f) => f.id === friendId)
-                  }
-                  onPress={() => void send()}
-                />
+                  </>
+                ) : null}
+                {step === 3 ? (
+                  <>
+                    <View style={s.segment}>
+                      {(['read', 'write'] as const).map((r) => (
+                        <Pressable
+                          key={r}
+                          accessibilityRole="button"
+                          accessibilityLabel={
+                            r === 'write' ? 'Schreiben' : 'Lesen'
+                          }
+                          accessibilityState={{
+                            selected: r === role,
+                            disabled,
+                          }}
+                          disabled={disabled}
+                          onPress={() => setRole(r)}
+                          style={[s.segmentItem, r === role && s.segmentOn]}
+                        >
+                          <AppText
+                            style={[
+                              s.segmentText,
+                              r === role && s.segmentTextOn,
+                            ]}
+                          >
+                            {roleLabel(r)}
+                          </AppText>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <AppText style={s.hint}>
+                      {role === 'write'
+                        ? 'Darf Spiele eintragen, korrigieren und löschen. Die Verwaltung des Tisches bleibt bei dir.'
+                        : 'Sieht Tisch, Spiele und Salden, kann aber nichts ändern.'}
+                    </AppText>
+                    <View style={s.buttonRow}>
+                      <AppButton
+                        title="Zurück"
+                        variant="secondary"
+                        onPress={() => setStep(2)}
+                        style={s.flex}
+                      />
+                      <AppButton
+                        title="Einladung senden"
+                        disabled={
+                          disabled ||
+                          !selectedSeat ||
+                          !eligibleFriends.some((f) => f.id === friendId)
+                        }
+                        onPress={() => void send()}
+                        style={s.flex}
+                      />
+                    </View>
+                  </>
+                ) : null}
               </View>
             ) : null}
-            <AppText variant="subtitle">
-              {tableId
-                ? 'Offene Einladungen für diesen Tisch'
-                : 'Deine offenen Einladungen'}
-            </AppText>
+            {tableId ? (
+              <AppText style={s.cardTitle}>
+                Offene Einladungen für diesen Tisch
+              </AppText>
+            ) : (
+              <View style={s.segment}>
+                {(['received', 'sent'] as const).map((t) => (
+                  <Pressable
+                    key={t}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: tab === t }}
+                    onPress={() => setTab(t)}
+                    style={[s.segmentItem, tab === t && s.segmentOn]}
+                  >
+                    <AppText
+                      style={[s.segmentText, tab === t && s.segmentTextOn]}
+                    >
+                      {t === 'received'
+                        ? `Erhalten ${received.length}`
+                        : `Verschickt ${sent.length}`}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
         }
         ListEmptyComponent={
-          <AppText>
+          <AppText style={s.hint}>
             {!state
               ? loading
                 ? 'Einladungen werden geladen …'
-                : 'Noch kein bestätigter Stand. Bitte erneut laden.'
+                : 'Die Einladungen konnten noch nicht geladen werden.'
               : 'Keine offenen Einladungen.'}
           </AppText>
         }
-        renderItem={({ item: i }) => (
-          <View style={s.card}>
-            <AppText variant="subtitle">{i.tableName}</AppText>
-            <AppText>
-              Von {i.sender.displayName} an {i.recipient.displayName}
-            </AppText>
-            <AppText>
-              Spielerplatz: {i.playerName} ·{' '}
-              {i.role === 'write' ? 'Schreiben' : 'Lesen'}
-            </AppText>
-            <AppText>
-              Gültig bis {new Date(i.expiresAt).toLocaleDateString('de-DE')}
-            </AppText>
-            {!i.available && (
+        renderItem={({ item: i }) => {
+          const incoming = i.recipient.id === actor;
+          return (
+            <View style={[s.card, incoming && i.available && s.inviteCard]}>
+              <View style={s.memberRow}>
+                <ProfileAvatar
+                  profile={incoming ? i.sender : i.recipient}
+                  size={40}
+                />
+                <View style={s.flex}>
+                  <AppText style={s.strong}>
+                    {incoming
+                      ? `${i.sender.displayName} lädt dich ein`
+                      : `An ${i.recipient.displayName}`}
+                  </AppText>
+                  <AppText style={s.hint}>{i.tableName}</AppText>
+                </View>
+              </View>
               <AppText>
-                Diese Einladung ist nicht mehr verfügbar. Du kannst sie
-                schließen.
+                {incoming ? 'Dein Platz' : 'Platz'}:{' '}
+                <AppText style={s.strong}>{i.playerName}</AppText> · Rolle:{' '}
+                <AppText style={s.strong}>{roleLabel(i.role)}</AppText>
               </AppText>
-            )}
-            {i.recipient.id === actor ? (
-              <>
-                <Action
-                  title="Einladung annehmen"
-                  disabled={disabled || !i.available}
-                  onPress={() => void run({ action: 'accept', id: i.id })}
-                />
-                <Action
-                  title="Einladung ablehnen"
+              <AppText style={s.hint}>
+                {i.available
+                  ? `Gültig bis ${new Date(i.expiresAt).toLocaleDateString('de-DE')}`
+                  : 'Nicht mehr verfügbar. Du kannst sie schließen.'}
+              </AppText>
+              {incoming ? (
+                <View style={s.buttonRow}>
+                  <AppButton
+                    title="Annehmen"
+                    accessibilityLabel="Einladung annehmen"
+                    disabled={disabled || !i.available}
+                    onPress={() => void run({ action: 'accept', id: i.id })}
+                    style={s.flex}
+                  />
+                  <AppButton
+                    title={i.available ? 'Ablehnen' : 'Schließen'}
+                    accessibilityLabel="Einladung ablehnen"
+                    variant="danger"
+                    disabled={disabled}
+                    onPress={() => void run({ action: 'decline', id: i.id })}
+                    style={s.flex}
+                  />
+                </View>
+              ) : (
+                <AppButton
+                  title="Zurückziehen"
+                  accessibilityLabel="Einladung zurückziehen"
+                  variant="secondary"
                   disabled={disabled}
-                  onPress={() => void run({ action: 'decline', id: i.id })}
+                  onPress={() => void run({ action: 'cancel', id: i.id })}
                 />
-              </>
-            ) : (
-              <Action
-                title="Einladung zurückziehen"
-                disabled={disabled}
-                onPress={() => void run({ action: 'cancel', id: i.id })}
-              />
-            )}
-          </View>
-        )}
+              )}
+            </View>
+          );
+        }}
       />
     </AuthBackground>
   );
 }
-function Action({
+function Choice({
+  label,
   title,
+  avatar,
   onPress,
   disabled = false,
   selected = false,
 }: {
+  label: string;
   title: string;
+  avatar?: ReactNode;
   onPress: () => void;
   disabled?: boolean;
   selected?: boolean;
@@ -504,40 +670,71 @@ function Action({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={label}
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
-      style={[s.action, selected && s.selected, disabled && s.disabled]}
+      style={[s.choice, selected && s.choiceOn, disabled && s.disabled]}
     >
-      <AppText style={s.link}>{title}</AppText>
+      {avatar}
+      <AppText style={s.strong}>{title}</AppText>
+      {selected ? (
+        <Check color={authColors.goldHighlight} size={18} style={s.check} />
+      ) : null}
     </Pressable>
   );
 }
 const s = StyleSheet.create({
-  content: { padding: 20, gap: 16, paddingBottom: 40 },
+  content: { paddingHorizontal: 20, gap: 12, paddingBottom: 40 },
   stack: { gap: 12 },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
+  hint: { color: authColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  strong: { color: authColors.textPrimary, fontWeight: '700' },
+  cardTitle: { color: authColors.textPrimary, fontSize: 17, fontWeight: '700' },
   card: {
     padding: 16,
     gap: 10,
     borderWidth: 1,
     borderColor: authColors.borderSoft,
-    borderRadius: 16,
+    borderRadius: 22,
+    backgroundColor: authColors.surfaceElevated,
   },
-  action: {
-    minHeight: 44,
-    paddingHorizontal: 10,
+  inviteCard: { borderColor: authColors.borderGold },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  buttonRow: { flexDirection: 'row', gap: 8 },
+  segment: {
+    flexDirection: 'row',
+    padding: 4,
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: authColors.borderSoft,
+    backgroundColor: authColors.surfaceElevated,
+  },
+  segmentItem: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 999,
   },
-  selected: { borderWidth: 1, borderColor: authColors.gold },
+  segmentOn: { backgroundColor: authColors.gold },
+  segmentText: { color: authColors.textSecondary, fontWeight: '700' },
+  segmentTextOn: { color: authColors.onGold },
+  choice: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: authColors.borderSoft,
+  },
+  choiceOn: {
+    borderColor: authColors.gold,
+    backgroundColor: authColors.selectedSurface,
+  },
+  check: { marginLeft: 'auto' },
   disabled: { opacity: 0.45 },
-  link: { color: authColors.gold },
   flex: { flex: 1 },
 });

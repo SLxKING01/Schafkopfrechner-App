@@ -30,6 +30,7 @@ import { AppButton } from '../../components/ui/AppButton';
 import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
 import { InteractionSheet } from '../../components/ui/InteractionSheet';
+import { PageHeader } from '../../components/ui/PageHeader';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { planClosedTableCorrection } from '../../services/game/closedTableCorrection';
 import {
@@ -223,6 +224,15 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
     navigation.navigate('CreateTable');
   }
 
+  function openLobby() {
+    navigation.navigate('AppTabs', { screen: 'GameLobby' });
+  }
+
+  function goBack() {
+    if (navigation.canGoBack()) navigation.goBack();
+    else openLobby();
+  }
+
   if (!table) {
     return (
       <AuthBackground>
@@ -264,10 +274,16 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <AppText style={styles.kicker}>
-          {table.isActive ? 'Zwischenabrechnung' : 'Abrechnung'}
-        </AppText>
-        <AppText style={styles.title}>{table.name}</AppText>
+        <PageHeader
+          onBack={goBack}
+          kicker={table.isActive ? 'Zwischenabrechnung' : 'Abrechnung'}
+          title={table.name}
+          subtitle={`${
+            archived?.completedAt
+              ? `${new Date(archived.completedAt).toLocaleDateString('de-DE')} · `
+              : ''
+          }${players.length} Spieler`}
+        />
         {selected ? (
           <StatPanel>
             <StatHeading>
@@ -297,12 +313,6 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
             </StatNote>
           </StatPanel>
         ) : null}
-        <AppText style={styles.subtitle}>
-          {archived?.completedAt
-            ? `${new Date(archived.completedAt).toLocaleDateString('de-DE')} · `
-            : ''}
-          {players.length} Spieler
-        </AppText>
         {!table.isActive ? (
           <SettlementShare
             table={table}
@@ -545,6 +555,14 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                 players={players}
                 rounds={rounds}
                 round={round}
+                onCorrect={
+                  canCorrect &&
+                  !round.misdealPlayerId &&
+                  (!round.stockAction ||
+                    ['deposit', 'payout', 'double'].includes(round.stockAction))
+                    ? () => setCorrectionRound(round)
+                    : undefined
+                }
               >
                 <MatchHistoryCard
                   misdealPlayer={
@@ -561,8 +579,8 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                       : undefined
                   }
                   participation={
-                    round.participantIds
-                      ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` · Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
+                    round.roundContext
+                      ? `Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}`
                       : undefined
                   }
                   stockMovement={
@@ -625,14 +643,6 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                   })}
                 />
               </RoundHistoryActions>
-              {canCorrect &&
-              !round.misdealPlayerId &&
-              (!round.stockAction ||
-                ['deposit', 'payout', 'double'].includes(round.stockAction)) ? (
-                <StatAction onPress={() => setCorrectionRound(round)}>
-                  Spiel im Abschluss korrigieren
-                </StatAction>
-              ) : null}
             </View>
           ))}
         </View>
@@ -738,20 +748,27 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
             </ScrollView>
           </InteractionSheet>
         ) : null}
-        <GoldButton
-          title="Zur Tischübersicht"
-          onPress={() =>
-            navigation.navigate('AppTabs', { screen: 'GameLobby' })
-          }
-        />
-        {activeGame ? (
-          <GoldButton
-            title="Aktuellen Tisch öffnen"
-            onPress={() => navigation.navigate('ActiveGame')}
-          />
-        ) : (
-          <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
-        )}
+        <View style={styles.actions}>
+          {activeGame ? (
+            <GoldButton
+              title="Aktuellen Tisch öffnen"
+              onPress={() => navigation.navigate('ActiveGame')}
+            />
+          ) : (
+            <GoldButton title="Neuen Tisch starten" onPress={startNewTable} />
+          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Zur Tischübersicht"
+            onPress={openLobby}
+            style={({ pressed }) => [
+              styles.textButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <AppText style={styles.textButtonLabel}>Zur Tischübersicht</AppText>
+          </Pressable>
+        </View>
       </ScrollView>
       {historyVisible ? (
         <RoundHistoryModal
@@ -818,4 +835,16 @@ const styles = StyleSheet.create({
   stack: {
     gap: authSpacing.md,
   },
+  actions: { gap: authSpacing.sm },
+  textButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  textButtonLabel: {
+    color: authColors.goldHighlight,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
+  pressed: { opacity: 0.8 },
 });

@@ -180,7 +180,7 @@ it('retains drafts on the common close path used by back gestures', async () => 
 });
 it('keeps photo-picker cancellation harmless', async () => {
   const ui = await mount();
-  await ui.press('Foto auswählen');
+  await ui.press('Foto wählen');
   expect(selectProfilePhoto).toHaveBeenCalledWith(initial.id);
   expect(saveOwnProfile).not.toHaveBeenCalled();
   expect(useProfileStore.getState().profile?.avatarKind).toBe('none');

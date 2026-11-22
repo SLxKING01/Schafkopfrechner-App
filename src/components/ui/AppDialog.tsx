@@ -21,6 +21,15 @@ type Dialog = {
 };
 
 const useDialogStore = create<{ queue: Dialog[] }>(() => ({ queue: [] }));
+
+/** Presses a button of the oldest open web dialog (used by tests). */
+export function pressAppDialogButton(text: string) {
+  const dialog = useDialogStore.getState().queue[0];
+  const button = dialog?.buttons.find((b) => b.text === text);
+  if (!dialog || !button)
+    throw new Error(`Kein offener Dialog mit der Schaltfläche „${text}“.`);
+  close(dialog, button);
+}
 let nextId = 1;
 
 /**

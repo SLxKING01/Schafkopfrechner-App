@@ -37,8 +37,7 @@ type Period = (typeof periods)[number]['id'];
 export function StatisticsScreen() {
   const userId = useAuthStore((s) => s.user?.id);
   const overview = useGameOverview();
-  const { openTables, openStatisticsRound, openTableStatistics } =
-    useOverviewNavigation();
+  const { openTables, openStatisticsRound } = useOverviewNavigation();
   const [tableId, setTableId] = useState<string>();
   const [period, setPeriod] = useState<Period>('month');
   const [picker, setPicker] = useState<'scope' | 'period'>();
@@ -107,32 +106,23 @@ export function StatisticsScreen() {
 
   return (
     <AuthBackground withEdgeBorder={false}>
-      {table ? (
-        <View style={styles.fixedFilters}>
-          {header}
-          {filters}
-        </View>
-      ) : null}
       <ScrollView
         key={table?.id ?? 'overview'}
         style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={!!table}
+        showsVerticalScrollIndicator={false}
       >
-        {table ? null : header}
-        {table ? null : filters}
+        <View style={styles.top}>
+          {header}
+          {filters}
+        </View>
         {table ? (
-          <>
-            <StatAction onPress={() => openTableStatistics(table.id)}>
-              Tischstatistik separat öffnen
-            </StatAction>
-            <TableStatisticsView
-              key={table.id}
-              table={table}
-              onOpen={(round) => openStatisticsRound(table, round)}
-            />
-          </>
+          <TableStatisticsView
+            key={table.id}
+            table={table}
+            onOpen={(round) => openStatisticsRound(table, round)}
+          />
         ) : !personal.hasIdentity ? (
           <>
             <EmptyGameState
@@ -141,14 +131,14 @@ export function StatisticsScreen() {
               message={
                 userId
                   ? 'Sobald dir ein Spielerplatz am Tisch zugeordnet ist, siehst du hier deine Spiele.'
-                  : 'Melde dich an, um deine Spiele über deine zugeordneten Tische hinweg zu sehen.'
+                  : 'Starte einen Tisch, an dem du selbst mitspielst. Deine Spiele erscheinen dann hier.'
               }
             />
             <StatAction onPress={openTables}>Zu deinen Tischen</StatAction>
           </>
         ) : !entries.length ? (
           <StatPanel>
-            <StatHeading>Keine Runden im gewählten Zeitraum</StatHeading>
+            <StatHeading>Keine Spiele im gewählten Zeitraum</StatHeading>
             {period === 'month' && personal.entries.length > 0 ? (
               <StatAction onPress={() => changePeriod('all')}>
                 Gesamten Zeitraum anzeigen
@@ -156,7 +146,12 @@ export function StatisticsScreen() {
             ) : null}
           </StatPanel>
         ) : (
-          <PlayerStatistics key={period} entries={entries} onOpen={openRound} />
+          <PlayerStatistics
+            key={period}
+            entries={entries}
+            onOpen={openRound}
+            title={userId ? undefined : 'Bilanz als Gast'}
+          />
         )}
       </ScrollView>
       {picker ? (
@@ -232,7 +227,7 @@ function FilterField({
         disabled && authInteraction.disabled,
       ]}
     >
-      <AppText style={styles.filterValue} numberOfLines={2}>
+      <AppText style={styles.filterValue} numberOfLines={1}>
         {value}
       </AppText>
       {disabled ? null : (
@@ -276,38 +271,31 @@ function PickerRow({
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  fixedFilters: {
-    paddingHorizontal: authSpacing.lgPlus,
-    paddingVertical: authSpacing.sm,
-    gap: authSpacing.md,
-  },
   content: {
     paddingHorizontal: authSpacing.lgPlus,
     paddingTop: authSpacing.sm,
     paddingBottom: 120,
     gap: authSpacing.xxl,
   },
+  top: { gap: authSpacing.md },
   header: { gap: authSpacing.xs },
   subtitle: { color: authColors.textMutedGreen, fontSize: 15, lineHeight: 21 },
-  filters: { flexDirection: 'row', gap: authSpacing.sm },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: authSpacing.sm },
+  // Compact chips instead of two wide fields.
   filter: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: authControlSizes.touch,
+    maxWidth: '100%',
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     gap: authSpacing.xs,
     paddingHorizontal: authSpacing.md,
-    paddingVertical: authSpacing.sm,
     borderWidth: 1,
     borderColor: authColors.borderGold,
-    borderRadius: 13,
-    borderCurve: 'continuous',
+    borderRadius: 999,
     backgroundColor: authColors.backgroundSoft,
   },
   filterValue: {
     flexShrink: 1,
-    flexGrow: 1,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '700',

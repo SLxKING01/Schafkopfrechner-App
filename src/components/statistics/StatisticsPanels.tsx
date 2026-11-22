@@ -1,7 +1,15 @@
+import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Line,
+  Polygon,
+  Polyline,
+  Rect,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import {
   authColors as c,
@@ -33,7 +41,7 @@ export const rate = (n: number, total: number) =>
     : '–';
 export const average = (n: number, total: number) =>
   total ? money(Math.sign(n) * Math.round(Math.abs(n / total))) : '–';
-const roundCount = (n: number) => `${n} ${n === 1 ? 'Runde' : 'Runden'}`;
+const roundCount = (n: number) => `${n} ${n === 1 ? 'Spiel' : 'Spiele'}`;
 
 export function StatAction({
   children,
@@ -168,25 +176,25 @@ export function BonusStatistics({ entries }: { entries: StatisticsEntry[] }) {
   const stats = summarizeStatistics(entries);
   return (
     <StatPanel>
-      <StatHeading>Leger, Kontra und Re</StatHeading>
-      <StatNote>
-        {stats.bonusKnown} von {stats.count} Runden mit bekannten Bonusdaten
-      </StatNote>
+      <StatHeading>Leger und Kontra</StatHeading>
       {[
-        ['Mit Leger', stats.leger, stats.bonusKnown],
-        ['Mit Kontra', stats.kontra, stats.bonusKnown],
+        ['Spiele mit Leger', stats.leger, stats.bonusKnown],
+        ['Spiele mit Kontra', stats.kontra, stats.bonusKnown],
         ['Davon mit Re', stats.re, stats.kontra],
       ].map(([label, n, total]) => (
         <View key={String(label)} style={s.row}>
           <AppText>{label}</AppText>
           <AppText style={s.numeric}>
-            {n}/{total} · {rate(Number(n), Number(total))}
+            {n} von {total}
           </AppText>
         </View>
       ))}
       <StatNote>
-        Rundenwerte, keine persönliche Ansagequote. Re ist eine Teilmenge von
-        Kontra.
+        Gezählt wird, wie oft in diesen Spielen gelegt oder Kontra gegeben wurde
+        – egal von wem.
+        {stats.bonusKnown < stats.count
+          ? ` Bei ${stats.count - stats.bonusKnown} älteren Spielen ist das nicht gespeichert.`
+          : ''}
       </StatNote>
     </StatPanel>
   );
@@ -283,11 +291,11 @@ export function GameTypeStatistics({
   );
   return (
     <>
-      <StatHeading>Spielarten und Kartenfarben</StatHeading>
+      {personal ? null : <StatHeading>Nach Spielart</StatHeading>}
       <StatNote>
         {personal
-          ? 'Alle beteiligten Spiele. Details trennen Ansager, Partner und Gegenpartei.'
-          : 'Gewinnquote der ansagenden Partei, soweit der Ansager bekannt ist. Spielwert = Gesamtgewinn der Gewinnerpartei, ohne Stock.'}
+          ? 'Gezählt wird, was du in den Spielen gewonnen oder verloren hast – ohne Stock und Zahlungen. Tippe eine Spielart an für Details.'
+          : 'Wie oft die ansagende Partei gewonnen hat und wie viel die Spiele wert waren – ohne Stock. Tippe eine Spielart an für Details.'}
       </StatNote>
       {groups.map((g) => (
         <StatPanel key={g.id}>
@@ -299,9 +307,14 @@ export function GameTypeStatistics({
             style={({ pressed }) => [s.row, pressed && authInteraction.pressed]}
           >
             <View style={s.copy}>
-              <AppText style={s.bold}>
-                {formatRoundGameType(g.id)} {expanded === g.id ? '−' : '+'}
-              </AppText>
+              <View style={s.inline}>
+                <AppText style={s.bold}>{formatRoundGameType(g.id)}</AppText>
+                {expanded === g.id ? (
+                  <ChevronDown size={16} color={c.goldHighlight} />
+                ) : (
+                  <ChevronRight size={16} color={c.goldHighlight} />
+                )}
+              </View>
               <StatNote>
                 {roundCount(g.summary.count)} · {g.summary.wins}/
                 {g.summary.knownResults} gewonnen ·{' '}
@@ -333,7 +346,7 @@ export function GameTypeStatistics({
                   ? 'Spielbilanz und Durchschnitt je beteiligter Runde'
                   : 'Spielwerte gesamt und Durchschnitt je Runde'}
                 . Quote basiert auf {g.summary.knownResults}/{g.summary.count}{' '}
-                auswertbaren Runden.
+                auswertbaren Spielen.
               </StatNote>
               {personal ? (
                 <>
@@ -398,6 +411,42 @@ export function GameTypeStatistics({
   );
 }
 const lineColors = [c.goldHighlight, c.accentGreen, c.error, c.textPrimary];
+// Lines that run on top of each other stay distinguishable by dash and marker.
+const lineDashes = [undefined, '7 5', '2 4', '10 4 2 4', '4 3'];
+const markerGlyphs = ['●', '■', '◆', '▲', '○'];
+function Marker({ index, cx, cy }: { index: number; cx: number; cy: number }) {
+  const color = lineColors[index % lineColors.length];
+  const shape = index % markerGlyphs.length;
+  const r = 4;
+  if (shape === 1)
+    return (
+      <Rect x={cx - r} y={cy - r} width={2 * r} height={2 * r} fill={color} />
+    );
+  if (shape === 2)
+    return (
+      <Polygon
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy} ${cx},${cy + r + 1} ${cx - r - 1},${cy}`}
+        fill={color}
+      />
+    );
+  if (shape === 3)
+    return (
+      <Polygon
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy + r} ${cx - r - 1},${cy + r}`}
+        fill={color}
+      />
+    );
+  return (
+    <Circle
+      cx={cx}
+      cy={cy}
+      r={r}
+      fill={shape === 4 ? c.background : color}
+      stroke={color}
+      strokeWidth={2}
+    />
+  );
+}
 export function TableStatisticsPanel({
   table,
   onOpen,
@@ -437,14 +486,16 @@ export function TableStatisticsPanel({
   );
   return (
     <>
-      <StatHeading>{table.name}</StatHeading>
       <StatNote>
-        {table.rounds.length} gespielte Runden · {table.stockBookings} separate
-        Stockbuchungen
+        {table.rounds.length}{' '}
+        {table.rounds.length === 1 ? 'gespieltes Spiel' : 'gespielte Spiele'}
+        {table.stockBookings
+          ? ` · ${table.stockBookings} Stockbuchungen (nicht mitgezählt)`
+          : ''}
       </StatNote>
       {!table.rounds.length ? (
         <StatPanel>
-          <AppText>Noch keine gespielten Runden an diesem Tisch.</AppText>
+          <AppText>Noch keine gespielten Spiele an diesem Tisch.</AppText>
         </StatPanel>
       ) : (
         <>
@@ -502,7 +553,7 @@ export function TableStatisticsPanel({
                       stroke={lineColors[i % lineColors.length]}
                       fill="none"
                       strokeWidth={2}
-                      strokeDasharray={i >= 4 ? '4 3' : undefined}
+                      strokeDasharray={lineDashes[i % lineDashes.length]}
                     />
                   ))}
                   <Line
@@ -513,12 +564,11 @@ export function TableStatisticsPanel({
                     stroke={c.borderGold}
                   />
                   {table.players.map((p, i) => (
-                    <Circle
+                    <Marker
                       key={p.id}
+                      index={i}
                       cx={x(index)}
                       cy={y(point.balances[p.id])}
-                      r={3}
-                      fill={lineColors[i % lineColors.length]}
                     />
                   ))}
                   <SvgText
@@ -559,14 +609,30 @@ export function TableStatisticsPanel({
               </StatAction>
             </View>
             <View accessibilityLiveRegion="polite">
-              {table.players.map((p, i) => (
-                <View key={p.id} style={s.row}>
-                  <AppText style={{ color: lineColors[i % lineColors.length] }}>
-                    {p.name}
-                  </AppText>
-                  <Money value={point.balances[p.id]} />
-                </View>
-              ))}
+              {table.players.map((p, i) => {
+                const twin = table.players.find(
+                  (other, j) =>
+                    j < i &&
+                    trend.points.every(
+                      (pt) => pt.balances[other.id] === pt.balances[p.id],
+                    ),
+                );
+                return (
+                  <View key={p.id} style={s.row}>
+                    <View style={s.copy}>
+                      <AppText
+                        style={{ color: lineColors[i % lineColors.length] }}
+                      >
+                        {markerGlyphs[i % markerGlyphs.length]} {p.name}
+                      </AppText>
+                      {twin ? (
+                        <StatNote>Gleicher Verlauf wie {twin.name}</StatNote>
+                      ) : null}
+                    </View>
+                    <Money value={point.balances[p.id]} />
+                  </View>
+                );
+              })}
             </View>
             {point.source ? (
               <>
@@ -627,10 +693,11 @@ export function TableStatisticsPanel({
             ) : null}
           </StatPanel>
           <StatPanel>
-            <StatHeading>Sauspiel-Partnerschaften</StatHeading>
+            <StatHeading>Rufspiel-Partnerschaften</StatHeading>
             <StatNote>
-              {partners.known}/{partners.total} Sauspiele mit bekanntem Ansager
-              und Partner. Nur diese Teams zählen, nicht die Gegenpartei.
+              Wer als Team (Ansager und gerufener Partner) wie oft gewonnen hat.
+              Ausgewertet: {partners.known} von {partners.total} Rufspielen, bei
+              denen Ansager und Partner bekannt sind.
             </StatNote>
             <View style={s.inline}>
               <StatAction

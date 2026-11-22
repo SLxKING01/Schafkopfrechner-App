@@ -36,3 +36,13 @@ export async function register(
     error,
   };
 }
+
+/** Sends the sign-up confirmation e-mail again. */
+export async function resendConfirmation(email: string) {
+  if (!isSupabaseConfigured) return { error: supabaseConfigError };
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: normalizeEmail(email),
+  });
+  return { error };
+}

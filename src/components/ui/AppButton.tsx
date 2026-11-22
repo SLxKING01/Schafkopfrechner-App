@@ -19,6 +19,8 @@ type AppButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Screen-reader label when it should say more than the visible title. */
+  accessibilityLabel?: string;
 };
 
 export function AppButton({
@@ -28,11 +30,12 @@ export function AppButton({
   disabled = false,
   loading = false,
   style,
+  accessibilityLabel,
 }: AppButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       onPress={onPress}

@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   useWindowDimensions,
@@ -32,6 +31,7 @@ import type {
 import { parseCustomAmountCents } from '../../utils/customRound';
 import { stockMode } from '../../utils/stockRules';
 import { AppButton } from '../ui/AppButton';
+import { AppSwitch } from '../ui/AppSwitch';
 import { AppText } from '../ui/AppText';
 
 type TableSettingsEditorProps = {
@@ -194,7 +194,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
           <AppText style={styles.sectionTitle}>
             Strafe bei zweimaligem Vergeben
           </AppText>
-          <Switch
+          <AppSwitch
             accessibilityLabel="Strafe bei zweimaligem Vergeben"
             value={safeSettings.misdealPenaltyEnabled ?? false}
             onValueChange={(misdealPenaltyEnabled) =>
@@ -363,7 +363,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
               {bonusRuleDefinitions.map(({ id, label }) => (
                 <View key={id} style={styles.ruleHeader}>
                   <AppText style={styles.rowLabel}>{label} erlaubt</AppText>
-                  <Switch
+                  <AppSwitch
                     accessibilityLabel={`${expandedRules}: ${label} erlauben`}
                     value={rules.bonuses[id]}
                     onValueChange={(value) =>
@@ -438,7 +438,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
                     <AppText style={styles.rowLabel}>
                       Jungfrauen verdoppeln
                     </AppText>
-                    <Switch
+                    <AppSwitch
                       accessibilityLabel="Ramsch Jungfrauen erlauben"
                       value={rules.ramschJungfrau}
                       onValueChange={(ramschJungfrau) =>
@@ -450,7 +450,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
                     <AppText style={styles.rowLabel}>
                       Durchmarsch erlauben
                     </AppText>
-                    <Switch
+                    <AppSwitch
                       accessibilityLabel="Ramsch Durchmarsch erlauben"
                       value={rules.ramschDurchmarsch}
                       onValueChange={(ramschDurchmarsch) =>
@@ -605,7 +605,7 @@ const SettingRow = memo(function SettingRow({
         </Pressable>
         {!hideToggle ? (
           <View style={styles.switchColumn}>
-            <Switch
+            <AppSwitch
               accessibilityLabel={`${definition.label} aktivieren`}
               ios_backgroundColor="rgba(245, 245, 245, 0.2)"
               thumbColor="#F5F5F5"

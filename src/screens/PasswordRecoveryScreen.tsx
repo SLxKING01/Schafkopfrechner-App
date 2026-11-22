@@ -5,14 +5,17 @@ import { View } from 'react-native';
 import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
+import { MailSentView } from '../components/auth/MailSentView';
+import { PasswordRuleList } from '../components/auth/PasswordRuleList';
 import { AppButton } from '../components/ui/AppButton';
-import { AppText } from '../components/ui/AppText';
+import { Notice } from '../components/ui/Notice';
 import {
   openPasswordRecovery,
   requestPasswordRecovery,
   saveRecoveredPassword,
 } from '../services/auth/passwordRecovery';
 import { authSpacing } from '../theme/spacing';
+import { passwordProblem } from '../utils/passwordRules';
 
 const formStyle = { gap: authSpacing.md };
 const invalidLink =
@@ -28,9 +31,10 @@ export function RequestPasswordScreen({
   const fromAccount = route.params?.fromAccount === true;
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [error, setError] = useState('');
-  const [sent, setSent] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
+  const backLabel = fromAccount ? 'Zurück zum Profil' : 'Zur Anmeldung';
 
   async function send() {
     if (lock.current) return;
@@ -43,7 +47,7 @@ export function RequestPasswordScreen({
     setError('');
     try {
       await requestPasswordRecovery(email);
-      setSent(true);
+      setSentTo(email.trim());
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -56,52 +60,67 @@ export function RequestPasswordScreen({
     }
   }
 
+  if (sentTo)
+    return (
+      <AuthShell
+        title="E-Mail ist unterwegs"
+        subtitle="Öffne den Link auf diesem Gerät, in der App oder im selben Browser."
+        footer={null}
+      >
+        <MailSentView
+          email={sentTo}
+          message="Wenn es zu dieser Adresse einen Account gibt, bekommst du einen Link an:"
+          onResend={async () => {
+            try {
+              await requestPasswordRecovery(sentTo);
+              return null;
+            } catch (reason) {
+              return reason instanceof Error
+                ? reason.message
+                : 'Der Link konnte nicht angefordert werden.';
+            }
+          }}
+          backLabel={backLabel}
+          onBack={() => navigation.goBack()}
+        />
+      </AuthShell>
+    );
+
   return (
     <AuthShell
       title={fromAccount ? 'Passwort zurücksetzen' : 'Passwort vergessen?'}
       subtitle="Fordere einen Link an, um ein neues Passwort zu setzen."
       footer={
         <AppButton
-          title={fromAccount ? 'Zurück zum Profil' : 'Zur Anmeldung'}
+          title={backLabel}
           variant="secondary"
           onPress={() => navigation.goBack()}
         />
       }
     >
       <View style={formStyle}>
-        {sent ? (
-          <AppText accessibilityLiveRegion="polite">
-            Wenn es zu dieser Adresse ein Konto gibt, erhältst du eine E-Mail.
-            Öffne den Link auf demselben Gerät in der App oder im selben
-            Browser, in dem du ihn angefordert hast.
-          </AppText>
-        ) : (
-          <>
-            <AuthInput
-              icon={Mail}
-              placeholder="E-Mail"
-              keyboardType="email-address"
-              autoComplete="email"
-              autoCapitalize="none"
-              editable={!busy}
-              value={email}
-              onChangeText={(value) => {
-                setEmail(value);
-                setError('');
-              }}
-              onSubmitEditing={() => void send()}
-            />
-            {error ? (
-              <AppText accessibilityRole="alert">{error}</AppText>
-            ) : null}
-            <GoldButton
-              title="Reset-Link anfordern"
-              onPress={send}
-              disabled={busy}
-              loading={busy}
-            />
-          </>
-        )}
+        <AuthInput
+          icon={Mail}
+          placeholder="E-Mail"
+          keyboardType="email-address"
+          autoComplete="email"
+          autoCapitalize="none"
+          editable={!busy}
+          hasError={!!error}
+          value={email}
+          onChangeText={(value) => {
+            setEmail(value);
+            setError('');
+          }}
+          onSubmitEditing={() => void send()}
+        />
+        {error ? <Notice>{error}</Notice> : null}
+        <GoldButton
+          title="Reset-Link anfordern"
+          onPress={send}
+          disabled={busy}
+          loading={busy}
+        />
       </View>
     </AuthShell>
   );
@@ -110,10 +129,13 @@ export function RequestPasswordScreen({
 export function ResetPasswordScreen({
   code,
   onClose,
+  onRequestNewLink,
   closeLabel,
 }: {
   code: string | null;
   onClose: () => void;
+  /** Opens "Passwort vergessen?" so the user can ask for a fresh link. */
+  onRequestNewLink?: () => void;
   closeLabel: string;
 }) {
   const [phase, setPhase] = useState<
@@ -141,8 +163,9 @@ export function ResetPasswordScreen({
 
   async function save() {
     if (phase !== 'ready' || lock.current) return;
-    if (password.length < 6) {
-      setError('Das Passwort muss mindestens sechs Zeichen lang sein.');
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (password !== confirmation) {
@@ -169,12 +192,29 @@ export function ResetPasswordScreen({
     }
   }
 
+  const heading =
+    phase === 'invalid'
+      ? {
+          title: 'Link abgelaufen',
+          subtitle:
+            'Mit diesem Link kannst du kein neues Passwort mehr setzen.',
+        }
+      : phase === 'saved'
+        ? {
+            title: 'Passwort geändert',
+            subtitle: 'Du kannst dich jetzt mit dem neuen Passwort anmelden.',
+          }
+        : {
+            title: 'Neues Passwort',
+            subtitle: 'Setze ein neues Passwort für deinen Account.',
+          };
+
   return (
     <AuthShell
-      title="Neues Passwort"
-      subtitle="Setze ein neues Passwort für dein Konto."
+      title={heading.title}
+      subtitle={heading.subtitle}
       footer={
-        phase !== 'checking' ? (
+        phase === 'ready' ? (
           <AppButton
             title={closeLabel}
             variant="secondary"
@@ -185,16 +225,30 @@ export function ResetPasswordScreen({
       }
     >
       <View style={formStyle}>
-        {phase === 'checking' ? <AppText>Link wird geprüft …</AppText> : null}
+        {phase === 'checking' ? (
+          <Notice tone="info">Link wird geprüft …</Notice>
+        ) : null}
         {phase === 'invalid' ? (
-          <AppText accessibilityRole="alert">
-            {invalidLink} Fordere bei der Anmeldung einen neuen Link an.
-          </AppText>
+          <>
+            <Notice>{invalidLink}</Notice>
+            {onRequestNewLink ? (
+              <GoldButton
+                title="Neuen Link anfordern"
+                onPress={onRequestNewLink}
+              />
+            ) : null}
+            <AppButton
+              title={closeLabel}
+              variant="secondary"
+              onPress={onClose}
+            />
+          </>
         ) : null}
         {phase === 'saved' ? (
-          <AppText accessibilityLiveRegion="polite">
-            Dein Passwort wurde geändert. Du kannst dich jetzt damit anmelden.
-          </AppText>
+          <>
+            <Notice tone="success">Dein Passwort wurde geändert.</Notice>
+            <GoldButton title={closeLabel} onPress={onClose} />
+          </>
         ) : null}
         {phase === 'ready' ? (
           <>
@@ -205,9 +259,14 @@ export function ResetPasswordScreen({
               textContentType="newPassword"
               isPassword
               editable={!busy}
+              hasError={!!error && !!passwordProblem(password)}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => {
+                setPassword(value);
+                setError('');
+              }}
             />
+            <PasswordRuleList password={password} />
             <AuthInput
               icon={Lock}
               placeholder="Passwort bestätigen"
@@ -215,13 +274,15 @@ export function ResetPasswordScreen({
               textContentType="newPassword"
               isPassword
               editable={!busy}
+              hasError={!!error && !passwordProblem(password)}
               value={confirmation}
-              onChangeText={setConfirmation}
+              onChangeText={(value) => {
+                setConfirmation(value);
+                setError('');
+              }}
               onSubmitEditing={() => void save()}
             />
-            {error ? (
-              <AppText accessibilityRole="alert">{error}</AppText>
-            ) : null}
+            {error ? <Notice>{error}</Notice> : null}
             <GoldButton
               title="Passwort speichern"
               disabled={busy}

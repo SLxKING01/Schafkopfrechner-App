@@ -50,7 +50,7 @@ export const gameRuleDefinitions: TableSettingDefinition<TableGameTypeId>[] = [
     defaultValue: 0.5,
     description: 'Ein Wenz mit zusätzlicher Trumpffarbe.',
     id: 'farbwenz',
-    label: 'FarbWenz',
+    label: 'Farbwenz',
     mode: 'price',
     section: 'base',
   },

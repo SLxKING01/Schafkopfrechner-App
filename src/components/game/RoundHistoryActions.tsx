@@ -1,3 +1,4 @@
+import { MoreHorizontal } from 'lucide-react-native';
 import { type ReactNode, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,8 @@ type Props = {
   round: GameRound;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Correct a game of an already closed table (shown in the ⋯ menu). */
+  onCorrect?: () => void;
   children: ReactNode;
 };
 
@@ -26,6 +29,7 @@ export function RoundHistoryActions({
   round,
   onEdit,
   onDelete,
+  onCorrect,
   children,
 }: Props) {
   const [mode, setMode] = useState<'menu' | 'history' | null>(null);
@@ -41,6 +45,13 @@ export function RoundHistoryActions({
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
         <View style={styles.card}>{children}</View>
+        <View style={styles.more} pointerEvents="none">
+          <MoreHorizontal
+            color={authColors.textSecondary}
+            size={18}
+            strokeWidth={2.4}
+          />
+        </View>
       </Pressable>
       {mode ? (
         <Modal
@@ -81,6 +92,19 @@ export function RoundHistoryActions({
                     }}
                   >
                     <AppText>Spiel bearbeiten</AppText>
+                  </Pressable>
+                ) : null}
+                {onCorrect ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Spiel im Abschluss korrigieren"
+                    style={styles.item}
+                    onPress={() => {
+                      setMode(null);
+                      onCorrect();
+                    }}
+                  >
+                    <AppText>Spiel korrigieren</AppText>
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -125,6 +149,7 @@ const styles = StyleSheet.create({
     backgroundColor: authColors.surface,
   },
   card: { flex: 1, minWidth: 0 },
+  more: { paddingHorizontal: authSpacing.sm },
   menuRoot: { flex: 1, justifyContent: 'center', padding: authSpacing.xl },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: authColors.overlay },
   menu: {

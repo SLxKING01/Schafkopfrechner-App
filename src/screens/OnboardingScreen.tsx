@@ -1,4 +1,4 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
+import Constants from 'expo-constants';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +10,8 @@ import type { AuthStackScreenProps } from '../navigation/types';
 import { useGuestModeStore } from '../store/guestModeStore';
 
 type OnboardingScreenProps = AuthStackScreenProps<'Onboarding'>;
+
+const appVersion = Constants.expoConfig?.version;
 
 const colors = {
   background: '#161816',
@@ -36,13 +38,6 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
         <View style={[styles.patternSuit, styles.patternSuitTop]}>
           <CardSuitIcon
             suit="herz"
-            color="rgba(217, 164, 65, 0.06)"
-            size={132}
-          />
-        </View>
-        <View style={[styles.patternSuit, styles.patternSuitMiddle]}>
-          <CardSuitIcon
-            suit="eichel"
             color="rgba(217, 164, 65, 0.06)"
             size={132}
           />
@@ -103,40 +98,30 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
           >
             <AppText style={styles.offlineText}>Ohne Account spielen →</AppText>
           </Pressable>
-
-          <View style={styles.featureCard}>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Ionicons
-                  name="people-outline"
-                  size={18}
-                  color={colors.accent}
-                />
-              </View>
-              <AppText style={styles.featureText}>Mit Freunden spielen</AppText>
-            </View>
-
-            <View style={styles.featureDivider} />
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <Ionicons
-                  name="swap-vertical-outline"
-                  size={18}
-                  color={colors.accent}
-                />
-              </View>
-              <AppText style={styles.featureText}>
-                Automatisch abrechnen
-              </AppText>
-            </View>
-          </View>
         </View>
 
         <View style={styles.footer}>
           <View style={styles.footerLine} />
-          <AppText style={styles.footerText}>Datenschutz · Impressum</AppText>
-          <AppText style={styles.versionText}>Version 1.0.0</AppText>
+          <View style={styles.legalLinks}>
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              onPress={() => navigation.navigate('Legal', { page: 'privacy' })}
+            >
+              <AppText style={styles.footerLink}>Datenschutz</AppText>
+            </Pressable>
+            <AppText style={styles.footerText}>·</AppText>
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              onPress={() => navigation.navigate('Legal', { page: 'imprint' })}
+            >
+              <AppText style={styles.footerLink}>Impressum</AppText>
+            </Pressable>
+          </View>
+          {appVersion ? (
+            <AppText style={styles.versionText}>Version {appVersion}</AppText>
+          ) : null}
         </View>
       </View>
     </SafeAreaView>
@@ -159,11 +144,6 @@ const styles = StyleSheet.create({
     right: -22,
     top: 72,
     transform: [{ rotate: '14deg' }],
-  },
-  patternSuitMiddle: {
-    left: -28,
-    top: 318,
-    transform: [{ rotate: '-18deg' }],
   },
   patternSuitBottom: {
     bottom: 74,
@@ -253,43 +233,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  featureCard: {
-    backgroundColor: 'rgba(47, 107, 47, 0.42)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
-    borderRadius: 24,
-    borderWidth: 1,
-    marginTop: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    shadowColor: '#000000',
-    shadowOffset: { height: 14, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 22,
-  },
-  featureItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  featureIcon: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(217, 164, 65, 0.12)',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  featureText: {
-    color: colors.text,
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  featureDivider: {
-    backgroundColor: 'rgba(245, 245, 245, 0.09)',
-    height: 1,
-    marginVertical: theme.spacing.md,
-  },
   footer: {
     alignItems: 'center',
     flex: 0.2,
@@ -302,9 +245,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     width: '42%',
   },
+  legalLinks: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  footerLink: {
+    color: colors.mutedText,
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
   footerText: {
     color: colors.softText,
-    fontSize: 12,
+    fontSize: 13,
   },
   versionText: {
     color: 'rgba(245, 245, 245, 0.28)',

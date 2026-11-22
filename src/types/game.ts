@@ -4,6 +4,8 @@ export type Player = {
   name: string;
   isLocal: boolean;
   userId?: string;
+  /** The guest's own seat at a table created without an account. */
+  guestSelf?: boolean;
 };
 
 export type TableGameTypeId =

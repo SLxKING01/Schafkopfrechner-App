@@ -56,10 +56,11 @@ jest.mock('react-native', () => {
           ListHeaderComponent: React.ReactNode;
           ListEmptyComponent: React.ReactNode;
           renderItem: (i: unknown) => React.ReactNode;
+          onRefresh?: () => void;
         }) {
           return R.createElement(
             N.View,
-            null,
+            { testID: 'invitation-list', onRefresh: p.onRefresh },
             p.ListHeaderComponent,
             p.data.length
               ? p.data.map((item) =>
@@ -185,10 +186,13 @@ it('declines explicitly and disables acceptance of unavailable invitations', asy
 it('keeps context on refresh failure and can retry', async () => {
   const ui = await mount();
   jest.mocked(listTableInvitations).mockRejectedValueOnce(Error('offline'));
-  await ui.press('Einladungen aktualisieren');
+  // Pull to refresh.
+  await act(async () =>
+    ui.view.root.findByProps({ testID: 'invitation-list' }).props.onRefresh(),
+  );
   expect(ui.text()).toContain('Spielabend');
   expect(ui.text()).toContain('nicht vollständig geladen');
-  await ui.press('Einladungen aktualisieren');
+  await ui.press('Erneut laden');
   expect(ui.text()).not.toContain('nicht vollständig geladen');
   await act(async () => ui.view.unmount());
 });
@@ -197,7 +201,7 @@ it('restores the exact pending operation and blocks new actions until recovery',
   jest.mocked(readInvitationOperation).mockResolvedValue(saved);
   const ui = await mount();
   expect(ui.button('Einladung annehmen').props.disabled).toBe(true);
-  await ui.press('Auftrag prüfen');
+  await ui.press('Erneut prüfen');
   expect(executeInvitation).toHaveBeenCalledWith(actor, saved);
   await act(async () => ui.view.unmount());
 });
@@ -206,9 +210,11 @@ it('requires an explicit seat, friend and role and uses the synchronized table v
     .mocked(listTableInvitations)
     .mockResolvedValue({ userId: actor, invitations: [] });
   const ui = await mount(tableId);
-  expect(ui.button('Einladung senden').props.disabled).toBe(true);
+  expect(ui.button('Weiter').props.disabled).toBe(true);
   await ui.press('Platz: Lokale Anna');
+  await ui.press('Weiter');
   await ui.press('Anna');
+  await ui.press('Weiter');
   await ui.press('Schreiben');
   await ui.press('Einladung senden');
   expect(syncSharedTable).toHaveBeenCalled();
@@ -246,7 +252,9 @@ it('publishes a local table without a linked owner seat when the owner sends an 
     .mockResolvedValue({ userId: actor, invitations: [] });
   const ui = await mount(tableId);
   await ui.press('Platz: Lokale Anna');
+  await ui.press('Weiter');
   await ui.press('Anna');
+  await ui.press('Weiter');
   await ui.press('Einladung senden');
   expect(publishSharedTable).toHaveBeenCalledWith({ actor, tableId });
   expect(executeInvitation).toHaveBeenCalledWith(

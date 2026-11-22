@@ -25,9 +25,12 @@ import {
 export function PlayerStatistics({
   entries,
   onOpen,
+  title,
 }: {
   entries: StatisticsEntry[];
   onOpen: (round: StatisticsRound) => void;
+  /** Heading of the balance card, e.g. "Bilanz als Gast". */
+  title?: string;
 }) {
   const [detail, setDetail] = useState<'types' | 'positions'>();
   const summary = useMemo(() => summarizeStatistics(entries), [entries]);
@@ -36,11 +39,15 @@ export function PlayerStatistics({
     [detail, entries],
   );
   if (!entries.length) {
-    return <StatNote>Noch keine gespielten Runden für diese Person.</StatNote>;
+    return <StatNote>Noch keine gespielten Spiele für diese Person.</StatNote>;
   }
   return (
     <>
-      <PersonalBalanceOverview entries={entries} summary={summary} />
+      <PersonalBalanceOverview
+        entries={entries}
+        summary={summary}
+        title={title}
+      />
       <View style={styles.details}>
         <DetailRow
           title="Nach Spielart"

@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check, X } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
+import { type ComponentRef, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +9,9 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { PlayerAccountsEditor } from '../../components/game/PlayerAccountsEditor';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
-import { appAlert } from '../../components/ui/AppDialog';
+import { AppButton } from '../../components/ui/AppButton';
 import { AppText } from '../../components/ui/AppText';
+import { Notice } from '../../components/ui/Notice';
 import { normalizeTableSettings } from '../../constants/tableSettings';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { fingerprint } from '../../services/sync/syncGameState';
@@ -53,6 +54,8 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
   const rounds = useGameStore((state) => state.rounds);
   const [settings, setSettings] = useState<TableSettings>(initialSettings);
   const [pricingChoice, setPricingChoice] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const initialSignature = useRef(fingerprint(initialSettings));
   const applied = useRef<string | undefined>(undefined);
 
@@ -60,6 +63,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
     if (savingLock.current) return;
     savingLock.current = true;
     setSaving(true);
+    setSaveError('');
     try {
       if (useGameStore.getState().currentTable?.id !== editingTableId)
         throw new Error(
@@ -92,10 +96,13 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
         );
       navigation.goBack();
     } catch (error) {
-      appAlert(
-        'Einstellungen nicht gespeichert',
-        error instanceof Error ? error.message : 'Bitte erneut versuchen.',
+      // Shown on the page (also on the web, where native alerts are silent).
+      setSaveError(
+        `Nicht gespeichert: ${
+          error instanceof Error ? error.message : 'Bitte erneut versuchen.'
+        }`,
       );
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
     } finally {
       savingLock.current = false;
       setSaving(false);
@@ -134,6 +141,7 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
       />
       <View style={styles.goldGlow} pointerEvents="none" />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -159,6 +167,12 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
           </Pressable>
         </Animated.View>
 
+        {saveError ? (
+          <View style={styles.error}>
+            <Notice>{saveError}</Notice>
+          </View>
+        ) : null}
+
         <Animated.View entering={formEntering} style={styles.settingsCard}>
           {!canManage ? (
             <AppText>Regeln können nur vom Ersteller geändert werden.</AppText>
@@ -173,20 +187,20 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
               onChange={setSettings}
             />
           </View>
-          {canManage && actorId && currentTable && (
-            <Pressable
-              accessibilityRole="button"
+          {canManage && actorId && currentTable ? (
+            <AppButton
+              title="Freunde einladen"
+              variant="secondary"
               onPress={() =>
                 navigation.navigate('TableInvitations', {
                   tableId: currentTable.id,
                 })
               }
-              style={{ minHeight: 44, justifyContent: 'center' }}
-            >
-              <AppText>Freunde zu diesem Tisch einladen</AppText>
-            </Pressable>
-          )}
-          <PlayerAccountsEditor />
+              style={styles.invite}
+            />
+          ) : null}
+          {/* Player accounts only exist for signed-in users. */}
+          {actorId ? <PlayerAccountsEditor /> : null}
         </Animated.View>
       </ScrollView>
 
@@ -230,9 +244,8 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
                 Ab wann gelten die neuen Tarife?
               </AppText>
               <AppText style={styles.subtitle}>
-                Nur für neue Spiele oder auch rückwirkend für alle bisherigen
-                Spiele dieses Tisches? Manuell eingetragene Beträge bleiben
-                unverändert.
+                Normalerweise gelten neue Tarife nur für die Spiele, die ab
+                jetzt eingetragen werden.
               </AppText>
               <GoldButton
                 title="Ab jetzt"
@@ -241,13 +254,21 @@ export function EditTableScreen({ navigation }: EditTableScreenProps) {
                   void saveSettings('future');
                 }}
               />
-              <GoldButton
-                title="Auch bisherige Spiele"
-                onPress={() => {
-                  setPricingChoice(false);
-                  void saveSettings('all');
-                }}
-              />
+              <View style={styles.pricingAlt}>
+                <AppButton
+                  title="Auch bisherige Spiele"
+                  variant="secondary"
+                  onPress={() => {
+                    setPricingChoice(false);
+                    void saveSettings('all');
+                  }}
+                />
+                <AppText style={styles.pricingHint}>
+                  Alle bisherigen Spiele dieses Tisches werden mit den neuen
+                  Tarifen neu berechnet. Dadurch ändern sich die Salden. Manuell
+                  eingetragene Beträge bleiben unverändert.
+                </AppText>
+              </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Tarifänderung abbrechen"
@@ -280,6 +301,10 @@ const styles = StyleSheet.create({
     padding: authSpacing.lg,
     gap: authSpacing.lg,
   },
+  pricingAlt: { gap: authSpacing.sm },
+  pricingHint: { color: screenColors.muted, fontSize: 13, lineHeight: 18 },
+  error: { marginTop: authSpacing.md },
+  invite: { marginTop: authSpacing.lg },
   pricingCancel: {
     minHeight: 48,
     justifyContent: 'center',

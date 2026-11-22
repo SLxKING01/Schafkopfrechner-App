@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,16 +11,19 @@ import {
   Leaf,
   LogOut,
   type LucideProps,
+  Mail,
   Nut,
   Pencil,
   Pin,
   Plus,
+  ReceiptText,
   Settings,
   Spade,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   type ListRenderItemInfo,
@@ -51,6 +54,7 @@ import {
   openSharedTable,
   useSharedTableStatus,
 } from '../../services/shared/sharedTables';
+import { listTableInvitations } from '../../services/shared/tableInvitations';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useTableVisibilityStore } from '../../store/tableVisibilityStore';
@@ -201,6 +205,31 @@ export function GameLobbyScreen() {
     void hydrateVisibility();
   }, [hydrateVisibility]);
   const [favoriteTableIds, setFavoriteTableIds] = useState<string[]>([]);
+  const [receivedInvitations, setReceivedInvitations] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setReceivedInvitations(0);
+        return;
+      }
+      let cancelled = false;
+      listTableInvitations(userId)
+        .then((state) => {
+          if (!cancelled)
+            setReceivedInvitations(
+              state.invitations.filter(
+                (invitation) =>
+                  invitation.available && invitation.recipient.id === userId,
+              ).length,
+            );
+        })
+        // The badge is only a hint; the invitations page shows load errors.
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [userId]),
+  );
   const [activeReorderTableId, setActiveReorderTableId] = useState<
     string | null
   >(null);
@@ -342,6 +371,11 @@ export function GameLobbyScreen() {
         table.id === currentTable?.id
       ) {
         navigation.navigate('Settlement', { tableId: table.id });
+      } else {
+        appAlert(
+          'Tisch nicht verfügbar',
+          'Dieser Tisch ist auf diesem Gerät nicht mehr gespeichert und kann nicht geöffnet werden.',
+        );
       }
     },
     [activeGame, archivedGameDays, currentTable?.id, navigation, remoteTables],
@@ -352,17 +386,51 @@ export function GameLobbyScreen() {
     else navigation.navigate('AppTabs', { screen: 'Profile' });
   }, [activeGame, currentTable, navigation]);
 
-  const copyTable = useCallback((table: TablePreview) => {
-    appAlert(
-      'Tisch kopieren',
-      `${table.name} wird später als Vorlage für neue Runden verwendet.`,
-    );
-  }, []);
+  const copyTable = useCallback(
+    (table: TablePreview) => {
+      const isLocal =
+        table.id === currentTable?.id ||
+        archivedGameDays.some((day) => day.table.id === table.id);
+      if (!isLocal) {
+        appAlert(
+          'Vorlage nicht möglich',
+          'Gemeinsame Tische lassen sich nicht als Vorlage nutzen. Lege dafür einen neuen Tisch an.',
+        );
+        return;
+      }
+      if (activeGame) {
+        appAlert(
+          'Es läuft bereits ein Tisch',
+          'Schließe den laufenden Tisch zuerst ab. Danach kannst du diesen Tisch als Vorlage für einen neuen nutzen.',
+        );
+        return;
+      }
+      navigation.navigate('CreateTable', { templateTableId: table.id });
+    },
+    [activeGame, archivedGameDays, currentTable?.id, navigation],
+  );
 
-  const leaveTable = useCallback((table: TablePreview) => {
-    setLeaveError('');
-    setLeaveTableCandidate(table);
-  }, []);
+  const leaveTable = useCallback(
+    (table: TablePreview) => {
+      const remote = remoteTables.find(
+        (candidate) => candidate.id === table.id,
+      );
+      const shared = !!userId && !!remote?.ownerId && remote.ownerId !== userId;
+      const running = activeGame && table.id === currentTable?.id;
+      if (!shared && (running || table.hasOpenPayments)) {
+        appAlert(
+          'Noch nicht verlassen',
+          running
+            ? 'An diesem Tisch läuft gerade der Spielabend. Schließe ihn zuerst ab, dann kannst du den Tisch verlassen.'
+            : 'Bei diesem Tisch sind noch Zahlungen offen. Sobald alles bezahlt ist, kannst du ihn verlassen.',
+        );
+        return;
+      }
+      setLeaveError('');
+      setLeaveTableCandidate(table);
+    },
+    [activeGame, currentTable?.id, remoteTables, userId],
+  );
 
   const toggleFavoriteTable = useCallback((table: TablePreview) => {
     setFavoriteTableIds((current) =>
@@ -540,26 +608,55 @@ export function GameLobbyScreen() {
       />
       <SharedTableConflictNotice />
       {userId ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('TableInvitations')}
-          style={{ minHeight: 44, justifyContent: 'center' }}
-        >
-          <AppText style={{ color: screenColors.gold }}>
-            Tischeinladungen ansehen
-          </AppText>
-        </Pressable>
-      ) : null}
-      {userId ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('PersonalSettlements')}
-          style={{ minHeight: 44, justifyContent: 'center' }}
-        >
-          <AppText style={{ color: screenColors.gold }}>
-            Persönliche Abrechnungen ehemaliger Tische
-          </AppText>
-        </Pressable>
+        <View style={styles.shortcutRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              receivedInvitations
+                ? `Einladungen, ${receivedInvitations} neu`
+                : 'Einladungen'
+            }
+            onPress={() => navigation.navigate('TableInvitations')}
+            style={({ pressed }) => [
+              styles.shortcutCard,
+              pressed && styles.tablePressed,
+            ]}
+          >
+            <View style={styles.shortcutTop}>
+              <View style={styles.shortcutIcon}>
+                <Mail color={screenColors.gold} size={20} strokeWidth={2.3} />
+              </View>
+              {receivedInvitations ? (
+                <View style={styles.shortcutBadge}>
+                  <AppText style={styles.shortcutBadgeText}>
+                    {receivedInvitations}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+            <AppText style={styles.shortcutTitle}>Einladungen</AppText>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Frühere Abrechnungen"
+            onPress={() => navigation.navigate('PersonalSettlements')}
+            style={({ pressed }) => [
+              styles.shortcutCard,
+              pressed && styles.tablePressed,
+            ]}
+          >
+            <View style={styles.shortcutTop}>
+              <View style={styles.shortcutIcon}>
+                <ReceiptText
+                  color={screenColors.gold}
+                  size={20}
+                  strokeWidth={2.3}
+                />
+              </View>
+            </View>
+            <AppText style={styles.shortcutTitle}>Frühere Abrechnungen</AppText>
+          </Pressable>
+        </View>
       ) : null}
 
       <View style={styles.sectionHeader}>
@@ -578,9 +675,10 @@ export function GameLobbyScreen() {
       withEdgeBorder={false}
     >
       {!visibility.hydrated ? (
-        <AppText style={{ color: screenColors.muted }}>
-          Tische werden geladen …
-        </AppText>
+        <View style={styles.loading} accessibilityLiveRegion="polite">
+          <ActivityIndicator color={screenColors.gold} size="large" />
+          <AppText style={styles.loadingText}>Tische werden geladen …</AppText>
+        </View>
       ) : Platform.OS === 'web' || visibleTables.length < 2 ? (
         <FlatList
           contentContainerStyle={styles.content}
@@ -737,7 +835,7 @@ const TableCard = memo(function TableCard({
           renderRightActions={(_, __, swipeableMethods) => (
             <View style={styles.swipeActions}>
               <Pressable
-                accessibilityLabel={`${table.name} kopieren`}
+                accessibilityLabel={`${table.name} als Vorlage nutzen`}
                 accessibilityRole="button"
                 onPress={() => {
                   swipeableMethods.close();
@@ -750,7 +848,7 @@ const TableCard = memo(function TableCard({
                 ]}
               >
                 <Copy color={screenColors.text} size={20} strokeWidth={2.4} />
-                <AppText style={styles.swipeText}>Kopieren</AppText>
+                <AppText style={styles.swipeText}>Als Vorlage</AppText>
               </Pressable>
               <Pressable
                 accessibilityLabel={`${table.name} umbenennen`}
@@ -1025,7 +1123,7 @@ function LeaveTableSheet({
           </AppText>
           <AppText style={styles.leaveHint}>
             {shared
-              ? 'Dein Zugriff auf Spiele und Tischdaten endet. Dein Spielerplatz bleibt erhalten und deine Zahlungen findest du unter „Persönliche Abrechnungen“.'
+              ? 'Dein Zugriff auf Spiele und Tischdaten endet. Dein Spielerplatz bleibt erhalten und deine Zahlungen findest du unter „Frühere Abrechnungen“.'
               : isActive
                 ? 'Dieser Tisch bleibt in deiner Übersicht, solange der Spielabend läuft oder Zahlungen offen sind.'
                 : 'Der Tisch wird aus deiner Übersicht entfernt.'}
@@ -1124,6 +1222,62 @@ const styles = StyleSheet.create({
   tableListItem: {
     marginTop: authSpacing.md,
   },
+  shortcutRow: {
+    flexDirection: 'row',
+    gap: authSpacing.md,
+    marginTop: authSpacing.lg,
+  },
+  shortcutCard: {
+    backgroundColor: '#1A3025',
+    borderColor: 'rgba(245,245,245,0.09)',
+    borderRadius: 22,
+    borderWidth: 1,
+    flex: 1,
+    gap: authSpacing.sm,
+    justifyContent: 'space-between',
+    minHeight: 106,
+    padding: 14,
+  },
+  shortcutTop: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  shortcutIcon: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(231, 198, 92, 0.12)',
+    borderColor: screenColors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  shortcutBadge: {
+    backgroundColor: screenColors.gold,
+    borderRadius: authRadius.pill,
+    minWidth: 24,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  shortcutBadgeText: {
+    color: '#17150B',
+    fontSize: 13,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  shortcutTitle: {
+    color: screenColors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loading: {
+    alignItems: 'center',
+    flex: 1,
+    gap: authSpacing.md,
+    justifyContent: 'center',
+  },
+  loadingText: { color: screenColors.muted, fontSize: 15 },
   draggingCardWrap: {
     elevation: 18,
     shadowColor: screenColors.gold,
