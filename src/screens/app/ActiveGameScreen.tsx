@@ -23,7 +23,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -57,6 +56,7 @@ import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { AppSwitch } from '../../components/ui/AppSwitch';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAccountProfiles } from '../../hooks/useAccountProfiles';
@@ -152,6 +152,7 @@ function triggerSaveHaptic() {
 
 type FinishDialog =
   | { kind: 'archive' }
+  | { kind: 'confirm' }
   | { kind: 'stock'; potCents: number }
   | { kind: 'message'; title: string; message: string };
 
@@ -571,12 +572,18 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     [finishGameDay, navigation],
   );
 
-  const finishDay = useCallback(() => {
-    triggerSelectionHaptic();
-    const pot = getStockBalanceCents(useGameStore.getState().rounds);
-    if (pot > 0) setFinishDialog({ kind: 'stock', potCents: pot });
-    else completeFinish();
-  }, [completeFinish]);
+  // `confirmed` skips the safety question when the user already confirmed
+  // (e.g. via "Tisch archivieren").
+  const finishDay = useCallback(
+    (confirmed = false) => {
+      triggerSelectionHaptic();
+      const pot = getStockBalanceCents(useGameStore.getState().rounds);
+      if (pot > 0) setFinishDialog({ kind: 'stock', potCents: pot });
+      else if (confirmed) completeFinish();
+      else setFinishDialog({ kind: 'confirm' });
+    },
+    [completeFinish],
+  );
 
   const confirmArchiveTable = useCallback(() => {
     triggerSelectionHaptic();
@@ -726,7 +733,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       accessibilityHint="Schliesst den Spieltag ab und zeigt die Abrechnung"
       accessibilityLabel="Spieltag abschliessen"
       hitSlop={touchHitSlop}
-      onPress={finishDay}
+      onPress={() => finishDay()}
       style={styles.finishButton}
       title="Spieltag abschließen"
     />
@@ -952,7 +959,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                     Spielwert ×2, zusätzlich zu den Legern
                   </AppText>
                 </View>
-                <Switch
+                <AppSwitch
                   accessibilityLabel="Turbo Ramsch"
                   disabled={!canWrite}
                   accessibilityHint="Verdoppelt den Spielwert zusätzlich zu den Legern"
@@ -1275,9 +1282,11 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               >
                 {finishDialog.kind === 'archive'
                   ? 'Tisch archivieren'
-                  : finishDialog.kind === 'stock'
-                    ? 'Rest-Stock abschließen'
-                    : finishDialog.title}
+                  : finishDialog.kind === 'confirm'
+                    ? 'Spieltag abschließen?'
+                    : finishDialog.kind === 'stock'
+                      ? 'Rest-Stock abschließen'
+                      : finishDialog.title}
               </AppText>
               <AppText
                 accessibilityRole={
@@ -1287,15 +1296,24 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
               >
                 {finishDialog.kind === 'archive'
                   ? 'Der Spieltag wird abgeschlossen und die Abrechnung vorbereitet.'
-                  : finishDialog.kind === 'stock'
-                    ? `${formatAmount(finishDialog.potCents / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`
-                    : finishDialog.message}
+                  : finishDialog.kind === 'confirm'
+                    ? 'Danach können an diesem Tisch keine Spiele mehr eingetragen werden. Die Abrechnung wird erstellt.'
+                    : finishDialog.kind === 'stock'
+                      ? `${formatAmount(finishDialog.potCents / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`
+                      : finishDialog.message}
               </AppText>
               {finishDialog.kind === 'archive' ? (
                 <GoldButton
                   title="Archivieren"
                   accessibilityLabel="Archivieren bestätigen"
-                  onPress={finishDay}
+                  onPress={() => finishDay(true)}
+                />
+              ) : null}
+              {finishDialog.kind === 'confirm' ? (
+                <GoldButton
+                  title="Abschließen"
+                  accessibilityLabel="Abschließen"
+                  onPress={() => finishDay(true)}
                 />
               ) : null}
               {finishDialog.kind === 'stock' ? (

@@ -584,9 +584,15 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   await act(async () => view.unmount());
 });
 
-it.each(['refund', 'carry'] as const)(
-  'offers a funded Stock resolution and opens the original table settlement for %s',
-  async (resolution) => {
+it.each([
+  ['web', 'refund'],
+  ['web', 'carry'],
+  ['ios', 'refund'],
+  ['ios', 'carry'],
+] as const)(
+  'offers a funded Stock resolution on %s and opens the original table settlement for %s',
+  async (platform, resolution) => {
+    jest.replaceProperty(Platform, 'OS', platform);
     const settings = structuredClone(
       useGameStore.getState().currentTable!.settings,
     );
@@ -714,6 +720,16 @@ it('shows the exact balance gap instead of a payment plan', async () => {
   await act(async () =>
     view.root
       .findAllByProps({ accessibilityLabel: 'Spieltag abschliessen' })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
+  // Confirm the safety question first.
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Abschließen' })
       .find(
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
@@ -1028,7 +1044,7 @@ it.each([false, true])(
         />,
       );
     });
-    for (const label of ['Runde erstellen schließen', 'Abbrechen']) {
+    for (const label of ['Neuer Tisch schließen', 'Abbrechen']) {
       const button = view.root
         .findAllByProps({ accessibilityLabel: label })
         .find(
@@ -1047,6 +1063,40 @@ it.each([false, true])(
     await act(async () => view.unmount());
   },
 );
+
+it('starts a new table from a finished table as template', async () => {
+  await act(async () => useGameStore.getState().finishGameDay());
+  const template = useGameStore.getState().archivedGameDays[0].table;
+  const replace = jest.fn();
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <CreateTableScreen
+        navigation={{ navigate, replace, canGoBack: () => true } as never}
+        route={{ params: { templateTableId: template.id } } as never}
+      />,
+    );
+  });
+  const rendered = JSON.stringify(view!.toJSON());
+  for (const name of ['Berkay', 'Flo', 'Simon', 'Andi'])
+    expect(rendered).toContain(name);
+  expect(rendered).toContain('Vorlage');
+  const start = view!.root
+    .findAllByProps({ accessibilityLabel: 'Tisch starten' })
+    .find(
+      (node: { props: { onPress?: unknown } }) =>
+        typeof node.props.onPress === 'function',
+    )!;
+  await act(async () => start.props.onPress());
+  expect(replace).toHaveBeenCalledWith('ActiveGame');
+  const state = useGameStore.getState();
+  expect(state.currentTable?.id).not.toBe(template.id);
+  expect(state.players.map((player) => player.name)).toEqual(
+    expect.arrayContaining(['Berkay', 'Flo', 'Simon', 'Andi']),
+  );
+  expect(state.currentTable?.settings).toEqual(template.settings);
+  await act(async () => view!.unmount());
+});
 
 it.each([false, true])(
   'applies Turbo Ramsch to saved amounts, with Leger=%s',
@@ -1128,6 +1178,16 @@ it('opens the exact newly closed table rather than a previously viewed archive',
         typeof node.props.onPress === 'function',
     )!;
   await act(async () => button.props.onPress());
+  expect(navigate).not.toHaveBeenCalledWith('Settlement', { tableId });
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Abschließen' })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
   expect(navigate).toHaveBeenCalledWith('Settlement', { tableId });
   expect(
     useGameStore

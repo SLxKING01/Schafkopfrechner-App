@@ -42,7 +42,7 @@ export type StatisticsTable = {
   id: string;
   name: string;
   target: OverviewTarget;
-  players: { id: string; name: string; userId?: string }[];
+  players: { id: string; name: string; userId?: string; guestSelf?: boolean }[];
   rounds: StatisticsRound[];
   stockBookings: number;
 };

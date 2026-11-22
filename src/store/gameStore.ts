@@ -57,7 +57,11 @@ import {
   mergeGameDayArchives,
   saveTableBeforeSwitch,
 } from '../utils/gameDayArchive';
-import { outstandingBalances, paymentRevision } from '../utils/interimPayments';
+import {
+  isCarriedPayment,
+  outstandingBalances,
+  paymentRevision,
+} from '../utils/interimPayments';
 import { repriceRounds } from '../utils/repriceRounds';
 import {
   appendRoundHistory,
@@ -340,7 +344,7 @@ export function planRoundAddition(
   });
 }
 
-function roundHistoryActor(): import('../types/game').RoundHistoryActor {
+export function roundHistoryActor(): import('../types/game').RoundHistoryActor {
   const user = useAuthStore.getState().user;
   if (!user) return { kind: 'local', name: 'Lokale Erfassung' };
   const profileState = useProfileStore.getState();
@@ -381,6 +385,148 @@ function isSafeSavedDay(
   } catch {
     return false;
   }
+}
+
+export function correctedRound(
+  state: Pick<GameStore, 'rounds' | 'players'>,
+  id: string,
+  payload: CreateRoundPayload,
+): GameRound | null {
+  if (
+    state.rounds.some((round) => round.id === id && round.misdealPlayerId) ||
+    !isValidRound(payload, state.players)
+  )
+    return null;
+  const original = state.rounds.find((round) => round.id === id);
+  if (!original) return null;
+  // Explicitly adding Kontra/Re to a past round enables only that rule
+  // in its own snapshot. All original tariffs and other rounds stay intact.
+  const correctedSettings =
+    (payload.tariffOptions?.stoss ?? 0) > 0
+      ? {
+          ...original.settingsSnapshot,
+          bonusRules: {
+            ...original.settingsSnapshot.bonusRules,
+            stoss: {
+              ...original.settingsSnapshot.bonusRules.stoss,
+              enabled: true,
+            },
+          },
+        }
+      : original.settingsSnapshot;
+  if (
+    original.stockAction === 'deposit' &&
+    payload.stockAction === 'deposit' &&
+    (original.stockCompletesDeal ?? true) !==
+      (payload.stockCompletesDeal ?? true)
+  )
+    return null;
+  if (
+    original.declarerId &&
+    ['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
+      payload.gameType,
+    ) &&
+    !payload.clearPartyMetadata &&
+    (!payload.declarerId || !payload.partnerId)
+  )
+    return null;
+  if (
+    (original.stockAction &&
+      !['deposit', 'payout', 'double'].includes(original.stockAction)) ||
+    (payload.stockAction &&
+      !['deposit', 'payout', 'double'].includes(payload.stockAction))
+  )
+    return null;
+  if (
+    payload.clearPartyMetadata &&
+    (payload.declarerId ||
+      payload.partnerId ||
+      !['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
+        payload.gameType,
+      ))
+  )
+    return null;
+  if (
+    payload.legerPlayerIds !== undefined &&
+    (!original.roundContext ||
+      !payload.tariffOptions ||
+      !Array.isArray(payload.legerPlayerIds) ||
+      payload.legerPlayerIds.length > 4 ||
+      new Set(payload.legerPlayerIds).size !== payload.legerPlayerIds.length ||
+      !payload.legerPlayerIds.every((playerId) =>
+        (original.participantIds ?? state.players.map((p) => p.id)).includes(
+          playerId,
+        ),
+      ))
+  )
+    return null;
+  if (payload.tariffOptions) {
+    const options = payload.tariffOptions;
+    if (
+      options.legerCount !==
+        (original.settingsSnapshot.bonusRules.leger.enabled &&
+        getGameRules(original.settingsSnapshot, payload.gameType).bonuses.leger
+          ? (payload.legerPlayerIds?.length ??
+            original.tariffOptions?.legerCount ??
+            0)
+          : 0) ||
+      options.turboRamsch !== (original.tariffOptions?.turboRamsch ?? false)
+    )
+      return null;
+    const tariff = calculateRoundTariff(
+      correctedSettings,
+      payload.gameType,
+      options,
+    );
+    if (
+      calculatePartyAmount(
+        tariff.totalCents,
+        payload.gameType,
+        roundWinnerIds(payload).length,
+        payload.loserIds.length,
+        original.settingsSnapshot.gameRules ||
+          options.durchmarsch !== undefined ||
+          options.jungfrauen !== undefined
+          ? options
+          : undefined,
+      ).totalCents !== toSafeCents(payload.amount)
+    )
+      return null;
+  }
+  const changed: GameRound = {
+    ...original,
+    settingsSnapshot: correctedSettings,
+    ...(payload.legerPlayerIds && original.roundContext
+      ? {
+          roundContext: {
+            ...original.roundContext,
+            legerPlayerIds: [...payload.legerPlayerIds],
+          },
+        }
+      : {}),
+    winnerId: payload.winnerId,
+    winnerIds: payload.winnerIds ? [...payload.winnerIds] : undefined,
+    loserIds: [...payload.loserIds],
+    amount: toSafeCents(payload.amount)! / 100,
+    gameType: payload.gameType,
+    customAmounts: payload.customAmounts?.map((entry) => ({
+      ...entry,
+    })),
+    suit: payload.suit,
+    stockAction: payload.stockAction,
+    stockCompletesDeal: payload.stockCompletesDeal,
+    declarerId: payload.declarerId,
+    declarerWon: payload.declarerId
+      ? roundWinnerIds(payload).includes(payload.declarerId)
+      : undefined,
+    partnerId: payload.partnerId,
+    tariffOptions: payload.tariffOptions
+      ? { ...payload.tariffOptions }
+      : undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  if (!isValidRoundMetadata(changed)) return null;
+  return changed;
 }
 
 function recalculateGameState(
@@ -1089,148 +1235,10 @@ export const useGameStore = create<GameStore>()(
         if (!hasTablePermission(false)) return false;
         set({ roundError: undefined });
         const state = useGameStore.getState();
-        if (
-          state.rounds.some(
-            (round) => round.id === id && round.misdealPlayerId,
-          ) ||
-          !state.activeGame ||
-          !state.currentTable?.isActive ||
-          !isValidRound(payload, state.players)
-        )
-          return false;
-        const original = state.rounds.find((round) => round.id === id);
-        if (!original) return false;
-        // Explicitly adding Kontra/Re to a past round enables only that rule
-        // in its own snapshot. All original tariffs and other rounds stay intact.
-        const correctedSettings =
-          (payload.tariffOptions?.stoss ?? 0) > 0
-            ? {
-                ...original.settingsSnapshot,
-                bonusRules: {
-                  ...original.settingsSnapshot.bonusRules,
-                  stoss: {
-                    ...original.settingsSnapshot.bonusRules.stoss,
-                    enabled: true,
-                  },
-                },
-              }
-            : original.settingsSnapshot;
-        if (
-          original.stockAction === 'deposit' &&
-          payload.stockAction === 'deposit' &&
-          (original.stockCompletesDeal ?? true) !==
-            (payload.stockCompletesDeal ?? true)
-        )
-          return false;
-        if (
-          original.declarerId &&
-          ['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
-            payload.gameType,
-          ) &&
-          !payload.clearPartyMetadata &&
-          (!payload.declarerId || !payload.partnerId)
-        )
-          return false;
-        if (
-          (original.stockAction &&
-            !['deposit', 'payout', 'double'].includes(original.stockAction)) ||
-          (payload.stockAction &&
-            !['deposit', 'payout', 'double'].includes(payload.stockAction))
-        )
-          return false;
-        if (
-          payload.clearPartyMetadata &&
-          (payload.declarerId ||
-            payload.partnerId ||
-            !['rufspiel', 'sauspiel', 'hochzeit', 'kreuzbock'].includes(
-              payload.gameType,
-            ))
-        )
-          return false;
+        if (!state.activeGame || !state.currentTable?.isActive) return false;
         try {
-          if (
-            payload.legerPlayerIds !== undefined &&
-            (!original.roundContext ||
-              !payload.tariffOptions ||
-              !Array.isArray(payload.legerPlayerIds) ||
-              payload.legerPlayerIds.length > 4 ||
-              new Set(payload.legerPlayerIds).size !==
-                payload.legerPlayerIds.length ||
-              !payload.legerPlayerIds.every((playerId) =>
-                (
-                  original.participantIds ?? state.players.map((p) => p.id)
-                ).includes(playerId),
-              ))
-          )
-            return false;
-          if (payload.tariffOptions) {
-            const options = payload.tariffOptions;
-            if (
-              options.legerCount !==
-                (original.settingsSnapshot.bonusRules.leger.enabled &&
-                getGameRules(original.settingsSnapshot, payload.gameType)
-                  .bonuses.leger
-                  ? (payload.legerPlayerIds?.length ??
-                    original.tariffOptions?.legerCount ??
-                    0)
-                  : 0) ||
-              options.turboRamsch !==
-                (original.tariffOptions?.turboRamsch ?? false)
-            )
-              return false;
-            const tariff = calculateRoundTariff(
-              correctedSettings,
-              payload.gameType,
-              options,
-            );
-            if (
-              calculatePartyAmount(
-                tariff.totalCents,
-                payload.gameType,
-                roundWinnerIds(payload).length,
-                payload.loserIds.length,
-                original.settingsSnapshot.gameRules ||
-                  options.durchmarsch !== undefined ||
-                  options.jungfrauen !== undefined
-                  ? options
-                  : undefined,
-              ).totalCents !== toSafeCents(payload.amount)
-            )
-              return false;
-          }
-          const changed: GameRound = {
-            ...original,
-            settingsSnapshot: correctedSettings,
-            ...(payload.legerPlayerIds && original.roundContext
-              ? {
-                  roundContext: {
-                    ...original.roundContext,
-                    legerPlayerIds: [...payload.legerPlayerIds],
-                  },
-                }
-              : {}),
-            winnerId: payload.winnerId,
-            winnerIds: payload.winnerIds ? [...payload.winnerIds] : undefined,
-            loserIds: [...payload.loserIds],
-            amount: toSafeCents(payload.amount)! / 100,
-            gameType: payload.gameType,
-            customAmounts: payload.customAmounts?.map((entry) => ({
-              ...entry,
-            })),
-            suit: payload.suit,
-            stockAction: payload.stockAction,
-            stockCompletesDeal: payload.stockCompletesDeal,
-            declarerId: payload.declarerId,
-            declarerWon: payload.declarerId
-              ? roundWinnerIds(payload).includes(payload.declarerId)
-              : undefined,
-            partnerId: payload.partnerId,
-            tariffOptions: payload.tariffOptions
-              ? { ...payload.tariffOptions }
-              : undefined,
-            updatedAt: new Date().toISOString(),
-          };
-          if (!isValidRoundMetadata(changed)) return false;
+          const changed = correctedRound(state, id, payload);
+          if (!changed) return false;
           const nextRounds = replayStockRules(
             state.rounds.map((round) => (round.id === id ? changed : round)),
             state.currentTable,
@@ -1687,6 +1695,7 @@ export const useGameStore = create<GameStore>()(
       finishGameDay: (stockResolution) => {
         set({ finishError: undefined });
         if (!hasTablePermission(true)) return false;
+        set({ roundError: undefined });
         let didFinish = false;
         let finishError: string | undefined;
         set((state) => {
@@ -1799,6 +1808,12 @@ export const useGameStore = create<GameStore>()(
         set((state) => {
           const targetId = tableId ?? state.currentTable?.id;
           if (!targetId) return state;
+          const target =
+            state.currentTable?.id === targetId
+              ? state.currentTable
+              : state.archivedGameDays.find((day) => day.table.id === targetId)
+                  ?.table;
+          if (isCarriedPayment(target, id)) return state;
           const mark = (payments: Settlement[]) =>
             payments.map((payment) =>
               payment.id === id ? { ...payment, isPaid } : payment,

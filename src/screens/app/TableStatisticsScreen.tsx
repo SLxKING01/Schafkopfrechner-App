@@ -1,12 +1,9 @@
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
-import {
-  StatAction,
-  StatHeading,
-  StatNote,
-  TableStatisticsPanel,
-} from '../../components/statistics/StatisticsPanels';
+import { TableStatisticsView } from '../../components/statistics/TableStatisticsView';
+import { Notice } from '../../components/ui/Notice';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import type { AppStackScreenProps } from '../../navigation/types';
@@ -19,30 +16,39 @@ export function TableStatisticsScreen({
   const { statisticsTables } = useGameOverview();
   const { openStatisticsRound } = useOverviewNavigation();
   const table = statisticsTables.find((t) => t.id === route.params.tableKey);
+  const goBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('AppTabs', { screen: 'Statistics' });
+  };
   return (
     <AuthBackground>
       <ScrollView
+        style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
       >
-        <StatAction onPress={() => navigation.goBack()}>‹ Zurück</StatAction>
-        <StatHeading>Tischstatistik</StatHeading>
+        <PageHeader
+          onBack={goBack}
+          kicker="Tischstatistik"
+          title={table?.name ?? 'Tisch'}
+        />
         {table ? (
-          <TableStatisticsPanel
+          <TableStatisticsView
             key={table.id}
             table={table}
             onOpen={(r) => openStatisticsRound(table, r)}
           />
         ) : (
-          <StatNote>Dieser Tisch ist nicht mehr verfügbar.</StatNote>
+          <Notice tone="info">Dieser Tisch ist nicht mehr verfügbar.</Notice>
         )}
       </ScrollView>
     </AuthBackground>
   );
 }
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   content: {
-    padding: authSpacing.lgPlus,
+    paddingHorizontal: authSpacing.lgPlus,
     paddingBottom: authSpacing.xxxl,
     gap: authSpacing.md,
   },

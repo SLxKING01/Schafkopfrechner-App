@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 
 import { supabase } from '../../lib/supabase';
@@ -6,6 +7,7 @@ import { validGameSnapshot } from '../../storage/validateGameState';
 import { useAuthStore } from '../../store/authStore';
 import { planRoundAddition, useGameStore } from '../../store/gameStore';
 import type {
+  ArchivedGameDay,
   CreateRoundPayload,
   GameRound,
   GameTable,
@@ -37,9 +39,17 @@ export type SharedTableRemote = {
   updatedAt: string;
 };
 type Remote = SharedTableRemote;
+export type SharedTableSummary = Pick<
+  Remote,
+  'id' | 'ownerId' | 'role' | 'version'
+> & {
+  name: string;
+  active: boolean;
+  players: Pick<Player, 'name' | 'isPaused'>[];
+};
 type Conflict = { userId: string; tableId: string; remote: Remote };
 export const useSharedTableStatus = create<{
-  tables: Remote[];
+  tables: SharedTableSummary[];
   tablesUserId: string | null;
   busy: boolean;
   error: string | null;
@@ -290,13 +300,53 @@ export async function setSharedTableRole(
   });
   if (isCurrent(table.id, actor)) setBinding(remote, actor);
 }
-let refreshing: Promise<SharedTableRemote[] | undefined> | null = null;
+let refreshing: Promise<SharedTableSummary[] | undefined> | null = null;
 export function refreshSharedTables() {
   if (refreshing) return refreshing;
   refreshing = discoverSharedTables().finally(() => {
     refreshing = null;
   });
   return refreshing;
+}
+
+export async function exitSharedTable(tableId: string, userId: string) {
+  const { error } = await supabase.rpc('sk_exit_table', {
+    p_id: Crypto.randomUUID(),
+    p_table_id: tableId,
+    p_user_id: userId,
+  });
+  if (error) throw new Error(error.message);
+  await refreshSharedTables();
+}
+
+export async function saveSharedTableCorrection(
+  day: ArchivedGameDay,
+  expectedEvent: string | null,
+) {
+  const actor = userId();
+  const { shared, ...table } = day.table;
+  if (shared?.ownerId !== actor || shared.userId !== actor)
+    throw new Error('Nur der Ersteller kann den Abschluss korrigieren.');
+  const payload: SharedSnapshot = {
+    currentTable: table,
+    players: day.players,
+    rounds: day.rounds,
+    balances: day.balances,
+    settlements: day.settlements,
+    activeGame: false,
+  };
+  assertSnapshot(payload);
+  const { data, error } = await supabase.rpc('sk_correct_closed_table', {
+    p_table_id: table.id,
+    p_version: shared.version,
+    p_event_id: expectedEvent,
+    p_payload: payload,
+  });
+  if (error) throw new Error(error.message);
+  assertSnapshot(data?.payload);
+  if (data.id !== table.id || data.payload.currentTable.id !== table.id)
+    throw new Error('Ungültige Antwort vom Tischserver.');
+  if (isPresent(table.id, actor)) apply(data, actor);
 }
 async function hideForeignSharedCache(actor: string) {
   const state = useGameStore.getState();
@@ -351,19 +401,36 @@ async function discoverSharedTables() {
     const observedBinding = observedState.currentTable?.shared;
     const { data, error } = await supabase
       .from('sk_live_tables')
-      .select('id,payload,version,updated_at,owner_id,sk_live_members(role)')
+      .select(
+        'id,version,owner_id,name:payload->currentTable->>name,active:payload->activeGame,table_active:payload->currentTable->isActive,players:payload->players,sk_live_members(role)',
+      )
       .order('updated_at', { ascending: false })
       .abortSignal(controller.signal);
     if (error) throw error;
     if (useAuthStore.getState().user?.id !== actor) return;
-    const tables: Remote[] = (data ?? []).map((row) => {
-      assertSnapshot(row.payload);
+    const tables: SharedTableSummary[] = (data ?? []).map((row) => {
+      if (typeof row.name !== 'string' || !Array.isArray(row.players))
+        throw new Error('Ungültige Vorschau eines gemeinsamen Tisches.');
       return {
         id: row.id,
-        payload: row.payload,
         version: row.version,
-        updatedAt: row.updated_at,
         ownerId: row.owner_id,
+        name: row.name,
+        active: row.active === true && row.table_active === true,
+        players: row.players.map((player) => {
+          if (
+            !player ||
+            typeof player !== 'object' ||
+            Array.isArray(player) ||
+            !('name' in player) ||
+            typeof player.name !== 'string'
+          )
+            throw new Error('Ungültiger Spielerplatz in der Tischvorschau.');
+          return {
+            name: player.name,
+            isPaused: 'isPaused' in player && player.isPaused === true,
+          };
+        }),
         role: row.sk_live_members?.[0]?.role === 'write' ? 'write' : 'read',
       };
     });
@@ -621,7 +688,9 @@ export function saveSharedRound(
   return task;
 }
 
-export function syncSharedTable(): Promise<void> {
+export function syncSharedTable(
+  discovered?: SharedTableSummary[],
+): Promise<void> {
   if (running) return running;
   const job = (async () => {
     let state = useGameStore.getState();
@@ -649,7 +718,22 @@ export function syncSharedTable(): Promise<void> {
       state.currentTable?.id,
       ...state.archivedGameDays.map((day) => day.table.id),
     ]);
-    for (const id of ids) if (id) await synchronize(id);
+    const versions = new Map(
+      discovered?.map(({ id, version }) => [id, version]),
+    );
+    for (const id of ids) {
+      if (!id) continue;
+      const binding = localTable(id)?.shared;
+      if (
+        binding &&
+        binding.userId === actor &&
+        useSharedTableStatus.getState().tablesUserId === actor &&
+        versions.get(id) === binding.version &&
+        fingerprint(sharedSnapshot(id)) === binding.baseline
+      )
+        continue;
+      await synchronize(id);
+    }
   })().finally(() => {
     if (running === job) running = null;
   });

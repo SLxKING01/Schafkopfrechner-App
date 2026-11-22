@@ -17,6 +17,8 @@ import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { GameLobbyScreen } from '../screens/app/GameLobbyScreen';
 import { ProfileScreen } from '../screens/app/ProfileScreen';
 import { StatisticsScreen } from '../screens/app/StatisticsScreen';
+import { useAuthStore } from '../store/authStore';
+import { useFriendsStore } from '../store/friendsStore';
 import { authColors } from '../theme/colors';
 import { authSpacing } from '../theme/spacing';
 import { authFontFamilies, authTypography } from '../theme/typography';
@@ -44,6 +46,13 @@ function TabIcon({ focused, color, icon: Icon }: TabIconProps) {
 }
 
 export function AppTabs() {
+  // Unanswered friend requests show as a badge on the profile tab.
+  const userId = useAuthStore((state) => state.user?.id);
+  const newRequests = useFriendsStore((state) =>
+    userId && state.ownerId === userId
+      ? (state.state?.incoming.length ?? 0)
+      : 0,
+  );
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
@@ -105,6 +114,7 @@ export function AppTabs() {
         component={ProfileScreen}
         options={{
           title: 'Profil',
+          tabBarBadge: newRequests || undefined,
           tabBarIcon: ({ focused, color }) => (
             <TabIcon focused={focused} color={color} icon={User} />
           ),

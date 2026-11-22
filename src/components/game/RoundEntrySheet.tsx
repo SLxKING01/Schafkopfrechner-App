@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   TextInput,
   useWindowDimensions,
   View,
@@ -73,6 +72,7 @@ import { selectSauspielResult } from '../../utils/sauspielSelection';
 import { tableAccess } from '../../utils/tableAccess';
 import { GoldButton } from '../auth/GoldButton';
 import { AppIcon } from '../ui/AppIcon';
+import { AppSwitch } from '../ui/AppSwitch';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 import { CardSuitIcon } from './CardSuitIcon';
@@ -276,6 +276,7 @@ type Props = {
   onClose: () => void;
   onDismiss: () => void;
   onSaved: (eventId?: string) => void;
+  onPreviewCorrection?: (payload: CreateRoundPayload) => void;
 };
 function initialDraft(
   table: GameTable | null,
@@ -330,6 +331,7 @@ export function RoundEntrySheet({
   onClose,
   onDismiss,
   onSaved,
+  onPreviewCorrection,
 }: Props) {
   const [players] = useState(() =>
     editingRound
@@ -369,11 +371,11 @@ export function RoundEntrySheet({
   );
   const currentTable = useGameStore((state) => state.currentTable);
   const ownerId = useAuthStore((state) => state.user?.id ?? 'guest');
-  const canWrite = tableAccess(
-    currentTable,
-    ownerId === 'guest' ? undefined : ownerId,
-  ).canWrite;
-  const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${!editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
+  const canWrite = onPreviewCorrection
+    ? tableAccess(table, ownerId === 'guest' ? undefined : ownerId).canManage
+    : tableAccess(currentTable, ownerId === 'guest' ? undefined : ownerId)
+        .canWrite;
+  const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${onPreviewCorrection ? ':closed' : !editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
   const storageKey = roundDraftStorageKey(key);
   const revision = roundDraftRevision(table, roster, rounds, editingRound);
   const cached = drafts.get(key);
@@ -974,6 +976,12 @@ export function RoundEntrySheet({
     setSaving(true);
     setSaveError('');
     try {
+      if (onPreviewCorrection) {
+        if (!tableAccess(table, useAuthStore.getState().user?.id).canManage)
+          throw new Error('Nur der Ersteller kann den Abschluss korrigieren.');
+        onPreviewCorrection(payload);
+        return;
+      }
       if (
         !tableAccess(
           useGameStore.getState().currentTable,
@@ -1758,7 +1766,7 @@ export function RoundEntrySheet({
                                       Durchmarsch
                                     </AppText>
                                     <View style={styles.switchColumn}>
-                                      <Switch
+                                      <AppSwitch
                                         thumbColor={authColors.textPrimary}
                                         trackColor={{
                                           true: authColors.gold,
@@ -1805,7 +1813,7 @@ export function RoundEntrySheet({
                                     {formatOverviewMoney(stockBefore)}
                                   </AppText>
                                   <View style={styles.switchColumn}>
-                                    <Switch
+                                    <AppSwitch
                                       thumbColor={authColors.textPrimary}
                                       trackColor={{
                                         true: authColors.gold,
@@ -1916,7 +1924,7 @@ export function RoundEntrySheet({
                                           : 'Schwarz'}
                                       </AppText>
                                       <View style={styles.switchColumn}>
-                                        <Switch
+                                        <AppSwitch
                                           thumbColor={authColors.textPrimary}
                                           trackColor={{
                                             true: authColors.gold,
@@ -1966,7 +1974,7 @@ export function RoundEntrySheet({
                                         Kontra
                                       </AppText>
                                       <View style={styles.switchColumn}>
-                                        <Switch
+                                        <AppSwitch
                                           thumbColor={authColors.textPrimary}
                                           trackColor={{
                                             true: authColors.gold,
@@ -2107,12 +2115,16 @@ export function RoundEntrySheet({
                 title={
                   committedId && saveError
                     ? 'Erneut auf Gerät speichern'
-                    : title
+                    : onPreviewCorrection
+                      ? 'Differenzabrechnung ansehen'
+                      : title
                 }
                 accessibilityLabel={
                   committedId && saveError
                     ? 'Erneut auf Gerät speichern'
-                    : title
+                    : onPreviewCorrection
+                      ? 'Differenzabrechnung ansehen'
+                      : title
                 }
                 disabled={
                   !canWrite ||

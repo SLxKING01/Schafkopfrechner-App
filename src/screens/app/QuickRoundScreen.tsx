@@ -1,9 +1,19 @@
+import { ChevronRight, Spade, Users } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AppButton } from '../../components/ui/AppButton';
+import { AppIcon } from '../../components/ui/AppIcon';
+import { AppLogo } from '../../components/ui/AppLogo';
 import { AppText } from '../../components/ui/AppText';
+import { Notice } from '../../components/ui/Notice';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import type { AppStackScreenProps } from '../../navigation/types';
 import {
@@ -13,7 +23,13 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useTableVisibilityStore } from '../../store/tableVisibilityStore';
-import { authSpacing } from '../../theme/spacing';
+import {
+  authColors as c,
+  authRadius,
+  authSpacing,
+  authTextStyles,
+} from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { canOpenQuickRound, quickRoundTables } from '../../utils/quickRound';
 
 type TableOption = ReturnType<typeof quickRoundTables>[number];
@@ -30,7 +46,7 @@ export function QuickRoundScreen({
 
   const open = useCallback(
     async (option: TableOption) => {
-      if (busy.current || !userId || !navigation.isFocused()) return;
+      if (busy.current || !navigation.isFocused()) return;
       busy.current = true;
       setOpening(true);
       setError('');
@@ -68,13 +84,14 @@ export function QuickRoundScreen({
   );
 
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
     void (async () => {
       try {
         const visibility = useTableVisibilityStore.getState();
         await visibility.hydrate();
-        const shared = isSupabaseConfigured ? await refreshSharedTables() : [];
+        // Guests only have local tables, so there is nothing to fetch.
+        const shared =
+          userId && isSupabaseConfigured ? await refreshSharedTables() : [];
         if (
           cancelled ||
           !navigation.isFocused() ||
@@ -85,8 +102,9 @@ export function QuickRoundScreen({
           useGameStore.getState(),
           shared ?? [],
           userId,
-          useTableVisibilityStore.getState().hiddenByScope[`user:${userId}`] ??
-            [],
+          useTableVisibilityStore.getState().hiddenByScope[
+            userId ? `user:${userId}` : 'guest'
+          ] ?? [],
         );
         setOptions(tables);
         if (!shared)
@@ -104,24 +122,69 @@ export function QuickRoundScreen({
     };
   }, [attempt, navigation, open, userId]);
 
+  const checking = options === null || opening;
   return (
     <AuthBackground withEdgeBorder={false}>
       <ScrollView contentContainerStyle={styles.content}>
-        <AppText>
-          {options === null || opening
-            ? 'Laufender Tisch wird geprüft …'
-            : options.length
-              ? 'Wähle einen Tisch für die Spieleingabe.'
-              : 'Es ist kein laufender Tisch mit verfügbarer Spieleingabe vorhanden.'}
-        </AppText>
-        {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
+        <View style={styles.hero}>
+          <AppLogo size={64} />
+          <AppText accessibilityRole="header" style={styles.title}>
+            Spiel eintragen
+          </AppText>
+          <AppText style={styles.subtitle}>
+            {checking
+              ? 'Laufender Tisch wird geprüft …'
+              : options.length
+                ? 'Für welchen Tisch?'
+                : 'Gerade läuft kein Tisch, an dem du Spiele eintragen kannst.'}
+          </AppText>
+        </View>
+        {checking ? (
+          <ActivityIndicator
+            accessibilityLabel="Wird geprüft"
+            color={c.gold}
+            size="large"
+          />
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
         {options?.map((option) => (
-          <AppButton
+          <Pressable
             key={option.id}
-            title={option.name}
+            accessibilityRole="button"
+            accessibilityLabel={`${option.name}, ${option.players.join(', ')}`}
             disabled={opening}
             onPress={() => void open(option)}
-          />
+            style={({ pressed }) => [
+              styles.card,
+              pressed && styles.pressed,
+              opening && styles.disabled,
+            ]}
+          >
+            <View style={styles.icon}>
+              {option.shared ? (
+                <AppIcon icon={Users} color={c.goldHighlight} />
+              ) : (
+                <AppIcon icon={Spade} color={c.goldHighlight} />
+              )}
+            </View>
+            <View style={styles.cardCopy}>
+              <AppText style={styles.cardTitle} numberOfLines={1}>
+                {option.name}
+              </AppText>
+              <AppText style={styles.cardPlayers} numberOfLines={1}>
+                {option.players.join(' · ')}
+              </AppText>
+              <AppText style={styles.cardMeta}>
+                {[
+                  option.nextGame ? `Spiel ${option.nextGame}` : null,
+                  option.shared ? 'gemeinsam' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </AppText>
+            </View>
+            <AppIcon icon={ChevronRight} color={c.textSecondary} />
+          </Pressable>
         ))}
         {error ? (
           <AppButton
@@ -135,19 +198,80 @@ export function QuickRoundScreen({
             }}
           />
         ) : null}
-        <AppButton
-          title="Zur Tischübersicht"
-          variant="secondary"
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Zur Tischübersicht"
           disabled={opening}
           onPress={() =>
             navigation.navigate('AppTabs', { screen: 'GameLobby' })
           }
-        />
+          style={({ pressed }) => [
+            styles.textButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <AppText style={styles.textButtonLabel}>Zur Tischübersicht</AppText>
+        </Pressable>
       </ScrollView>
     </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: authSpacing.xl, gap: authSpacing.md },
+  content: {
+    gap: authSpacing.md,
+    padding: authSpacing.xl,
+    paddingTop: authSpacing.xxxl,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: authSpacing.sm,
+    marginBottom: authSpacing.lg,
+  },
+  title: { ...authTextStyles.pageTitle, textAlign: 'center' },
+  subtitle: {
+    ...authTextStyles.body,
+    color: c.textSecondary,
+    textAlign: 'center',
+  },
+  card: {
+    alignItems: 'center',
+    backgroundColor: c.surfaceElevated,
+    borderColor: c.borderSoft,
+    borderRadius: authRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: authSpacing.md,
+    padding: authSpacing.lg,
+  },
+  icon: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.12)',
+    borderColor: c.borderGold,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  cardCopy: { flex: 1, gap: 2, minWidth: 0 },
+  cardTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
+  cardPlayers: { ...authTextStyles.caption, color: c.textSecondary },
+  cardMeta: {
+    ...authTextStyles.caption,
+    color: c.goldHighlight,
+    fontWeight: '600',
+  },
+  textButton: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  textButtonLabel: {
+    color: c.goldHighlight,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
+  pressed: { opacity: 0.8 },
+  disabled: { opacity: 0.5 },
 });

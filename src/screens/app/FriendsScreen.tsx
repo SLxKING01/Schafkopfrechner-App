@@ -1,7 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import * as crypto from 'expo-crypto';
-import { Search } from 'lucide-react-native';
+import { MoreHorizontal, Search } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -12,6 +12,7 @@ import {
   Pressable,
   ScrollView,
   SectionList,
+  Share,
   StyleSheet,
   TextInput,
   View,
@@ -21,7 +22,11 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AuthInput } from '../../components/auth/AuthInput';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
+import { AppButton } from '../../components/ui/AppButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
+import { Notice } from '../../components/ui/Notice';
+import { PageHeader } from '../../components/ui/PageHeader';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { assertFriendActor, findFriend } from '../../services/friends/friends';
 import {
@@ -109,6 +114,7 @@ export function FriendsContent({
   const [searchError, setSearchError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [report, setReport] = useState<{
     entry: FriendEntry;
     reason: ReportReason | null;
@@ -172,6 +178,18 @@ export function FriendsContent({
         setSearching(false);
     }
   }
+  async function shareCode() {
+    if (!data) return;
+    try {
+      await Share.share({
+        message: `Mein Freundescode für den Schafkopfrechner: ${formatFriendCode(data.code)}`,
+      });
+    } catch {
+      setNotice(
+        'Teilen nicht möglich. Du kannst den Code kopieren und selbst verschicken.',
+      );
+    }
+  }
   async function copyCode() {
     if (!data) return;
     try {
@@ -229,8 +247,8 @@ export function FriendsContent({
         setResult(null);
         setNotice(
           retry
-            ? 'Auftrag geprüft. Der aktuelle Stand ist geladen.'
-            : 'Änderung bestätigt. Die Liste ist aktualisiert.',
+            ? 'Erneut geprüft. Der aktuelle Stand ist geladen.'
+            : 'Erledigt. Die Liste ist aktualisiert.',
         );
         if (action === 'send') setMode('requests');
         if (action === 'block') setMode('blocked');
@@ -269,75 +287,104 @@ export function FriendsContent({
       );
     } else setReport({ ...report, sending: false, error: outcome.message });
   }
+  function openReport(entry: FriendEntry) {
+    setReport({ entry, reason: null, details: '', sending: false, error: '' });
+  }
   function rowActions(
     entry: FriendEntry,
     relation: FriendRelation | 'blocked',
   ) {
+    const actions = mainActions(entry, relation);
+    if (relation === 'friend') return actions;
     return (
-      <View style={s.actions}>
-        {relation === 'none' ? (
-          <GoldButton
-            title="Anfrage senden"
-            disabled={unavailable}
-            onPress={() => act('send', entry)}
-          />
-        ) : null}
-        {relation === 'incoming' ? (
-          <>
-            <GoldButton
-              title="Annehmen"
-              disabled={unavailable}
-              onPress={() => act('accept', entry)}
-            />
-            <TextAction
-              title="Ablehnen"
-              disabled={unavailable}
-              onPress={() => act('decline', entry)}
-            />
-          </>
-        ) : null}
-        {relation === 'outgoing' ? (
-          <TextAction
-            title="Anfrage zurückziehen"
-            disabled={unavailable}
-            onPress={() => act('cancel', entry)}
-          />
-        ) : null}
-        {relation === 'friend' ? (
-          <TextAction
-            title="Freund entfernen"
-            disabled={unavailable}
-            onPress={() => setConfirmation({ action: 'remove', entry })}
-          />
-        ) : null}
+      <>
+        {actions}
         <TextAction
           title="Melden"
           disabled={currentActor !== actor}
-          onPress={() =>
-            setReport({
-              entry,
-              reason: null,
-              details: '',
-              sending: false,
-              error: '',
-            })
-          }
+          onPress={() => openReport(entry)}
         />
-        {relation === 'blocked' ? (
-          <TextAction
-            title="Entblockieren"
-            disabled={unavailable}
-            onPress={() => setConfirmation({ action: 'unblock', entry })}
-          />
-        ) : (
-          <TextAction
-            title="Blockieren"
-            disabled={unavailable}
-            onPress={() => setConfirmation({ action: 'block', entry })}
-          />
-        )}
-      </View>
+      </>
     );
+  }
+  function mainActions(
+    entry: FriendEntry,
+    relation: FriendRelation | 'blocked',
+  ) {
+    if (relation === 'none')
+      return (
+        <GoldButton
+          title="Anfrage senden"
+          disabled={unavailable}
+          onPress={() => act('send', entry)}
+        />
+      );
+    if (relation === 'incoming')
+      return (
+        <View style={s.buttonRow}>
+          <GoldButton
+            title="Annehmen"
+            disabled={unavailable}
+            onPress={() => act('accept', entry)}
+            style={s.flex}
+          />
+          <AppButton
+            title="Ablehnen"
+            variant="secondary"
+            disabled={unavailable}
+            onPress={() => act('decline', entry)}
+            style={s.flex}
+          />
+        </View>
+      );
+    if (relation === 'outgoing')
+      return (
+        <AppButton
+          title="Anfrage zurückziehen"
+          variant="secondary"
+          disabled={unavailable}
+          onPress={() => act('cancel', entry)}
+        />
+      );
+    if (relation === 'blocked')
+      return (
+        <AppButton
+          title="Entblockieren"
+          variant="secondary"
+          disabled={unavailable}
+          onPress={() => setConfirmation({ action: 'unblock', entry })}
+        />
+      );
+    // Friends: rare actions live behind the ⋯ button of the row.
+    return openMenu === entry.profile.id ? (
+      <View style={s.menu}>
+        <TextAction
+          title="Freund entfernen"
+          disabled={unavailable}
+          onPress={() => {
+            setOpenMenu(null);
+            setConfirmation({ action: 'remove', entry });
+          }}
+        />
+        <TextAction
+          title="Melden"
+          disabled={currentActor !== actor}
+          onPress={() => {
+            setOpenMenu(null);
+            openReport(entry);
+          }}
+        />
+        <TextAction
+          title="Blockieren"
+          danger
+          disabled={unavailable}
+          onPress={() => {
+            setOpenMenu(null);
+            setConfirmation({ action: 'block', entry });
+          }}
+        />
+      </View>
+    ) : null;
   }
   const sections: {
     key: string;
@@ -389,17 +436,13 @@ export function FriendsContent({
         </View>
       </AuthBackground>
     );
+  const incomingCount = data?.incoming.length ?? 0;
   const header = (
     <View style={s.header}>
-      <View style={s.heading}>
-        <AppText accessibilityRole="header" variant="subtitle">
-          Freunde
-        </AppText>
-        <TextAction title="Zurück" onPress={onBack} />
-      </View>
+      <PageHeader title="Freunde" onBack={onBack} />
       {data ? (
-        <View style={s.card}>
-          <AppText>Mein Freundescode</AppText>
+        <View style={[s.card, s.codeCard]}>
+          <AppText style={s.hint}>Dein Freundescode</AppText>
           <AppText
             selectable
             accessibilityLabel="Mein Freundescode"
@@ -407,10 +450,27 @@ export function FriendsContent({
           >
             {formatFriendCode(data.code)}
           </AppText>
-          <TextAction title="Code kopieren" onPress={copyCode} />
+          <View style={s.buttonRow}>
+            <AppButton
+              title="Teilen"
+              variant="secondary"
+              onPress={() => void shareCode()}
+              style={s.flex}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Code kopieren"
+              onPress={copyCode}
+              style={({ pressed }) => [
+                s.secondaryButton,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <AppText style={s.secondaryText}>Kopieren</AppText>
+            </Pressable>
+          </View>
           <AppText style={s.hint}>
-            Teile deinen Code mit Personen, die du hinzufügen möchtest. Andere
-            sehen deinen Anzeigenamen und dein Profilbild.
+            Andere sehen deinen Anzeigenamen und dein Profilbild.
           </AppText>
         </View>
       ) : null}
@@ -448,11 +508,7 @@ export function FriendsContent({
             disabled={searching || unavailable || !validFriendCode(code)}
             onPress={search}
           />
-          {searchError ? (
-            <AppText selectable accessibilityRole="alert" style={s.error}>
-              {searchError}
-            </AppText>
-          ) : null}
+          {searchError ? <Notice>{searchError}</Notice> : null}
           {result?.status === 'not_found' ? (
             <AppText style={s.hint}>
               Kein verfügbarer Kontakt für diesen Code gefunden. Bitte prüfe den
@@ -503,51 +559,43 @@ export function FriendsContent({
             onPress={() => setMode(item)}
             style={[s.tab, mode === item && s.selected]}
           >
-            <AppText>
+            <AppText
+              numberOfLines={1}
+              style={[s.tabText, mode === item && s.tabTextSelected]}
+            >
               {item === 'friends'
-                ? `Freunde (${data?.friends.length ?? 0})`
+                ? `Freunde ${data?.friends.length ?? 0}`
                 : item === 'requests'
-                  ? `Anfragen (${(data?.incoming.length ?? 0) + (data?.outgoing.length ?? 0)})`
+                  ? 'Anfragen'
                   : 'Blockiert'}
             </AppText>
+            {item === 'requests' && incomingCount ? (
+              <View style={s.badge}>
+                <AppText style={s.badgeText}>{incomingCount}</AppText>
+              </View>
+            ) : null}
           </Pressable>
         ))}
       </View>
       {pending ? (
         <View style={s.card}>
           <AppText selectable>
-            Ein Kontaktauftrag ist noch nicht abschließend bestätigt. Prüfe
-            denselben Auftrag erneut; weitere Kontaktänderungen bleiben bis
-            dahin gesperrt.
+            Eine Änderung ist noch nicht abschließend bestätigt. Prüfe sie
+            erneut; weitere Änderungen an Kontakten sind bis dahin gesperrt.
           </AppText>
           <GoldButton
-            title="Auftrag prüfen"
+            title="Erneut prüfen"
             disabled={busy}
             loading={busy}
             onPress={retryPending}
           />
         </View>
       ) : null}
-      {own && cache.error ? (
-        <AppText selectable accessibilityRole="alert" style={s.error}>
-          {cache.error}
-        </AppText>
-      ) : null}
-      {notice ? (
-        <AppText selectable accessibilityLiveRegion="polite">
-          {notice}
-        </AppText>
-      ) : null}
+      {own && cache.error ? <Notice>{cache.error}</Notice> : null}
+      {notice ? <Notice tone="info">{notice}</Notice> : null}
       {loading && !data ? (
-        <AppText accessibilityLiveRegion="polite">
-          Freunde werden geladen …
-        </AppText>
+        <Notice tone="info">Freunde werden geladen …</Notice>
       ) : null}
-      <TextAction
-        title={loading ? 'Wird aktualisiert …' : 'Liste aktualisieren'}
-        disabled={loading || busy}
-        onPress={() => refreshFriends(actor)}
-      />
     </View>
   );
   return (
@@ -584,7 +632,30 @@ export function FriendsContent({
           )}
           renderItem={({ item, section }) => (
             <View style={s.card}>
-              <ContactIdentity entry={item} />
+              <View style={s.rowHead}>
+                <ContactIdentity entry={item} />
+                {section.relation === 'friend' ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Aktionen für ${item.profile.displayName}`}
+                    accessibilityState={{
+                      expanded: openMenu === item.profile.id,
+                    }}
+                    hitSlop={8}
+                    onPress={() =>
+                      setOpenMenu(
+                        openMenu === item.profile.id ? null : item.profile.id,
+                      )
+                    }
+                    style={s.more}
+                  >
+                    <AppIcon icon={MoreHorizontal} color={c.textSecondary} />
+                  </Pressable>
+                ) : null}
+              </View>
+              {section.relation === 'incoming' ? (
+                <AppText style={s.hint}>möchte mit dir befreundet sein</AppText>
+              ) : null}
               {rowActions(item, section.relation)}
             </View>
           )}
@@ -617,15 +688,11 @@ export function FriendsContent({
                     ? 'Ihr seid danach nicht mehr befreundet. Eine neue Anfrage bleibt möglich. Bestehende gemeinsame Tischrechte bleiben erhalten.'
                     : 'Deine eigene Blockierung wird aufgehoben. Eine frühere Freundschaft oder Anfrage wird nicht wiederhergestellt.'}
               </AppText>
-              {own && cache.error ? (
-                <AppText selectable accessibilityRole="alert" style={s.error}>
-                  {cache.error}
-                </AppText>
-              ) : null}
+              {own && cache.error ? <Notice>{cache.error}</Notice> : null}
               <GoldButton
                 title={
                   pending
-                    ? 'Auftrag prüfen'
+                    ? 'Erneut prüfen'
                     : confirmation.action === 'block'
                       ? 'Jetzt blockieren'
                       : confirmation.action === 'remove'
@@ -739,10 +806,12 @@ function ContactSeparator() {
 function TextAction({
   title,
   disabled,
+  danger,
   onPress,
 }: {
   title: string;
   disabled?: boolean;
+  danger?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -754,7 +823,7 @@ function TextAction({
       onPress={onPress}
       style={[s.action, disabled && { opacity: 0.45 }]}
     >
-      <AppText>{title}</AppText>
+      <AppText style={danger ? s.dangerText : undefined}>{title}</AppText>
     </Pressable>
   );
 }
@@ -793,16 +862,69 @@ const s = StyleSheet.create({
     lineHeight: 20,
   },
   error: { color: c.errorText, lineHeight: 21 },
-  tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
-  tab: {
-    padding: sp.sm,
-    minHeight: 48,
-    justifyContent: 'center',
-    borderRadius: authRadius.md,
+  tabs: {
+    flexDirection: 'row',
+    padding: 4,
+    gap: 4,
+    borderRadius: authRadius.pill,
+    backgroundColor: c.surfaceElevated,
     borderWidth: 1,
     borderColor: c.borderSoft,
   },
-  selected: { borderColor: c.gold, backgroundColor: c.surfaceElevated },
+  tab: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: authRadius.pill,
+    paddingHorizontal: sp.sm,
+  },
+  selected: { backgroundColor: c.gold },
+  tabText: {
+    color: c.textSecondary,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
+  tabTextSelected: { color: c.onGold },
+  badge: {
+    minWidth: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: c.goldHighlight,
+  },
+  badgeText: {
+    color: c.onGold,
+    fontSize: authTypography.control,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  codeCard: { borderColor: c.borderGold },
+  buttonRow: { flexDirection: 'row', gap: sp.sm },
+  flex: { flex: 1 },
+  secondaryButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: c.borderGold,
+  },
+  secondaryText: { color: c.goldHighlight, fontWeight: '600' },
+  rowHead: { flexDirection: 'row', alignItems: 'center', gap: sp.sm },
+  more: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menu: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: c.borderSoft,
+  },
+  dangerText: { color: c.errorText },
   section: { paddingVertical: sp.lg, gap: sp.sm },
   identity: { flexDirection: 'row', alignItems: 'center', gap: sp.md },
   name: {

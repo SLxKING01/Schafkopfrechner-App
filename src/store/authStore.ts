@@ -4,7 +4,12 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { getSession } from '../services/auth/getSession';
 import { logout } from '../services/auth/logout';
+import {
+  clearSessionChoice,
+  shouldDiscardStoredSession,
+} from '../services/auth/sessionPersistence';
 import type { AuthUser } from '../types/auth';
+import { useGuestModeStore } from './guestModeStore';
 
 type AuthStore = {
   user: AuthUser | null;
@@ -42,6 +47,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
       unsubscribeAuthState = null;
     }
 
+    // "Angemeldet bleiben" was off: end the stored session after a restart.
+    if (await shouldDiscardStoredSession().catch(() => false)) {
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      await clearSessionChoice().catch(() => undefined);
+    }
+
     const result = await getSession();
 
     set({
@@ -75,6 +86,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
     const { error } = await logout();
 
     if (!error) {
+      // Leaving the app (or guest mode) returns to onboarding on the next start.
+      useGuestModeStore.getState().setEnabled(false);
+      await clearSessionChoice().catch(() => undefined);
       set({
         user: null,
         session: null,

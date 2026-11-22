@@ -1,7 +1,15 @@
+import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Line,
+  Polygon,
+  Polyline,
+  Rect,
+  Text as SvgText,
+} from 'react-native-svg';
 
 import {
   authColors as c,
@@ -23,6 +31,7 @@ import {
   tableTrend,
 } from '../../utils/statistics';
 import { CardSuitIcon } from '../game/CardSuitIcon';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 export const money = (n: number) =>
@@ -33,7 +42,7 @@ export const rate = (n: number, total: number) =>
     : '–';
 export const average = (n: number, total: number) =>
   total ? money(Math.sign(n) * Math.round(Math.abs(n / total))) : '–';
-const roundCount = (n: number) => `${n} ${n === 1 ? 'Runde' : 'Runden'}`;
+const roundCount = (n: number) => `${n} ${n === 1 ? 'Spiel' : 'Spiele'}`;
 
 export function StatAction({
   children,
@@ -94,33 +103,6 @@ export function Money({ value }: { value: number }) {
     >
       {money(value)}
     </AppText>
-  );
-}
-export function Metric({
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  tone?: 'positive' | 'negative';
-}) {
-  return (
-    <View style={s.metric}>
-      <StatNote>{label}</StatNote>
-      <AppText
-        selectable
-        style={[
-          s.value,
-          tone && { color: tone === 'positive' ? c.accentGreen : c.error },
-        ]}
-      >
-        {value}
-      </AppText>
-      {detail ? <StatNote>{detail}</StatNote> : null}
-    </View>
   );
 }
 function PersonalTypeTrend({ entries }: { entries: StatisticsEntry[] }) {
@@ -195,25 +177,25 @@ export function BonusStatistics({ entries }: { entries: StatisticsEntry[] }) {
   const stats = summarizeStatistics(entries);
   return (
     <StatPanel>
-      <StatHeading>Leger, Kontra und Re</StatHeading>
-      <StatNote>
-        {stats.bonusKnown} von {stats.count} Runden mit bekannten Bonusdaten
-      </StatNote>
+      <StatHeading>Leger und Kontra</StatHeading>
       {[
-        ['Mit Leger', stats.leger, stats.bonusKnown],
-        ['Mit Kontra', stats.kontra, stats.bonusKnown],
+        ['Spiele mit Leger', stats.leger, stats.bonusKnown],
+        ['Spiele mit Kontra', stats.kontra, stats.bonusKnown],
         ['Davon mit Re', stats.re, stats.kontra],
       ].map(([label, n, total]) => (
         <View key={String(label)} style={s.row}>
           <AppText>{label}</AppText>
           <AppText style={s.numeric}>
-            {n}/{total} · {rate(Number(n), Number(total))}
+            {n} von {total}
           </AppText>
         </View>
       ))}
       <StatNote>
-        Rundenwerte, keine persönliche Ansagequote. Re ist eine Teilmenge von
-        Kontra.
+        Gezählt wird, wie oft in diesen Spielen gelegt oder Kontra gegeben wurde
+        – egal von wem.
+        {stats.bonusKnown < stats.count
+          ? ` Bei ${stats.count - stats.bonusKnown} älteren Spielen ist das nicht gespeichert.`
+          : ''}
       </StatNote>
     </StatPanel>
   );
@@ -310,11 +292,11 @@ export function GameTypeStatistics({
   );
   return (
     <>
-      <StatHeading>Spielarten und Kartenfarben</StatHeading>
+      {personal ? null : <StatHeading>Nach Spielart</StatHeading>}
       <StatNote>
         {personal
-          ? 'Alle beteiligten Spiele. Details trennen Ansager, Partner und Gegenpartei.'
-          : 'Gewinnquote der ansagenden Partei, soweit der Ansager bekannt ist. Spielwert = Gesamtgewinn der Gewinnerpartei, ohne Stock.'}
+          ? 'Gezählt wird, was du in den Spielen gewonnen oder verloren hast – ohne Stock und Zahlungen. Tippe eine Spielart an für Details.'
+          : 'Wie oft die ansagende Partei gewonnen hat und wie viel die Spiele wert waren – ohne Stock. Tippe eine Spielart an für Details.'}
       </StatNote>
       {groups.map((g) => (
         <StatPanel key={g.id}>
@@ -326,9 +308,22 @@ export function GameTypeStatistics({
             style={({ pressed }) => [s.row, pressed && authInteraction.pressed]}
           >
             <View style={s.copy}>
-              <AppText style={s.bold}>
-                {formatRoundGameType(g.id)} {expanded === g.id ? '−' : '+'}
-              </AppText>
+              <View style={s.inline}>
+                <AppText style={s.bold}>{formatRoundGameType(g.id)}</AppText>
+                {expanded === g.id ? (
+                  <AppIcon
+                    icon={ChevronDown}
+                    size="xs"
+                    color={c.goldHighlight}
+                  />
+                ) : (
+                  <AppIcon
+                    icon={ChevronRight}
+                    size="xs"
+                    color={c.goldHighlight}
+                  />
+                )}
+              </View>
               <StatNote>
                 {roundCount(g.summary.count)} · {g.summary.wins}/
                 {g.summary.knownResults} gewonnen ·{' '}
@@ -360,11 +355,11 @@ export function GameTypeStatistics({
                   ? 'Spielbilanz und Durchschnitt je beteiligter Runde'
                   : 'Spielwerte gesamt und Durchschnitt je Runde'}
                 . Quote basiert auf {g.summary.knownResults}/{g.summary.count}{' '}
-                auswertbaren Runden.
+                auswertbaren Spielen.
               </StatNote>
               {personal ? (
                 <>
-                  <StatHeading>Deine Rolle</StatHeading>
+                  <StatHeading>Rolle im Spiel</StatHeading>
                   {groupStatistics(g.entries, (r, id) => {
                     return !r.declarerId
                       ? 'Unbekannt'
@@ -425,6 +420,42 @@ export function GameTypeStatistics({
   );
 }
 const lineColors = [c.goldHighlight, c.accentGreen, c.error, c.textPrimary];
+// Lines that run on top of each other stay distinguishable by dash and marker.
+const lineDashes = [undefined, '7 5', '2 4', '10 4 2 4', '4 3'];
+const markerGlyphs = ['●', '■', '◆', '▲', '○'];
+function Marker({ index, cx, cy }: { index: number; cx: number; cy: number }) {
+  const color = lineColors[index % lineColors.length];
+  const shape = index % markerGlyphs.length;
+  const r = 4;
+  if (shape === 1)
+    return (
+      <Rect x={cx - r} y={cy - r} width={2 * r} height={2 * r} fill={color} />
+    );
+  if (shape === 2)
+    return (
+      <Polygon
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy} ${cx},${cy + r + 1} ${cx - r - 1},${cy}`}
+        fill={color}
+      />
+    );
+  if (shape === 3)
+    return (
+      <Polygon
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy + r} ${cx - r - 1},${cy + r}`}
+        fill={color}
+      />
+    );
+  return (
+    <Circle
+      cx={cx}
+      cy={cy}
+      r={r}
+      fill={shape === 4 ? c.background : color}
+      stroke={color}
+      strokeWidth={2}
+    />
+  );
+}
 export function TableStatisticsPanel({
   table,
   onOpen,
@@ -438,7 +469,6 @@ export function TableStatisticsPanel({
   const [team, setTeam] = useState<string | null>(null);
   const [sort, setSort] = useState<'count' | 'wins' | 'balance'>('count');
   const [width, setWidth] = useState(320);
-  const [axis, setAxis] = useState<'round' | 'time'>('round');
   const index = Math.min(selected ?? table.rounds.length, table.rounds.length);
   const point = trend.points[index];
   const vals = trend.points.flatMap((p) => Object.values(p.balances));
@@ -446,21 +476,10 @@ export function TableStatisticsPanel({
     high = Math.max(0, ...vals),
     span = Math.max(100, high - low);
   const y = (v: number) => 16 + ((high - v) / span) * 148;
-  const timestamps = table.rounds.map((r) => Date.parse(r.createdAt));
-  const validTime =
-    timestamps.length > 1 &&
-    timestamps.every(
-      (t, i) => Number.isFinite(t) && (i === 0 || t > timestamps[i - 1]),
-    );
-  const timeAxis = axis === 'time' && validTime;
-  const firstTime = timestamps[0] ?? 0,
-    lastTime = timestamps.at(-1) ?? firstTime;
+  const left = 42;
+  const plotWidth = Math.max(1, width - left - 10);
   const x = (i: number) =>
-    42 +
-    (timeAxis && i > 0
-      ? (timestamps[i - 1] - firstTime) / Math.max(1, lastTime - firstTime)
-      : i / Math.max(1, table.rounds.length)) *
-      268;
+    left + (i / Math.max(1, table.rounds.length)) * plotWidth;
   const teams = [...partners.teams].sort((a, b) =>
     sort === 'count'
       ? b.summary.count - a.summary.count
@@ -476,130 +495,110 @@ export function TableStatisticsPanel({
   );
   return (
     <>
-      <StatHeading>{table.name}</StatHeading>
       <StatNote>
-        {table.rounds.length} gespielte Runden · {table.stockBookings} separate
-        Stockbuchungen
+        {table.rounds.length}{' '}
+        {table.rounds.length === 1 ? 'gespieltes Spiel' : 'gespielte Spiele'}
+        {table.stockBookings
+          ? ` · ${table.stockBookings} Stockbuchungen (nicht mitgezählt)`
+          : ''}
       </StatNote>
       {!table.rounds.length ? (
         <StatPanel>
-          <AppText>Noch keine gespielten Runden an diesem Tisch.</AppText>
+          <AppText>Noch keine gespielten Spiele an diesem Tisch.</AppText>
         </StatPanel>
       ) : (
         <>
           <StatPanel>
             <StatHeading>Saldoverlauf</StatHeading>
-            <View style={s.inline}>
-              <StatAction
-                selected={axis === 'round'}
-                onPress={() => setAxis('round')}
-              >
-                Runden
-              </StatAction>
-              <StatAction
-                disabled={!validTime}
-                selected={timeAxis}
-                onPress={() => setAxis('time')}
-              >
-                Uhrzeit
-              </StatAction>
-            </View>
             <StatNote>
-              Reine Spielergebnisse; Stock und Zahlungen verändern die Kurven
-              nicht. Uhrzeiten sind Erfassungszeiten.
+              Spielergebnisse pro Runde · Ohne Stock und Zahlungen
             </StatNote>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Saldoverlauf: Runde durch Antippen auswählen"
               onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
               onPress={(e) => {
-                const value =
-                  (e.nativeEvent.locationX / Math.max(1, width)) * 320;
-                let nearest = 0;
-                for (let i = 1; i < trend.points.length; i++)
-                  if (Math.abs(x(i) - value) <= Math.abs(x(nearest) - value))
-                    nearest = i;
-                setSelected(nearest);
+                const round = Math.round(
+                  ((e.nativeEvent.locationX - left) / plotWidth) *
+                    table.rounds.length,
+                );
+                setSelected(Math.max(0, Math.min(round, table.rounds.length)));
               }}
             >
-              <Svg
-                width="100%"
-                height={190}
-                viewBox="0 0 320 190"
-                accessible={false}
-              >
-                <Line
-                  x1={42}
-                  x2={310}
-                  y1={y(0)}
-                  y2={y(0)}
-                  stroke={c.textSecondary}
-                  strokeDasharray="3 3"
-                />
-                {[high, low]
-                  .filter((v, i, a) => a.indexOf(v) === i)
-                  .map((v) => (
-                    <SvgText
-                      key={v}
-                      x={0}
-                      y={y(v) + 4}
-                      fontSize={10}
-                      fill={c.textSecondary}
-                    >
-                      {(v / 100).toLocaleString('de-DE')} €
-                    </SvgText>
-                  ))}
-                {table.players.map((p, i) => (
-                  <Polyline
-                    key={p.id}
-                    points={trend.points
-                      .map((pt, j) => `${x(j)},${y(pt.balances[p.id])}`)
-                      .join(' ')}
-                    stroke={lineColors[i % lineColors.length]}
-                    fill="none"
-                    strokeWidth={2}
-                    strokeDasharray={i >= 4 ? '4 3' : undefined}
-                  />
-                ))}
-                <Line
-                  x1={x(index)}
-                  x2={x(index)}
-                  y1={12}
-                  y2={168}
-                  stroke={c.borderGold}
-                />
-                {table.players.map((p, i) => (
-                  <Circle
-                    key={p.id}
-                    cx={x(index)}
-                    cy={y(point.balances[p.id])}
-                    r={3}
-                    fill={lineColors[i % lineColors.length]}
-                  />
-                ))}
-                <SvgText x={42} y={186} fontSize={11} fill={c.textSecondary}>
-                  {timeAxis
-                    ? new Date(firstTime).toLocaleTimeString('de-DE', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Start'}
-                </SvgText>
-                <SvgText
-                  x={310}
-                  y={186}
-                  textAnchor="end"
-                  fontSize={11}
-                  fill={c.textSecondary}
+              <View pointerEvents="none" accessible={false}>
+                <Svg
+                  width="100%"
+                  height={190}
+                  viewBox={`0 0 ${Math.max(1, width)} 190`}
+                  accessible={false}
                 >
-                  {timeAxis
-                    ? new Date(lastTime).toLocaleTimeString('de-DE', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : `Runde ${table.rounds.length}`}
-                </SvgText>
-              </Svg>
+                  <Line
+                    x1={left}
+                    x2={x(table.rounds.length)}
+                    y1={y(0)}
+                    y2={y(0)}
+                    stroke={c.textSecondary}
+                    strokeDasharray="3 3"
+                  />
+                  {[high, low]
+                    .filter((v, i, a) => a.indexOf(v) === i)
+                    .map((v) => (
+                      <SvgText
+                        key={v}
+                        x={0}
+                        y={y(v) + 4}
+                        fontSize={10}
+                        fill={c.textSecondary}
+                      >
+                        {(v / 100).toLocaleString('de-DE')} €
+                      </SvgText>
+                    ))}
+                  {table.players.map((p, i) => (
+                    <Polyline
+                      key={p.id}
+                      points={trend.points
+                        .map((pt, j) => `${x(j)},${y(pt.balances[p.id])}`)
+                        .join(' ')}
+                      stroke={lineColors[i % lineColors.length]}
+                      fill="none"
+                      strokeWidth={2}
+                      strokeDasharray={lineDashes[i % lineDashes.length]}
+                    />
+                  ))}
+                  <Line
+                    x1={x(index)}
+                    x2={x(index)}
+                    y1={12}
+                    y2={168}
+                    stroke={c.borderGold}
+                  />
+                  {table.players.map((p, i) => (
+                    <Marker
+                      key={p.id}
+                      index={i}
+                      cx={x(index)}
+                      cy={y(point.balances[p.id])}
+                    />
+                  ))}
+                  <SvgText
+                    x={left}
+                    y={186}
+                    fontSize={11}
+                    fill={c.textSecondary}
+                  >
+                    Start
+                  </SvgText>
+                  <SvgText
+                    x={x(table.rounds.length)}
+                    y={186}
+                    textAnchor="end"
+                    fontSize={11}
+                    fill={c.textSecondary}
+                  >
+                    Runde {table.rounds.length}
+                  </SvgText>
+                </Svg>
+              </View>
             </Pressable>
             <View style={s.inline}>
               <StatAction
@@ -619,21 +618,37 @@ export function TableStatisticsPanel({
               </StatAction>
             </View>
             <View accessibilityLiveRegion="polite">
-              {table.players.map((p, i) => (
-                <View key={p.id} style={s.row}>
-                  <AppText style={{ color: lineColors[i % lineColors.length] }}>
-                    {p.name}
-                  </AppText>
-                  <Money value={point.balances[p.id]} />
-                </View>
-              ))}
+              {table.players.map((p, i) => {
+                const twin = table.players.find(
+                  (other, j) =>
+                    j < i &&
+                    trend.points.every(
+                      (pt) => pt.balances[other.id] === pt.balances[p.id],
+                    ),
+                );
+                return (
+                  <View key={p.id} style={s.row}>
+                    <View style={s.copy}>
+                      <AppText
+                        style={{ color: lineColors[i % lineColors.length] }}
+                      >
+                        {markerGlyphs[i % markerGlyphs.length]} {p.name}
+                      </AppText>
+                      {twin ? (
+                        <StatNote>Gleicher Verlauf wie {twin.name}</StatNote>
+                      ) : null}
+                    </View>
+                    <Money value={point.balances[p.id]} />
+                  </View>
+                );
+              })}
             </View>
             {point.source ? (
               <>
                 <StatNote>
-                  {new Date(point.source.createdAt).toLocaleString('de-DE')} ·{' '}
-                  {formatRoundGameType(point.source.type, point.source.suit)} ·
-                  Gewinner:{' '}
+                  {new Date(point.source.createdAt).toLocaleDateString('de-DE')}{' '}
+                  · {formatRoundGameType(point.source.type, point.source.suit)}{' '}
+                  · Gewinner:{' '}
                   {point.source.winners
                     .map(
                       (id) =>
@@ -687,10 +702,11 @@ export function TableStatisticsPanel({
             ) : null}
           </StatPanel>
           <StatPanel>
-            <StatHeading>Sauspiel-Partnerschaften</StatHeading>
+            <StatHeading>Rufspiel-Partnerschaften</StatHeading>
             <StatNote>
-              {partners.known}/{partners.total} Sauspiele mit bekanntem Ansager
-              und Partner. Nur diese Teams zählen, nicht die Gegenpartei.
+              Wer als Team (Ansager und gerufener Partner) wie oft gewonnen hat.
+              Ausgewertet: {partners.known} von {partners.total} Rufspielen, bei
+              denen Ansager und Partner bekannt sind.
             </StatNote>
             <View style={s.inline}>
               <StatAction
@@ -832,22 +848,6 @@ const s = StyleSheet.create({
   },
   copy: { flex: 1, minWidth: 0, gap: space.xs },
   right: { alignItems: 'flex-end', flexShrink: 1 },
-  metric: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    minWidth: 130,
-    backgroundColor: c.surfaceElevated,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: c.borderGold,
-    padding: space.lg,
-    gap: space.xs,
-  },
-  value: {
-    ...authTextStyles.title,
-    color: c.textPrimary,
-    fontVariant: ['tabular-nums'],
-  },
   numeric: {
     ...authTextStyles.label,
     fontVariant: ['tabular-nums'],

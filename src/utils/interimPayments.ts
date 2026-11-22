@@ -1,6 +1,15 @@
 import type { GameTable, InterimPayment, PlayerBalance } from '../types/game';
 import { toSafeCents } from './accounting';
 
+export function isCarriedPayment(
+  table: GameTable | undefined | null,
+  id: string,
+) {
+  return !!table?.settlementRevisions?.some((revision) =>
+    revision.carriedPaymentIds.includes(id),
+  );
+}
+
 /** Game balances stay untouched; actual transfers reduce the amounts still due. */
 export function outstandingBalances(
   balances: PlayerBalance[],

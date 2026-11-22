@@ -16,6 +16,10 @@ type SettlementCardProps = {
   children?: ReactNode;
 };
 
+/**
+ * One payment "from → to". Open payments show a small "Bezahlt" chip; paid
+ * ones show "Bezahlt · Rückgängig" as a quiet text link instead of a big button.
+ */
 export function SettlementCard({
   from,
   to,
@@ -25,34 +29,46 @@ export function SettlementCard({
   status,
   children,
 }: SettlementCardProps) {
+  const label = `${from} an ${to}, ${amount}: ${isPaid ? 'Zahlung wieder öffnen' : 'als bezahlt markieren'}`;
   return (
     <View style={[styles.card, isPaid && styles.paid]}>
-      <View style={styles.paymentRow}>
-        <AppText selectable style={styles.title}>
-          {from} → {to}
-        </AppText>
+      <View style={styles.row}>
+        <View style={styles.copy}>
+          <AppText selectable style={styles.title}>
+            {from} → {to}
+          </AppText>
+          {onMarkPaid && isPaid ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              hitSlop={10}
+              onPress={onMarkPaid}
+            >
+              <AppText style={styles.paidLink}>
+                Bezahlt · <AppText style={styles.undo}>Rückgängig</AppText>
+              </AppText>
+            </Pressable>
+          ) : (
+            <AppText style={[styles.status, isPaid && styles.paidText]}>
+              {status ?? (isPaid ? 'Bezahlt' : 'Offen')}
+            </AppText>
+          )}
+        </View>
         <AppText selectable style={styles.amount}>
           {amount}
         </AppText>
-      </View>
-      <View style={styles.side}>
-        <AppText style={styles.subtitle}>
-          {status ?? (isPaid ? 'Bezahlt' : 'Offene Zahlung')}
-        </AppText>
-        {onMarkPaid ? (
+        {onMarkPaid && !isPaid ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${from} an ${to}, ${amount}: ${isPaid ? 'Zahlung wieder öffnen' : 'als bezahlt markieren'}`}
+            accessibilityLabel={label}
             onPress={onMarkPaid}
-            style={[styles.button, isPaid && styles.buttonPaid]}
+            style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
           >
-            <AppText style={styles.buttonText}>
-              {isPaid ? 'Bezahlt · Rückgängig' : 'Als bezahlt markieren'}
-            </AppText>
+            <AppText style={styles.chipText}>Bezahlt</AppText>
           </Pressable>
         ) : null}
-        {children}
       </View>
+      {children ? <View style={styles.extra}>{children}</View> : null}
     </View>
   );
 }
@@ -60,58 +76,53 @@ export function SettlementCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(13, 27, 19, 0.78)',
-    borderColor: authColors.borderGold,
-    borderRadius: authRadius.xl,
+    borderColor: authColors.borderSoft,
+    borderRadius: authRadius.lg,
     borderWidth: 1,
-    gap: authSpacing.md,
-    padding: authSpacing.lg,
-  },
-  paid: {
-    borderColor: authColors.accentGreen,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
     gap: authSpacing.sm,
+    paddingHorizontal: authSpacing.lg,
+    paddingVertical: authSpacing.md,
   },
+  paid: { borderColor: 'rgba(107, 163, 110, 0.55)' },
+  row: { alignItems: 'center', flexDirection: 'row', gap: authSpacing.md },
+  copy: { flex: 1, gap: 2, minWidth: 0 },
   title: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 130,
     color: authColors.textPrimary,
     fontSize: authTypography.body,
-    fontWeight: '900',
+    fontWeight: '700',
   },
-  subtitle: {
-    color: authColors.textSecondary,
+  status: { color: authColors.textSecondary, fontSize: authTypography.caption },
+  paidText: { color: authColors.accentGreen },
+  paidLink: {
+    color: authColors.accentGreen,
     fontSize: authTypography.caption,
+    fontWeight: '600',
   },
-  side: {
-    alignItems: 'flex-start',
-    gap: authSpacing.sm,
+  undo: {
+    color: authColors.accentGreen,
+    fontSize: authTypography.caption,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   amount: {
     color: authColors.goldHighlight,
-    fontSize: authTypography.subtitle,
+    fontSize: authTypography.subhead,
     fontVariant: ['tabular-nums'],
-    fontWeight: '900',
+    fontWeight: '800',
   },
-  button: {
-    minHeight: 44,
-    justifyContent: 'center',
-    backgroundColor: authColors.gold,
+  chip: {
+    borderColor: authColors.borderGold,
     borderRadius: authRadius.pill,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 36,
     paddingHorizontal: authSpacing.md,
-    paddingVertical: authSpacing.sm,
   },
-  buttonPaid: {
-    backgroundColor: authColors.accentGreen,
+  chipText: {
+    color: authColors.goldHighlight,
+    fontSize: authTypography.caption,
+    fontWeight: '700',
   },
-  buttonText: {
-    color: authColors.background,
-    fontSize: authTypography.tiny,
-    fontWeight: '900',
-  },
+  pressed: { opacity: 0.8 },
+  extra: { alignItems: 'flex-start', gap: authSpacing.sm },
 });

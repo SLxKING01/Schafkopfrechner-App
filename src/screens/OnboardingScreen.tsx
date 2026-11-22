@@ -1,29 +1,36 @@
-import { ArrowUpDown, Heart, Leaf, Users } from 'lucide-react-native';
+import Constants from 'expo-constants';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
-import { AppIcon } from '../components/ui/AppIcon';
+import { AppLogo } from '../components/ui/AppLogo';
 import { AppText } from '../components/ui/AppText';
-import { appVersion } from '../constants/appVersion';
-import { legalLinks, openLegalLink } from '../constants/legal';
 import type { AuthStackScreenProps } from '../navigation/types';
-import { authColors, authTypography, theme } from '../theme';
+import { useGuestModeStore } from '../store/guestModeStore';
+import { theme } from '../theme';
+import { authTypography } from '../theme/typography';
 
 type OnboardingScreenProps = AuthStackScreenProps<'Onboarding'>;
 
+const appVersion = Constants.expoConfig?.version;
+
 const colors = {
-  background: authColors.background,
-  surfaceDeep: authColors.surface,
-  accent: authColors.gold,
-  text: authColors.textPrimary,
+  background: '#161816',
+  surface: '#2F6B2F',
+  accent: '#D9A441',
+  text: '#F5F5F5',
   mutedText: 'rgba(245, 245, 245, 0.66)',
   softText: 'rgba(245, 245, 245, 0.42)',
+  positive: '#5BBE63',
+  negative: '#D65A5A',
 };
 
 export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
+  const enableGuestMode = useGuestModeStore((state) => state.setEnabled);
+
   function continueOffline() {
-    navigation.navigate('MainTabs');
+    enableGuestMode(true);
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   }
 
   return (
@@ -32,21 +39,14 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
         <View style={[styles.patternSuit, styles.patternSuitTop]}>
           <CardSuitIcon
             suit="herz"
-            color="rgba(212, 175, 55, 0.06)"
-            size={132}
-          />
-        </View>
-        <View style={[styles.patternSuit, styles.patternSuitMiddle]}>
-          <CardSuitIcon
-            suit="eichel"
-            color="rgba(212, 175, 55, 0.06)"
+            color="rgba(217, 164, 65, 0.06)"
             size={132}
           />
         </View>
         <View style={[styles.patternSuit, styles.patternSuitBottom]}>
           <CardSuitIcon
             suit="herz"
-            color="rgba(212, 175, 55, 0.06)"
+            color="rgba(217, 164, 65, 0.06)"
             size={132}
           />
         </View>
@@ -54,17 +54,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
       <View style={styles.content}>
         <View style={styles.hero}>
-          <View style={styles.logoShadow}>
-            <View style={styles.logo} aria-hidden>
-              <AppIcon icon={Leaf} size="xl" color={colors.accent} />
-              <AppIcon
-                icon={Heart}
-                size="md"
-                color={colors.accent}
-                style={styles.logoHeart}
-              />
-            </View>
-          </View>
+          <AppLogo />
 
           <View style={styles.titleGroup}>
             <AppText accessibilityRole="header" style={styles.title}>
@@ -109,50 +99,27 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
           >
             <AppText style={styles.offlineText}>Ohne Account spielen →</AppText>
           </Pressable>
-
-          <View style={styles.featureCard}>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <AppIcon icon={Users} size="sm" color={colors.accent} />
-              </View>
-              <AppText style={styles.featureText}>Mit Freunden spielen</AppText>
-            </View>
-
-            <View style={styles.featureDivider} />
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIcon}>
-                <AppIcon icon={ArrowUpDown} size="sm" color={colors.accent} />
-              </View>
-              <AppText style={styles.featureText}>
-                Automatisch abrechnen
-              </AppText>
-            </View>
-          </View>
         </View>
 
         <View style={styles.footer}>
           <View style={styles.footerLine} />
-          {legalLinks.length ? (
-            <View style={styles.legalRow}>
-              {legalLinks.map((link, index) => (
-                <View key={link.key} style={styles.legalRow}>
-                  {index > 0 ? (
-                    <AppText style={styles.footerText}>·</AppText>
-                  ) : null}
-                  <Pressable
-                    accessibilityRole="link"
-                    hitSlop={8}
-                    onPress={() => void openLegalLink(link)}
-                  >
-                    <AppText style={[styles.footerText, styles.legalLink]}>
-                      {link.title}
-                    </AppText>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          <View style={styles.legalLinks}>
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              onPress={() => navigation.navigate('Legal', { page: 'privacy' })}
+            >
+              <AppText style={styles.footerLink}>Datenschutz</AppText>
+            </Pressable>
+            <AppText style={styles.footerText}>·</AppText>
+            <Pressable
+              accessibilityRole="link"
+              hitSlop={10}
+              onPress={() => navigation.navigate('Legal', { page: 'imprint' })}
+            >
+              <AppText style={styles.footerLink}>Impressum</AppText>
+            </Pressable>
+          </View>
           {appVersion ? (
             <AppText style={styles.versionText}>Version {appVersion}</AppText>
           ) : null}
@@ -179,11 +146,6 @@ const styles = StyleSheet.create({
     top: 72,
     transform: [{ rotate: '14deg' }],
   },
-  patternSuitMiddle: {
-    left: -28,
-    top: 318,
-    transform: [{ rotate: '-18deg' }],
-  },
   patternSuitBottom: {
     bottom: 74,
     right: 34,
@@ -198,27 +160,6 @@ const styles = StyleSheet.create({
     flex: 0.35,
     justifyContent: 'center',
     paddingTop: theme.spacing.xl,
-  },
-  logoShadow: {
-    borderRadius: 39,
-    elevation: 7,
-    shadowColor: colors.accent,
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
-  },
-  logo: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceDeep,
-    borderColor: 'rgba(212, 175, 55, 0.32)',
-    borderRadius: 39,
-    borderWidth: 1,
-    height: 78,
-    justifyContent: 'center',
-    width: 78,
-  },
-  logoHeart: {
-    marginTop: -9,
   },
   titleGroup: {
     alignItems: 'center',
@@ -255,14 +196,14 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
   },
   primaryButtonText: {
-    color: authColors.onGold,
+    color: '#17150F',
     fontSize: authTypography.button,
     fontWeight: '700',
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: authColors.control,
-    borderColor: 'rgba(212, 175, 55, 0.48)',
+    backgroundColor: 'rgba(47, 107, 47, 0.5)',
+    borderColor: 'rgba(217, 164, 65, 0.48)',
     borderRadius: 999,
     borderWidth: 1,
     justifyContent: 'center',
@@ -293,43 +234,6 @@ const styles = StyleSheet.create({
     fontSize: authTypography.body,
     fontWeight: '600',
   },
-  featureCard: {
-    backgroundColor: authColors.surfaceElevated,
-    borderColor: authColors.borderSoft,
-    borderRadius: 24,
-    borderWidth: 1,
-    marginTop: theme.spacing.xl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    shadowColor: authColors.shadow,
-    shadowOffset: { height: 14, width: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 22,
-  },
-  featureItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  featureIcon: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.12)',
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  featureText: {
-    color: colors.text,
-    flex: 1,
-    fontSize: authTypography.label,
-    fontWeight: '600',
-  },
-  featureDivider: {
-    backgroundColor: 'rgba(245, 245, 245, 0.09)',
-    height: 1,
-    marginVertical: theme.spacing.md,
-  },
   footer: {
     alignItems: 'center',
     flex: 0.2,
@@ -342,17 +246,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
     width: '42%',
   },
-  legalRow: {
+  legalLinks: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: theme.spacing.sm,
   },
-  legalLink: {
+  footerLink: {
+    color: colors.mutedText,
+    fontSize: authTypography.caption,
     textDecorationLine: 'underline',
   },
   footerText: {
     color: colors.softText,
-    fontSize: authTypography.control,
+    fontSize: authTypography.caption,
   },
   versionText: {
     color: 'rgba(245, 245, 245, 0.28)',

@@ -23,12 +23,12 @@ import { EditProfileScreen } from '../screens/app/EditProfileScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { FriendsScreen } from '../screens/app/FriendsScreen';
 import { PayPalMeScreen } from '../screens/app/PayPalMeScreen';
+import { PersonalSettlementsScreen } from '../screens/app/PersonalSettlementsScreen';
 import { QuickRoundScreen } from '../screens/app/QuickRoundScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
-import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
 import { TableInvitationsScreen } from '../screens/app/TableInvitationsScreen';
 import { TableStatisticsScreen } from '../screens/app/TableStatisticsScreen';
-import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
+import { LegalScreen } from '../screens/LegalScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
@@ -40,6 +40,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { parseRecoveryLink } from '../services/auth/passwordRecovery';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { useGuestModeStore } from '../store/guestModeStore';
 import { authColors } from '../theme/colors';
 import { quickRoundURL } from '../utils/quickRound';
 import { AppTabs } from './AppTabs';
@@ -79,9 +80,11 @@ const rootStackScreenOptions: NativeStackNavigationOptions = {
 };
 
 function AuthStackNavigator() {
+  // Guests who chose "Ohne Account spielen" before start directly in the app.
+  const guestMode = useGuestModeStore((state) => state.enabled);
   return (
     <AuthStack.Navigator
-      initialRouteName="Onboarding"
+      initialRouteName={guestMode ? 'MainTabs' : 'Onboarding'}
       screenOptions={sharedStackScreenOptions}
     >
       <AuthStack.Screen
@@ -105,19 +108,19 @@ function AuthStackNavigator() {
         options={{ headerShown: false }}
       />
       <AuthStack.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={{ headerShown: false }}
+      />
+      <AuthStack.Screen
         name="MainTabs"
         component={AppStackNavigator}
         options={{ headerShown: false }}
       />
       <AuthStack.Screen
-        name="CloseMatchDay"
-        component={CloseMatchDayScreen}
-        options={{ title: 'Spieltag abschließen' }}
-      />
-      <AuthStack.Screen
         name="MatchDayDetails"
         component={MatchDayDetailsScreen}
-        options={{ title: 'Spieltag' }}
+        options={{ title: 'Spieltag', headerShown: false }}
       />
     </AuthStack.Navigator>
   );
@@ -142,7 +145,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="PayPalMe"
         component={PayPalMeScreen}
-        options={{ title: 'PayPal.Me-Link' }}
+        options={{ headerShown: false }}
       />
       <AppStack.Screen
         name="RequestPassword"
@@ -150,8 +153,18 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <AppStack.Screen
+        name="Legal"
+        component={LegalScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
         name="Friends"
         component={FriendsScreen}
+        options={{ headerShown: false }}
+      />
+      <AppStack.Screen
+        name="PersonalSettlements"
+        component={PersonalSettlementsScreen}
         options={{ headerShown: false }}
       />
       <AppStack.Screen
@@ -172,7 +185,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="QuickRound"
         component={QuickRoundScreen}
-        options={{ title: 'Spiel eintragen' }}
+        options={{ title: 'Spiel eintragen', headerShown: false }}
       />
       <AppStack.Screen
         name="EditTable"
@@ -182,7 +195,7 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="MatchDayDetails"
         component={MatchDayDetailsScreen}
-        options={{ title: 'Spieltag' }}
+        options={{ title: 'Spieltag', headerShown: false }}
       />
       <AppStack.Screen
         name="Settlement"
@@ -192,11 +205,6 @@ function AppStackNavigator() {
       <AppStack.Screen
         name="TableStatistics"
         component={TableStatisticsScreen}
-        options={{ headerShown: false }}
-      />
-      <AppStack.Screen
-        name="TableArchive"
-        component={TableArchiveScreen}
         options={{ headerShown: false }}
       />
     </AppStack.Navigator>
@@ -223,6 +231,10 @@ export function RootNavigator() {
   const authLoading = useAuthStore((state) => state.loading);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const initializeAuth = useAuthStore((state) => state.initialize);
+  useEffect(() => {
+    // After signing in the guest choice no longer applies.
+    if (isAuthenticated) useGuestModeStore.getState().setEnabled(false);
+  }, [isAuthenticated]);
   const loading =
     !storesHydrated ||
     !gameRestore.restored ||
@@ -274,6 +286,18 @@ export function RootNavigator() {
       navigation.navigate('AuthStack', { screen: 'Login' });
   }
 
+  function requestNewRecoveryLink() {
+    clearRecoverySession();
+    setRecovery(null);
+    if (!navigation.isReady()) return;
+    if (isAuthenticated)
+      navigation.navigate('AppStack', {
+        screen: 'RequestPassword',
+        params: { fromAccount: true },
+      });
+    else navigation.navigate('AuthStack', { screen: 'RequestPassword' });
+  }
+
   useEffect(() => {
     if (Platform.OS !== 'ios' || usesExpoGoIOSStack) return;
     let mounted = true;
@@ -302,10 +326,11 @@ export function RootNavigator() {
     };
   }, []);
 
+  const guestMode = useGuestModeStore((state) => state.enabled);
   useEffect(() => {
     if (
       loading ||
-      !isAuthenticated ||
+      (!isAuthenticated && !guestMode) ||
       !quickRoundPending ||
       !navigationReady ||
       !navigation.isReady()
@@ -319,10 +344,17 @@ export function RootNavigator() {
         ...CommonActions.setParams({ quickRound: true }),
         source: route.key,
       });
-    } else {
+    } else if (isAuthenticated) {
       navigation.navigate('AppStack', { screen: 'QuickRound', initial: false });
+    } else {
+      // Guests use the app inside the AuthStack ("MainTabs").
+      navigation.navigate('AuthStack', {
+        screen: 'MainTabs',
+        params: { screen: 'QuickRound', initial: false },
+      });
     }
   }, [
+    guestMode,
     isAuthenticated,
     loading,
     navigation,
@@ -374,6 +406,7 @@ export function RootNavigator() {
           <ResetPasswordScreen
             code={recovery.code}
             onClose={closeRecovery}
+            onRequestNewLink={requestNewRecoveryLink}
             closeLabel={isAuthenticated ? 'Zurück zur App' : 'Zur Anmeldung'}
           />
         </Modal>

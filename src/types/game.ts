@@ -4,6 +4,8 @@ export type Player = {
   name: string;
   isLocal: boolean;
   userId?: string;
+  /** The guest's own seat at a table created without an account. */
+  guestSelf?: boolean;
 };
 
 export type TableGameTypeId =
@@ -86,6 +88,14 @@ export type GameTable = {
   };
   roundHistory?: RoundHistoryEvent[];
   interimPayments?: InterimPayment[];
+  settlementRevisions?: {
+    id: string;
+    occurredAt: string;
+    actor: RoundHistoryActor;
+    balances: PlayerBalance[];
+    settlements: Settlement[];
+    carriedPaymentIds: string[];
+  }[];
   id: string;
   hashCode: string;
   name: string;

@@ -30,6 +30,7 @@ import {
   settlementExportDescription,
 } from '../../utils/settlementExport';
 import { GoldButton } from '../auth/GoldButton';
+import { AppButton } from '../ui/AppButton';
 import { AppText } from '../ui/AppText';
 import {
   SETTLEMENT_IMAGE_WIDTH,
@@ -75,7 +76,7 @@ export function SettlementShare(props: Props) {
   }
   return (
     <View style={styles.stack}>
-      <GoldButton title="Abrechnung teilen" onPress={open} />
+      <AppButton title="Abrechnung teilen" variant="secondary" onPress={open} />
       {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
       {snapshot && snapshot.source !== source ? (
         <AppText accessibilityRole="alert">

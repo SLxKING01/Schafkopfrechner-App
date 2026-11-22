@@ -62,3 +62,31 @@ from private.sk_profile_reports r where r.status = 'open' order by r.created_at;
 ```
 
 Nach der Prüfung `status` auf `actioned` oder `dismissed` setzen. Ein unpassendes Profil lässt sich zurücksetzen, indem Anzeigename und Bild in `private.sk_profiles` geändert werden; bei schweren Fällen das Konto unter Authentication → Users sperren oder löschen. Apple erwartet eine Bearbeitung innerhalb von 24 Stunden. Für eine Benachrichtigung bei neuen Meldungen eignet sich ein Database Webhook auf die Tabelle.
+
+## Tischzugriff und Abschlusskorrekturen
+
+Die Migrationen `20261122120000_shared_table_access_exit.sql` und
+`20261122120100_closed_table_correction.sql` in dieser Reihenfolge anwenden
+(noch nicht im Projekt eingespielt). Sie ersetzen nur die private
+Implementierung von `sk_record_settlement_event`; der öffentliche Wrapper aus
+`20261117204558_private_settlement_functions.sql` bleibt erhalten.
+Der Zugriffswechsel lässt Spielerplatz und Aktivstatus bestehen. Ehemalige
+Teilnehmer sehen unter **Tische → Frühere Abrechnungen**
+ihren Saldo, eigene Zahlungen und deren Historie. Ein erneuter Beitritt zum
+laufenden Tisch erfordert eine neue Einladung für denselben Spielerplatz.
+
+Am abgeschlossenen Tisch können Ersteller ein Spiel zur Korrektur öffnen.
+Die Vorschau zeigt alte und neue Salden und die zusätzlich nötigen Zahlungen.
+Gemeldete, unbestätigte Zahlungen blockieren das Speichern. Die Datenbank
+prüft die Tischversion und den Zahlungsstand erneut beim Schreiben. Bestätigte
+Zahlungen aus früheren Abrechnungsversionen bleiben erhalten.
+
+`npm run test:database` prüft Rechteentzug, Wiedereinladung, persönliche
+Abrechnung und eine Korrektur mit bestätigter Zahlung auf isoliertem PostgreSQL.
+
+## Größe des Tabellenabrufs
+
+`node scripts/measure-shared-table-discovery.cjs` vergleicht zwei synthetische
+Antworten mit jeweils zwei Tischen und 1.000 Spielen je Tisch. Die Messung
+erfasst unkomprimierte JSON-Bytes beim Listenabruf. Spielhistorie und
+Abrechnung werden weiterhin geladen, wenn der Tisch geöffnet wird.

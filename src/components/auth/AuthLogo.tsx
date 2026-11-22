@@ -1,35 +1,5 @@
-import { StyleSheet, View } from 'react-native';
-
-import { authColors } from '../../theme/colors';
-import { CardSuitIcon } from '../game/CardSuitIcon';
+import { AppLogo } from '../ui/AppLogo';
 
 export function AuthLogo() {
-  return (
-    <View style={styles.shadow}>
-      <View style={styles.logo}>
-        <CardSuitIcon suit="eichel" color={authColors.background} size={42} />
-      </View>
-    </View>
-  );
+  return <AppLogo size={70} />;
 }
-
-const styles = StyleSheet.create({
-  shadow: {
-    borderRadius: 35,
-    elevation: 8,
-    shadowColor: authColors.gold,
-    shadowOffset: { height: 10, width: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 18,
-  },
-  logo: {
-    alignItems: 'center',
-    backgroundColor: authColors.gold,
-    borderColor: 'rgba(242, 201, 76, 0.58)',
-    borderRadius: 35,
-    borderWidth: 1,
-    height: 70,
-    justifyContent: 'center',
-    width: 70,
-  },
-});

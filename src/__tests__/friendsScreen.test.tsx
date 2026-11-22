@@ -282,6 +282,7 @@ it('requires block confirmation and explains that existing table rights remain',
     .mocked(readFriends)
     .mockResolvedValue({ ...initial, friends: [{ ...entry, pairVersion: 2 }] });
   const ui = await mount();
+  await ui.press('Aktionen für Kontakt Anna');
   await ui.press('Blockieren');
   expect(executeFriendCommand).not.toHaveBeenCalled();
   expect(JSON.stringify(ui.view.toJSON())).toContain(
@@ -308,7 +309,7 @@ it('restores an unresolved operation and retries exactly its persisted ID', asyn
   expect(JSON.stringify(ui.view.toJSON())).toContain(
     'noch nicht abschließend bestätigt',
   );
-  await ui.press('Auftrag prüfen');
+  await ui.press('Erneut prüfen');
   expect(executeFriendCommand).toHaveBeenCalledWith(actor, pending);
   await act(async () => ui.view.unmount());
 });
@@ -329,12 +330,13 @@ it('keeps uncertain mutations recoverable and disables new contact changes', asy
     })
     .mockResolvedValueOnce({ ...initial, version: 2 });
   const ui = await mount();
+  await ui.press('Aktionen für Kontakt Anna');
   await ui.press('Freund entfernen');
   await ui.press('Jetzt entfernen');
   expect(JSON.stringify(ui.view.toJSON())).toContain('Antwort verloren');
   const original = jest.mocked(executeFriendCommand).mock.calls[0][1];
   await ui.press('Schließen');
-  await ui.press('Auftrag prüfen');
+  await ui.press('Erneut prüfen');
   expect(jest.mocked(executeFriendCommand).mock.calls[1][1]).toEqual(original);
   await act(async () => ui.view.unmount());
 });
@@ -358,6 +360,7 @@ it('reports a contact with a chosen reason and keeps the friendship unchanged', 
     .mocked(readFriends)
     .mockResolvedValue({ ...initial, friends: [{ ...entry, pairVersion: 2 }] });
   const ui = await mount();
+  await ui.press('Aktionen für Kontakt Anna');
   await ui.press('Melden');
   expect(ui.button('Meldung senden').props.disabled).toBe(true);
   const reasons = ui.view.root.findAll(
@@ -394,6 +397,7 @@ it('keeps the report dialog open with the error when sending fails', async () =>
     .mocked(reportProfile)
     .mockResolvedValueOnce({ ok: false, message: 'Zu viele Meldungen.' });
   const ui = await mount();
+  await ui.press('Aktionen für Kontakt Anna');
   await ui.press('Melden');
   const reasons = ui.view.root.findAll(
     (n: { props: { accessibilityRole?: string; onPress?: unknown } }) =>

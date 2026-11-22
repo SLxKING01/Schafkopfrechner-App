@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { Platform } from 'react-native';
 
-import { Metric, StatAction } from '../components/statistics/StatisticsPanels';
+import { StatAction } from '../components/statistics/StatisticsPanels';
 import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { StatisticsScreen } from '../screens/app/StatisticsScreen';
 import { useSharedTableStatus } from '../services/shared/sharedTables';
@@ -39,6 +39,9 @@ jest.mock('../components/auth/AuthBackground', () => {
     ),
   };
 });
+jest.mock('../components/ui/InteractionSheet', () => ({
+  InteractionSheet: jest.requireActual('react-native').View,
+}));
 beforeEach(() => {
   jest.replaceProperty(Platform, 'OS', 'web');
   mockNavigate.mockClear();
@@ -66,13 +69,28 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it('switches between overall, player and table statistics and opens a selected trend round', async () => {
+it('offers only personal and table scopes, then shows player statistics inside the table', async () => {
+  useAuthStore.setState({
+    user: { id: 'my-account', user_metadata: {} } as never,
+  });
+  useGameStore.getState().createTable('Anderer Tisch', [
+    { id: 'c', name: 'C', isLocal: false, userId: 'account-c' },
+    { id: 'e', name: 'E', isLocal: true },
+  ]);
+  seedLegacyRound({
+    gameType: 'rufspiel',
+    winnerId: 'c',
+    loserIds: ['e'],
+    amount: 1,
+  });
+  await useGameStore.getState().finishGameDay();
   useGameStore.getState().createTable(
     'Statistiktisch',
     ['a', 'b', 'c', 'd'].map((id) => ({
       id,
       name: id.toUpperCase(),
       isLocal: true,
+      userId: id === 'a' ? 'my-account' : id === 'c' ? 'account-c' : undefined,
     })),
   );
   seedLegacyRound({
@@ -114,28 +132,35 @@ it('switches between overall, player and table statistics and opens a selected t
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
+  expect(button('Auswertung auswählen').props.accessibilityValue.text).toBe(
+    'Mein Spiel',
+  );
   expect(
-    view.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Gespielte Runden',
-      )?.props.value,
-  ).toBe('2');
-  await act(async () => action('Spieler').props.onPress());
-  expect(
-    view.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Spielbilanz',
-      )?.props.value,
-  ).toBe('-0,20 €');
+    button('Spielbilanz im Verlauf').props.accessibilityValue.text,
+  ).toContain('-0,20 €');
+  await act(async () => button('Nach Spielart').props.onPress());
   await act(async () => button('Rufspiel auswerten').props.onPress());
-  expect(JSON.stringify(view.toJSON())).toContain('Deine Rolle');
+  expect(JSON.stringify(view.toJSON())).toContain('Rolle im Spiel');
   expect(JSON.stringify(view.toJSON())).toContain('Eichel');
-  await act(async () => action('Tisch').props.onPress());
-  expect(JSON.stringify(view.toJSON())).toContain('Sauspiel-Partnerschaften');
+  await act(async () => button('Zeitraum auswählen').props.onPress());
+  await act(async () => button('Gesamter Zeitraum').props.onPress());
+  expect(button('Zeitraum auswählen').props.accessibilityValue.text).toBe(
+    'Gesamter Zeitraum',
+  );
+  await act(async () => button('Auswertung auswählen').props.onPress());
+  expect(
+    button('Mein Spiel, Meine Spiele über alle zugeordneten Tische'),
+  ).toBeTruthy();
+  expect(button('Gesamt, Spiele über alle Tische')).toBeUndefined();
+  expect(button('C, Statistiktisch')).toBeUndefined();
+  expect(button('Statistik für C')).toBeUndefined();
+  await act(async () => button('Statistiktisch, 2 Spiele').props.onPress());
+  // The table view shows the whole table only; no per-player switch.
+  expect(button('Statistik für C')).toBeUndefined();
+  expect(JSON.stringify(view.toJSON())).not.toContain(
+    'Tischstatistik separat öffnen',
+  );
+  expect(JSON.stringify(view.toJSON())).toContain('Rufspiel-Partnerschaften');
   await act(async () => button('Partnerschaft A und B öffnen').props.onPress());
   expect(JSON.stringify(view.toJSON())).toContain(
     'Gemeinsame Spiele nach Farbe',
@@ -182,11 +207,16 @@ async function mountDashboard() {
   };
   return { view: view!, button, press };
 }
-it('keeps an empty dashboard focused on personal statistics and the table tab', async () => {
+it('keeps an empty guest dashboard focused on sign-in, a new table and the table tab', async () => {
   const ui = await mountDashboard();
-  expect(ui.button('Gesamtbilanz: 0,00 €')).toBeTruthy();
-  expect(ui.button('Spiele gesamt: 0')).toBeTruthy();
+  expect(ui.button('Gesamtbilanz: –')).toBeTruthy();
+  expect(ui.button('Spiele gesamt: –')).toBeTruthy();
   expect(ui.button('Gewinnquote: –')).toBeTruthy();
+  await ui.press('Anmelden');
+  expect(mockNavigate).toHaveBeenCalledWith('Login');
+  await ui.press('Neuer Tisch');
+  expect(mockNavigate).toHaveBeenCalledWith('CreateTable');
+  expect(JSON.stringify(ui.view.toJSON())).not.toContain('Letzte Tische');
   expect(JSON.stringify(ui.view.toJSON())).not.toContain('Schnellzugriff');
   expect(JSON.stringify(ui.view.toJSON())).not.toContain('Letzte Spiele');
   expect(
@@ -265,9 +295,13 @@ it('counts unpaid tables rather than transfer rows and offers each table when se
   });
   await act(async () => ui.view.unmount());
 });
-it('opens the table overview and profile without offering a blocked new table action', async () => {
+it('offers to continue the running table instead of a blocked new table action', async () => {
   table();
   const ui = await mountDashboard();
+  expect(JSON.stringify(ui.view.toJSON())).toContain('Läuft gerade');
+  expect(ui.button('Neuer Tisch')).toBeUndefined();
+  await ui.press('Weiterspielen an Echter Tisch');
+  expect(mockNavigate).toHaveBeenCalledWith('ActiveGame');
   await ui.press('Alle Tische ansehen');
   expect(mockNavigate).toHaveBeenCalledWith('AppTabs', { screen: 'GameLobby' });
   await ui.press('Alle Tische ansehen');
@@ -351,22 +385,9 @@ it('uses the same account-based personal totals in dashboard and player statisti
   await act(async () => {
     stats = renderer.create(<StatisticsScreen />);
   });
-  const playerTab = stats.root
-    .findAllByType(StatAction)
-    .find(
-      (node: { props: { children: unknown } }) =>
-        node.props.children === 'Spieler',
-    )!;
-  await act(async () => playerTab.props.onPress());
-  expect(
-    stats.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Spielbilanz',
-      )?.props.value,
-  ).toBe('+2,40 €');
-  expect(JSON.stringify(stats.toJSON())).toContain('Meine Gesamtstatistik');
+  const rendered = JSON.stringify(stats.toJSON());
+  expect(rendered).toContain('+2,40 €');
+  expect(rendered).toContain('Mein Spiel');
   await act(async () => {
     ui.view.unmount();
     stats.unmount();
@@ -394,7 +415,7 @@ it.each([
     await act(async () => ui.view.unmount());
   },
 );
-it('shows no table cards on the dashboard even when local and shared tables exist', async () => {
+it('shows only the running local table, not shared tables, on the dashboard', async () => {
   useGameStore.getState().createTable(
     'Nur im Tischreiter',
     ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
@@ -409,27 +430,74 @@ it('shows no table cards on the dashboard even when local and shared tables exis
       {
         id: 'shared-table',
         version: 1,
-        updatedAt: new Date().toISOString(),
-        payload: {
-          currentTable: {
-            ...state.currentTable!,
-            id: 'shared-table',
-            name: 'Gemeinsamer Tisch',
-          },
-          players: state.players,
-          rounds: state.rounds,
-          balances: state.balances,
-          settlements: state.settlements,
-          activeGame: true,
-        },
+        name: 'Gemeinsamer Tisch',
+        players: state.players,
+        active: true,
       },
     ],
   });
   const ui = await mountDashboard();
   const rendered = JSON.stringify(ui.view.toJSON());
-  expect(rendered).not.toContain('Nur im Tischreiter');
+  expect(rendered).toContain('Nur im Tischreiter');
   expect(rendered).not.toContain('Gemeinsamer Tisch');
   expect(rendered).not.toContain('Tisch erstellen');
   expect(ui.button('Alle Tische ansehen')).toBeTruthy();
   await act(async () => ui.view.unmount());
+});
+
+it('lists recently finished tables with their payment state', async () => {
+  for (const name of ['Erster Tisch', 'Zweiter Tisch']) {
+    useGameStore.getState().createTable(
+      name,
+      ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, isLocal: true })),
+    );
+    seedLegacyRound({
+      gameType: 'solo',
+      winnerId: 'a',
+      loserIds: ['b', 'c', 'd'],
+      amount: 1.5,
+    });
+    await useGameStore.getState().finishGameDay();
+  }
+  const ui = await mountDashboard();
+  const rendered = JSON.stringify(ui.view.toJSON());
+  expect(rendered).toContain('Letzte Tische');
+  expect(rendered).toContain('3 Zahlungen offen');
+  await ui.press('Zweiter Tisch öffnen');
+  expect(mockNavigate).toHaveBeenCalledWith('Settlement', {
+    tableId: useGameStore
+      .getState()
+      .archivedGameDays.find((day) => day.table.name === 'Zweiter Tisch')!.table
+      .id,
+  });
+  await act(async () => ui.view.unmount());
+});
+
+it('shows a guest their own games at tables they created', async () => {
+  useGameStore.getState().createTable(
+    'Gasttisch',
+    ['a', 'b', 'c', 'd'].map((id) => ({
+      id,
+      name: id === 'a' ? 'Gast' : id.toUpperCase(),
+      isLocal: true,
+      ...(id === 'a' ? { guestSelf: true } : {}),
+    })),
+  );
+  seedLegacyRound({
+    gameType: 'rufspiel',
+    winnerId: 'a',
+    winnerIds: ['a', 'b'],
+    loserIds: ['c', 'd'],
+    declarerId: 'a',
+    partnerId: 'b',
+    amount: 0.4,
+  });
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<StatisticsScreen />);
+  });
+  const rendered = JSON.stringify(view!.toJSON());
+  expect(rendered).toContain('Bilanz als Gast');
+  expect(rendered).toContain('+0,20 €');
+  await act(async () => view!.unmount());
 });

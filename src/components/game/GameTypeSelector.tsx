@@ -9,7 +9,7 @@ const gameTypes: { id: GameType; label: string }[] = [
   { id: 'rufspiel', label: 'Rufspiel' },
   { id: 'solo', label: 'Solo' },
   { id: 'wenz', label: 'Wenz' },
-  { id: 'farbwenz', label: 'FarbWenz' },
+  { id: 'farbwenz', label: 'Farbwenz' },
   { id: 'geier', label: 'Geier' },
   { id: 'farbgeier', label: 'Farbgeier' },
   { id: 'ramsch', label: 'Ramsch' },

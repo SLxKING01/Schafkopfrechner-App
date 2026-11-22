@@ -1,28 +1,43 @@
+import { useNavigation } from '@react-navigation/native';
 import { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { EmptyState } from '../components/EmptyState';
-import { AppCard } from '../components/ui/AppCard';
-import { AppSection } from '../components/ui/AppSection';
+import { AuthBackground } from '../components/auth/AuthBackground';
 import { AppText } from '../components/ui/AppText';
+import { Notice } from '../components/ui/Notice';
+import { PageHeader } from '../components/ui/PageHeader';
 import { getGameTypeById } from '../constants/gameTypes';
-import type { Balance } from '../models/Balance';
-import type { Game } from '../models/Game';
-import type { PlayerStats } from '../models/PlayerStats';
-import type { Settlement } from '../models/Settlement';
 import { useGameStore } from '../store/gameStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
-import { theme } from '../theme';
-import { calculateBaseAmount } from '../utils/calculateBaseAmount';
-import { formatGameAmountSummary } from '../utils/calculateGameAmount';
+import {
+  authColors as c,
+  authRadius,
+  authSpacing as space,
+  authTextStyles,
+} from '../theme';
+import { authTypography } from '../theme/typography';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
 import { historicalNames } from '../utils/historicalNames';
 import { winningIds } from '../utils/winningParty';
 
 type MatchDayDetailsScreenProps = { route: { params: { matchDayId: string } } };
 
+function formatAmount(amount: number, signed = false) {
+  const text = `${Math.abs(amount).toFixed(2).replace('.', ',')} €`;
+  if (!signed || amount === 0) return amount < 0 ? `−${text}` : text;
+  return `${amount > 0 ? '+' : '−'}${text}`;
+}
+
+function amountColor(amount: number) {
+  if (amount > 0) return styles.positive;
+  if (amount < 0) return styles.negative;
+  return styles.neutral;
+}
+
+/** Read-only view of a game day recorded by an earlier app version. */
 export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
+  const navigation = useNavigation();
   const { matchDayId } = route.params;
   const games = useGameStore((state) => state.games);
   const players = usePlayerStore((state) => state.players);
@@ -52,198 +67,228 @@ export function MatchDayDetailsScreen({ route }: MatchDayDetailsScreenProps) {
         : 'Unbekannt',
     [playerNameById],
   );
-
-  if (!matchDay) {
-    return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
-        <EmptyState
-          title="Spieltag nicht gefunden"
-          message="Dieser Spieltag ist nicht mehr vorhanden."
-        />
-      </ScrollView>
-    );
-  }
-
-  function formatAmount(amount: number) {
-    return `${amount.toFixed(2).replace('.', ',')} €`;
-  }
-
-  function formatWinRate(winRate: number) {
-    return `${winRate.toFixed(1).replace('.', ',')} %`;
-  }
-
-  function getAmountStyle(amount: number) {
-    if (amount > 0) {
-      return styles.positiveAmount;
-    }
-
-    if (amount < 0) {
-      return styles.negativeAmount;
-    }
-
-    return styles.neutralAmount;
-  }
-
-  function renderGame({ item }: { item: Game }) {
-    const calculatedAmountSummary = formatGameAmountSummary(
-      item.gameTypeId,
-      item.options,
-    );
-
-    return (
-      <AppCard style={styles.card}>
-        <AppText variant="subtitle">
-          {winningIds(item).map(getPlayerName).join(' & ')}
-        </AppText>
-        <AppText variant="caption">
-          {getGameTypeById(item.gameTypeId).name}
-        </AppText>
-        <AppText>
-          Basisbetrag: {formatAmount(calculateBaseAmount(item.gameTypeId))}
-        </AppText>
-        <AppText>Tatsächlicher Betrag: {formatAmount(item.amount)}</AppText>
-        <AppText>
-          {calculatedAmountSummary} = {formatAmount(item.amount)}
-        </AppText>
-        <AppText variant="caption">Verlierer: {item.loserIds.length}</AppText>
-      </AppCard>
-    );
-  }
-
-  function renderBalance({ item }: { item: Balance }) {
-    return (
-      <View style={styles.row}>
-        <AppText style={styles.rowName}>{getPlayerName(item.playerId)}</AppText>
-        <AppText style={[styles.rowAmount, getAmountStyle(item.amount)]}>
-          {formatAmount(item.amount)}
-        </AppText>
-      </View>
-    );
-  }
-
-  function renderSettlement({ item }: { item: Settlement }) {
-    return (
-      <AppText>
-        {getPlayerName(item.fromPlayerId)} zahlt{' '}
-        {getPlayerName(item.toPlayerId)} {formatAmount(item.amount)}
-      </AppText>
-    );
-  }
-
-  function renderPlayerStats({ item }: { item: PlayerStats }) {
-    const favoriteGameTypeName = item.favoriteGameTypeId
-      ? getGameTypeById(item.favoriteGameTypeId).name
-      : 'Keine Spiele';
-
-    return (
-      <AppCard style={styles.card}>
-        <View style={styles.row}>
-          <AppText variant="subtitle" style={styles.rowName}>
-            {getPlayerName(item.playerId)}
-          </AppText>
-          <AppText style={[styles.rowAmount, getAmountStyle(item.totalAmount)]}>
-            {formatAmount(item.totalAmount)}
-          </AppText>
-        </View>
-        <AppText>Winrate: {formatWinRate(item.winRate)}</AppText>
-        <AppText>
-          {item.wins} Siege / {item.losses} Niederlagen
-        </AppText>
-        <AppText variant="caption">
-          Lieblingsspieltyp: {favoriteGameTypeName}
-        </AppText>
-      </AppCard>
-    );
-  }
+  const goBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+  };
+  const date = matchDay?.createdAt
+    ? new Date(matchDay.createdAt).toLocaleDateString('de-DE')
+    : undefined;
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
-      <AppText variant="title">{matchDay?.name ?? 'Spieltag'}</AppText>
-
-      <AppSection title="Spiele">
-        {summary.games.length === 0 ? (
-          <EmptyState
-            title="Keine Spiele"
-            message="Dieser abgeschlossene Spieltag enthält keine Spiele."
-          />
+    <AuthBackground>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <PageHeader
+          onBack={goBack}
+          kicker="Spieltag"
+          title={matchDay?.name ?? 'Spieltag'}
+          subtitle={date}
+        />
+        {!matchDay ? (
+          <Notice tone="info">Dieser Spieltag ist nicht mehr vorhanden.</Notice>
         ) : (
-          <View style={styles.list}>
-            {summary.games.map((item, index) => (
-              <View key={index}>{renderGame({ item })}</View>
-            ))}
-          </View>
+          <>
+            <AppText style={styles.hint}>
+              Aus einer früheren App-Version, ohne Zahlungsstatus.
+            </AppText>
+
+            <View style={styles.card}>
+              <AppText accessibilityRole="header" style={styles.cardTitle}>
+                Endstand
+              </AppText>
+              {summary.balances.map((balance) => (
+                <View key={balance.playerId} style={styles.row}>
+                  <AppText style={styles.name}>
+                    {getPlayerName(balance.playerId)}
+                  </AppText>
+                  <AppText style={[styles.amount, amountColor(balance.amount)]}>
+                    {formatAmount(balance.amount, true)}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.section}>
+              <AppText accessibilityRole="header" style={styles.sectionTitle}>
+                Zahlungen
+              </AppText>
+              {summary.settlements.length === 0 ? (
+                <AppText style={styles.hint}>
+                  Keine Zahlungen nötig, alle sind ausgeglichen.
+                </AppText>
+              ) : (
+                summary.settlements.map((payment, index) => (
+                  <View key={index} style={styles.payment}>
+                    <AppText style={styles.paymentTitle}>
+                      {getPlayerName(payment.fromPlayerId)} →{' '}
+                      {getPlayerName(payment.toPlayerId)}
+                    </AppText>
+                    <AppText style={styles.paymentAmount}>
+                      {formatAmount(payment.amount)}
+                    </AppText>
+                  </View>
+                ))
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <AppText accessibilityRole="header" style={styles.sectionTitle}>
+                Spiele · {summary.games.length}
+              </AppText>
+              {summary.games.length === 0 ? (
+                <AppText style={styles.hint}>
+                  Dieser Spieltag enthält keine Spiele.
+                </AppText>
+              ) : (
+                <View style={styles.list}>
+                  {summary.games.map((game, index) => {
+                    const winners = winningIds(game).map(getPlayerName);
+                    return (
+                      <View
+                        key={game.id ?? index}
+                        style={[styles.gameRow, index > 0 && styles.separator]}
+                      >
+                        <View style={styles.gameCopy}>
+                          <AppText style={styles.gameTitle}>
+                            {winners.join(' & ')}{' '}
+                            {winners.length === 1 ? 'gewinnt' : 'gewinnen'} ·{' '}
+                            {getGameTypeById(game.gameTypeId).name}
+                          </AppText>
+                          <AppText style={styles.hint}>
+                            gegen {game.loserIds.map(getPlayerName).join(', ')}
+                          </AppText>
+                        </View>
+                        <AppText style={[styles.amount, styles.positive]}>
+                          +{formatAmount(game.amount)}
+                        </AppText>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {summary.playerStats.length ? (
+              <View style={styles.card}>
+                <AppText accessibilityRole="header" style={styles.cardTitle}>
+                  Gewinnquote
+                </AppText>
+                {summary.playerStats.map((stats) => (
+                  <View key={stats.playerId} style={styles.row}>
+                    <AppText style={styles.name}>
+                      {getPlayerName(stats.playerId)}
+                    </AppText>
+                    <AppText style={styles.hint}>
+                      {stats.wins} gewonnen · {stats.losses} verloren
+                    </AppText>
+                    <AppText style={styles.rate}>
+                      {Math.round(stats.winRate)} %
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </>
         )}
-      </AppSection>
-
-      <AppSection title="Finale Salden">
-        <View style={styles.compactList}>
-          {summary.balances.map((item, index) => (
-            <View key={index}>{renderBalance({ item })}</View>
-          ))}
-        </View>
-      </AppSection>
-
-      <AppSection title="Finale Auszahlungen">
-        {summary.settlements.length === 0 ? (
-          <EmptyState
-            title="Keine Auszahlungen"
-            message="Dieser Spieltag ist bereits ausgeglichen."
-          />
-        ) : (
-          <View style={styles.compactList}>
-            {summary.settlements.map((item, index) => (
-              <View key={index}>{renderSettlement({ item })}</View>
-            ))}
-          </View>
-        )}
-      </AppSection>
-
-      <AppSection title="Statistik">
-        <View style={styles.list}>
-          {summary.playerStats.map((item, index) => (
-            <View key={index}>{renderPlayerStats({ item })}</View>
-          ))}
-        </View>
-      </AppSection>
-    </ScrollView>
+      </ScrollView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: theme.colors.background,
+  content: {
+    gap: space.lg,
     paddingBottom: 100,
-    gap: theme.spacing.lg,
-    padding: theme.spacing.xl,
+    paddingHorizontal: space.xl,
   },
-  list: {
-    gap: theme.spacing.md,
-  },
-  compactList: {
-    gap: theme.spacing.sm,
-  },
+  hint: { ...authTextStyles.caption, color: c.textSecondary },
   card: {
-    gap: theme.spacing.sm,
+    backgroundColor: c.surfaceElevated,
+    borderColor: c.borderSoft,
+    borderRadius: authRadius.lg,
+    borderWidth: 1,
+    gap: space.sm,
+    padding: space.lg,
+  },
+  cardTitle: {
+    ...authTextStyles.body,
+    color: c.textPrimary,
+    fontWeight: '700',
+  },
+  section: { gap: space.sm },
+  sectionTitle: {
+    ...authTextStyles.subhead,
+    color: c.textPrimary,
+    fontWeight: '700',
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    gap: space.md,
     justifyContent: 'space-between',
   },
-  rowName: {
-    flex: 1,
-  },
-  rowAmount: {
+  name: { color: c.textPrimary, flex: 1, fontSize: authTypography.label },
+  amount: {
+    fontSize: authTypography.label,
+    fontVariant: ['tabular-nums'],
     fontWeight: '700',
   },
-  positiveAmount: {
-    color: theme.colors.positive,
+  positive: { color: '#8FD19A' },
+  negative: { color: c.errorText },
+  neutral: { color: c.textSecondary },
+  payment: {
+    alignItems: 'center',
+    backgroundColor: c.surfaceElevated,
+    borderColor: c.borderSoft,
+    borderRadius: authRadius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
   },
-  negativeAmount: {
-    color: theme.colors.negative,
+  paymentTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.body,
+    fontWeight: '700',
   },
-  neutralAmount: {
-    color: theme.colors.textMuted,
+  paymentAmount: {
+    color: c.goldHighlight,
+    fontSize: authTypography.button,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+  },
+  list: {
+    backgroundColor: c.surfaceElevated,
+    borderColor: c.borderSoft,
+    borderRadius: authRadius.lg,
+    borderWidth: 1,
+    paddingHorizontal: space.lg,
+  },
+  gameRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: space.md,
+    paddingVertical: space.md,
+  },
+  separator: {
+    borderTopColor: c.borderSoft,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  gameCopy: { flex: 1, gap: 2, minWidth: 0 },
+  gameTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
+  rate: {
+    color: c.textPrimary,
+    fontSize: authTypography.label,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    minWidth: 48,
+    textAlign: 'right',
   },
 });
