@@ -55,16 +55,19 @@ import { RoundUndoNotice } from '../../components/game/RoundUndoNotice';
 import { SharedTablePanel } from '../../components/game/SharedTablePanel';
 import { SyncStatus } from '../../components/game/SyncStatus';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
-import { appAlert } from '../../components/ui/AppDialog';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppSwitch } from '../../components/ui/AppSwitch';
 import { AppText } from '../../components/ui/AppText';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useAccountProfiles } from '../../hooks/useAccountProfiles';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
+import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { GameRound, Player, PlayerBalance } from '../../types/game';
 import type { AnimalAvatarId, ProfileCard } from '../../types/profile';
 import {
@@ -103,20 +106,20 @@ type RankedPlayer = {
 };
 
 const screenColors = {
-  background: '#07110B',
-  backgroundMid: '#0B1D16',
-  backgroundSoft: '#143126',
+  background: authColors.background,
+  backgroundMid: authColors.tableBackground,
+  backgroundSoft: authColors.tableBackgroundSoft,
   card: 'rgba(20, 42, 32, 0.72)',
   cardStrong: 'rgba(27, 51, 40, 0.92)',
-  gold: '#E7C65C',
-  goldSoft: 'rgba(231, 198, 92, 0.14)',
-  red: '#E58B8B',
+  gold: authColors.goldHighlight,
+  goldSoft: 'rgba(242, 201, 76, 0.14)',
+  red: authColors.error,
   redSoft: 'rgba(229, 139, 139, 0.13)',
-  text: '#F5F5F5',
-  muted: 'rgba(245, 245, 245, 0.64)',
-  soft: 'rgba(245, 245, 245, 0.58)',
-  border: 'rgba(231, 198, 92, 0.22)',
-  shadow: '#000000',
+  text: authColors.textPrimary,
+  muted: authColors.textMuted,
+  soft: authColors.textMuted,
+  border: 'rgba(242, 201, 76, 0.22)',
+  shadow: authColors.shadow,
 };
 
 const playerAnimals: AnimalAvatarId[] = [
@@ -146,6 +149,12 @@ function triggerSelectionHaptic() {
 function triggerSaveHaptic() {
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 }
+
+type FinishDialog =
+  | { kind: 'archive' }
+  | { kind: 'confirm' }
+  | { kind: 'stock'; potCents: number }
+  | { kind: 'message'; title: string; message: string };
 
 function formatAmount(amount: number) {
   return `${amount.toFixed(2).replace('.', ',')} €`;
@@ -229,14 +238,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     [currentTable?.id, dismissUndo],
   );
   const [seatOrderVisible, setSeatOrderVisible] = useState(false);
-  const [finishError, setFinishError] = useState<{
-    tableId: string | undefined;
-    message: string;
-  } | null>(null);
-  const [webStockChoice, setWebStockChoice] = useState<{
-    tableId: string;
-    cents: number;
-  } | null>(null);
   const [playerActions, setPlayerActions] = useState<{
     tableId: string;
     playerId: string | null;
@@ -251,6 +252,8 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
   >();
   const [editingRoundId, setEditingRoundId] = useState<string | null>(null);
   const [undoConfirmVisible, setUndoConfirmVisible] = useState(false);
+  // Rendered in-app so it also works on react-native-web.
+  const [finishDialog, setFinishDialog] = useState<FinishDialog | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<{
     tableId: string;
     roundId: string;
@@ -535,90 +538,57 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
     setRoundComposerVisible(false);
   }, []);
 
-  const completeDay = useCallback(
+  const completeFinish = useCallback(
     (resolution?: 'refund' | 'carry') => {
-      const finishedTableId = useGameStore.getState().currentTable?.id;
-      if (!finishGameDay(resolution)) {
-        setFinishError({
-          tableId: finishedTableId,
+      const store = useGameStore.getState();
+      const finishedTableId = store.currentTable?.id;
+      if (
+        resolution === 'refund' &&
+        !store.players.some((player) => !player.isPaused)
+      ) {
+        setFinishDialog({
+          kind: 'message',
+          title: 'Kein aktiver Spieler',
           message:
-            useGameStore.getState().roundError ??
-            'Bitte prüfe den aktiven Tisch und seine Rundeneinträge.',
+            'Bitte zuerst einen Spieler wieder aktivieren, damit der Stock verteilt werden kann.',
         });
         return;
       }
+      if (!finishGameDay(resolution)) {
+        setFinishDialog({
+          kind: 'message',
+          title: 'Abschluss nicht möglich',
+          message:
+            useGameStore.getState().finishError ??
+            'Bitte prüfe den aktiven Tisch und seine Rundeneinträge. Ungültige Abrechnungsdaten werden nicht abgeschlossen.',
+        });
+        return;
+      }
+      setFinishDialog(null);
       if (finishedTableId) {
         navigation.navigate('Settlement', { tableId: finishedTableId });
       }
     },
     [finishGameDay, navigation],
   );
-  const finishDay = useCallback(() => {
-    triggerSelectionHaptic();
-    setFinishError(null);
-    let pot;
-    try {
-      pot = getStockBalanceCents(useGameStore.getState().rounds);
-    } catch (error) {
-      setFinishError({
-        tableId: useGameStore.getState().currentTable?.id,
-        message: error instanceof Error ? error.message : 'Ungültiger Stock.',
-      });
-      return;
-    }
-    if (pot > 0) {
-      const tableId = useGameStore.getState().currentTable?.id;
-      if (Platform.OS === 'web' && tableId) {
-        setWebStockChoice({ tableId, cents: pot });
-        return;
-      }
-      appAlert(
-        'Rest-Stock abschließen',
-        `${formatAmount(pot / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`,
-        [
-          { text: 'Abbrechen', style: 'cancel' },
-          {
-            text: 'Stock verteilen',
-            onPress: () => {
-              if (!useGameStore.getState().players.some((p) => !p.isPaused)) {
-                appAlert(
-                  'Kein aktiver Spieler',
-                  'Bitte zuerst einen Spieler wieder aktivieren, damit der Stock verteilt werden kann.',
-                );
-                return;
-              }
-              completeDay('refund');
-            },
-          },
-          { text: 'Stock übernehmen', onPress: () => completeDay('carry') },
-        ],
-      );
-    } else
-      appAlert(
-        'Spieltag abschließen?',
-        'Danach können an diesem Tisch keine Spiele mehr eingetragen werden. Die Abrechnung wird erstellt.',
-        [
-          { text: 'Abbrechen', style: 'cancel' },
-          { text: 'Abschließen', onPress: () => completeDay() },
-        ],
-      );
-  }, [completeDay]);
+
+  // `confirmed` skips the safety question when the user already confirmed
+  // (e.g. via "Tisch archivieren").
+  const finishDay = useCallback(
+    (confirmed = false) => {
+      triggerSelectionHaptic();
+      const pot = getStockBalanceCents(useGameStore.getState().rounds);
+      if (pot > 0) setFinishDialog({ kind: 'stock', potCents: pot });
+      else if (confirmed) completeFinish();
+      else setFinishDialog({ kind: 'confirm' });
+    },
+    [completeFinish],
+  );
 
   const confirmArchiveTable = useCallback(() => {
     triggerSelectionHaptic();
-    appAlert(
-      'Tisch archivieren',
-      'Der Spieltag wird abgeschlossen und die Abrechnung vorbereitet.',
-      [
-        { style: 'cancel', text: 'Abbrechen' },
-        {
-          onPress: finishDay,
-          style: 'destructive',
-          text: 'Archivieren',
-        },
-      ],
-    );
-  }, [finishDay]);
+    setFinishDialog({ kind: 'archive' });
+  }, []);
 
   const openTableSettings = useCallback(() => {
     triggerSelectionHaptic();
@@ -691,7 +661,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
             pressed && styles.pressed,
           ]}
         >
-          <ArrowLeft color={screenColors.gold} size={20} strokeWidth={2.2} />
+          <AppIcon icon={ArrowLeft} size="md" color={screenColors.gold} />
           <AppText style={styles.navPillText}>
             {leaving ? 'Speichert …' : 'Tische'}
           </AppText>
@@ -702,7 +672,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
           onPress={() => setMenuVisible(true)}
           style={styles.menuButton}
         >
-          <Ellipsis color={screenColors.gold} size={24} />
+          <AppIcon icon={Ellipsis} size="lg" color={screenColors.gold} />
         </Pressable>
       </Animated.View>
 
@@ -763,7 +733,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       accessibilityHint="Schliesst den Spieltag ab und zeigt die Abrechnung"
       accessibilityLabel="Spieltag abschliessen"
       hitSlop={touchHitSlop}
-      onPress={finishDay}
+      onPress={() => finishDay()}
       style={styles.finishButton}
       title="Spieltag abschließen"
     />
@@ -913,7 +883,11 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                       onPress={() => setSeatOrderVisible(true)}
                       style={styles.orderIcon}
                     >
-                      <ListOrdered size={18} color={screenColors.gold} />
+                      <AppIcon
+                        icon={ListOrdered}
+                        size="sm"
+                        color={screenColors.gold}
+                      />
                     </Pressable>
                   </View>
                   <AppText style={[styles.columnLabel, styles.balanceColumn]}>
@@ -993,7 +967,10 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   onValueChange={setTurboRamsch}
                   thumbColor="#F5F5F5"
                   ios_backgroundColor="#3B4C42"
-                  trackColor={{ false: '#3B4C42', true: '#6FA972' }}
+                  trackColor={{
+                    false: authColors.disabled,
+                    true: authColors.accentGreen,
+                  }}
                 />
               </View>
               <Pressable
@@ -1014,11 +991,6 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 </AppText>
               </Pressable>
               <SharedTablePanel />
-              {finishError && finishError.tableId === currentTable?.id ? (
-                <AppText accessibilityRole="alert">
-                  Abschluss nicht möglich. {finishError.message}
-                </AppText>
-              ) : null}
               {finishDayButton}
             </View>
           }
@@ -1142,7 +1114,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   });
               }}
             >
-              <History color={screenColors.gold} size={20} />
+              <AppIcon icon={History} size="md" color={screenColors.gold} />
               <AppText style={styles.menuText}>Tischstatistik</AppText>
             </Pressable>
             <Pressable
@@ -1154,7 +1126,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 setHistoryVisible(true);
               }}
             >
-              <History color={screenColors.gold} size={20} />
+              <AppIcon icon={History} size="md" color={screenColors.gold} />
               <AppText style={styles.menuText}>Änderungsverlauf</AppText>
             </Pressable>
             <Pressable
@@ -1171,7 +1143,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                   });
               }}
             >
-              <UsersRound color={screenColors.gold} size={20} />
+              <AppIcon icon={UsersRound} size="md" color={screenColors.gold} />
               <AppText style={styles.menuText}>Spieleraktionen</AppText>
             </Pressable>
             <Pressable
@@ -1184,7 +1156,11 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 openTableSettings();
               }}
             >
-              <SlidersHorizontal color={screenColors.gold} size={20} />
+              <AppIcon
+                icon={SlidersHorizontal}
+                size="md"
+                color={screenColors.gold}
+              />
               <AppText style={styles.menuText}>Regeln & Tarife</AppText>
             </Pressable>
             <Pressable
@@ -1197,7 +1173,7 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
                 confirmArchiveTable();
               }}
             >
-              <Trash2 color={screenColors.red} size={20} />
+              <AppIcon icon={Trash2} size="md" color={screenColors.red} />
               <AppText style={styles.menuText}>Tisch archivieren</AppText>
             </Pressable>
             <Pressable
@@ -1284,47 +1260,95 @@ export function ActiveGameScreen({ navigation, route }: ActiveGameScreenProps) {
       />
       <Modal
         transparent
-        visible={
-          !!webStockChoice && webStockChoice.tableId === currentTable?.id
-        }
+        visible={finishDialog !== null}
         animationType="fade"
-        onRequestClose={() => setWebStockChoice(null)}
+        onRequestClose={() => setFinishDialog(null)}
       >
         <View style={styles.menuRoot}>
-          <View
-            style={[styles.menuCard, styles.deleteDialog]}
-            accessibilityViewIsModal
-          >
-            <AppText accessibilityRole="header" style={styles.menuTitle}>
-              Rest-Stock abschließen
-            </AppText>
-            <AppText style={styles.menuText}>
-              {formatAmount((webStockChoice?.cents ?? 0) / 100)} liegen im
-              Stock. Verteile sie unter den aktiven Spielern oder übernimm sie
-              in einen Folgetisch.
-            </AppText>
-            <GoldButton
-              title="Stock verteilen"
-              disabled={!players.some((player) => !player.isPaused)}
-              onPress={() => {
-                setWebStockChoice(null);
-                completeDay('refund');
-              }}
-            />
-            <GoldButton
-              title="Stock übernehmen"
-              onPress={() => {
-                setWebStockChoice(null);
-                completeDay('carry');
-              }}
-            />
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setWebStockChoice(null)}
+          <Pressable
+            accessibilityLabel="Dialog schließen"
+            accessibilityRole="button"
+            style={styles.menuBackdrop}
+            onPress={() => setFinishDialog(null)}
+          />
+          {finishDialog ? (
+            <View
+              style={[styles.menuCard, styles.deleteDialog]}
+              accessibilityViewIsModal
             >
-              <AppText style={styles.menuText}>Abbrechen</AppText>
-            </Pressable>
-          </View>
+              <AppText
+                accessibilityRole="header"
+                style={[styles.menuTitle, styles.deleteTitle]}
+              >
+                {finishDialog.kind === 'archive'
+                  ? 'Tisch archivieren'
+                  : finishDialog.kind === 'confirm'
+                    ? 'Spieltag abschließen?'
+                    : finishDialog.kind === 'stock'
+                      ? 'Rest-Stock abschließen'
+                      : finishDialog.title}
+              </AppText>
+              <AppText
+                accessibilityRole={
+                  finishDialog.kind === 'message' ? 'alert' : undefined
+                }
+                style={styles.menuText}
+              >
+                {finishDialog.kind === 'archive'
+                  ? 'Der Spieltag wird abgeschlossen und die Abrechnung vorbereitet.'
+                  : finishDialog.kind === 'confirm'
+                    ? 'Danach können an diesem Tisch keine Spiele mehr eingetragen werden. Die Abrechnung wird erstellt.'
+                    : finishDialog.kind === 'stock'
+                      ? `${formatAmount(finishDialog.potCents / 100)} liegen im Stock. Verteilen teilt den Stock unter den aktuell aktiven Spielern auf, einschließlich des regulär aussetzenden Gebers. Pausierte Spieler erhalten keinen Anteil. Übernehmen eröffnet einen Folgetisch mit demselben Stock.`
+                      : finishDialog.message}
+              </AppText>
+              {finishDialog.kind === 'archive' ? (
+                <GoldButton
+                  title="Archivieren"
+                  accessibilityLabel="Archivieren bestätigen"
+                  onPress={() => finishDay(true)}
+                />
+              ) : null}
+              {finishDialog.kind === 'confirm' ? (
+                <GoldButton
+                  title="Abschließen"
+                  accessibilityLabel="Abschließen"
+                  onPress={() => finishDay(true)}
+                />
+              ) : null}
+              {finishDialog.kind === 'stock' ? (
+                <>
+                  <GoldButton
+                    title="Stock verteilen"
+                    accessibilityLabel="Stock verteilen"
+                    onPress={() => completeFinish('refund')}
+                  />
+                  <GoldButton
+                    title="Stock übernehmen"
+                    accessibilityLabel="Stock übernehmen"
+                    onPress={() => completeFinish('carry')}
+                  />
+                </>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  finishDialog.kind === 'message'
+                    ? 'Hinweis schließen'
+                    : 'Abschluss abbrechen'
+                }
+                onPress={() => setFinishDialog(null)}
+                style={({ pressed }) => [
+                  styles.deleteCancel,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <AppText style={styles.deleteCancelText}>
+                  {finishDialog.kind === 'message' ? 'OK' : 'Abbrechen'}
+                </AppText>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </Modal>
       <Modal
@@ -1521,7 +1545,11 @@ function SeatOrderModal({
                     ]}
                     onPress={() => move(index, -1)}
                   >
-                    <ArrowUp size={20} color={screenColors.gold} />
+                    <AppIcon
+                      icon={ArrowUp}
+                      size="md"
+                      color={screenColors.gold}
+                    />
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`${player.name} nach unten`}
@@ -1536,7 +1564,11 @@ function SeatOrderModal({
                     ]}
                     onPress={() => move(index, 1)}
                   >
-                    <ArrowDown size={20} color={screenColors.gold} />
+                    <AppIcon
+                      icon={ArrowDown}
+                      size="md"
+                      color={screenColors.gold}
+                    />
                   </Pressable>
                 </View>
               );
@@ -1671,10 +1703,11 @@ const SegmentButton = memo(function SegmentButton({
       onPress={onPress}
       style={({ pressed }) => [styles.segmentButton, pressed && styles.pressed]}
     >
-      <Icon
-        color={selected ? '#17150B' : screenColors.gold}
-        size={16}
-        strokeWidth={2.5}
+      <AppIcon
+        icon={Icon}
+        size="sm"
+        weight="strong"
+        color={selected ? authColors.onGold : screenColors.gold}
       />
       <AppText
         style={[styles.segmentText, selected && styles.segmentTextActive]}
@@ -1809,8 +1842,9 @@ const PlayerRankingRow = memo(function PlayerRankingRow({
         onLongPress={onDrag}
         style={styles.dragHandle}
       >
-        <Menu
-          size={20}
+        <AppIcon
+          icon={Menu}
+          size="md"
           color={dragging ? screenColors.gold : screenColors.soft}
         />
       </Pressable>
@@ -2048,21 +2082,25 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(245,245,245,0.1)',
-    backgroundColor: '#142A20',
+    backgroundColor: authColors.tableBackgroundMid,
   },
   turboCardActive: { borderColor: 'rgba(231,198,92,0.4)' },
   turboCopy: { flex: 1, minWidth: 0 },
-  turboTitle: { color: screenColors.text, fontSize: 16, fontWeight: '700' },
+  turboTitle: {
+    color: screenColors.text,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
   turboHint: {
     color: screenColors.muted,
-    fontSize: 12,
+    fontSize: authTypography.control,
     lineHeight: 17,
     marginTop: 4,
   },
 
   dragTableEnd: {
     height: 20,
-    backgroundColor: '#10251C',
+    backgroundColor: authColors.tableBackgroundMid,
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderBottomWidth: 1,
@@ -2080,14 +2118,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245,245,245,0.1)',
   },
   dragTableRow: {
-    backgroundColor: '#10251C',
+    backgroundColor: authColors.tableBackgroundMid,
     borderLeftWidth: 1,
     borderRightWidth: 1,
     borderColor: 'rgba(245,245,245,0.1)',
   },
   dragHint: {
     color: screenColors.soft,
-    fontSize: 11,
+    fontSize: authTypography.tiny,
     textAlign: 'center',
     marginTop: 12,
   },
@@ -2102,7 +2140,7 @@ const styles = StyleSheet.create({
   orderCard: { maxHeight: '85%' },
   orderHelp: {
     color: screenColors.muted,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     lineHeight: 19,
     marginBottom: 12,
   },
@@ -2115,7 +2153,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: screenColors.border,
   },
-  orderNumber: { color: screenColors.soft, fontSize: 12, width: 16 },
+  orderNumber: {
+    color: screenColors.soft,
+    fontSize: authTypography.control,
+    width: 16,
+  },
   orderDisabled: { opacity: 0.25 },
 
   multiplierKpi: {
@@ -2131,12 +2173,12 @@ const styles = StyleSheet.create({
   },
   multiplierKpiLabel: {
     color: screenColors.muted,
-    fontSize: 12,
+    fontSize: authTypography.control,
     flexShrink: 1,
   },
   multiplierKpiValue: {
     color: screenColors.gold,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
@@ -2160,10 +2202,14 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#82B37C',
+    backgroundColor: authColors.accentGreen,
   },
-  statusText: { color: screenColors.muted, fontSize: 12 },
-  playerCount: { color: screenColors.muted, fontSize: 12, marginLeft: 'auto' },
+  statusText: { color: screenColors.muted, fontSize: authTypography.control },
+  playerCount: {
+    color: screenColors.muted,
+    fontSize: authTypography.control,
+    marginLeft: 'auto',
+  },
   playerTableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2173,7 +2219,7 @@ const styles = StyleSheet.create({
   },
   columnLabel: {
     color: screenColors.soft,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     letterSpacing: 0.7,
     textTransform: 'uppercase',
     fontWeight: '600',
@@ -2191,7 +2237,7 @@ const styles = StyleSheet.create({
   },
   dealerLabel: {
     color: screenColors.gold,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '600',
     marginTop: 4,
     alignSelf: 'flex-start',
@@ -2203,12 +2249,12 @@ const styles = StyleSheet.create({
   },
   balancedHint: {
     color: screenColors.soft,
-    fontSize: 12,
+    fontSize: authTypography.control,
     textAlign: 'center',
     marginTop: 16,
   },
   actionDock: {
-    backgroundColor: '#0B1D16',
+    backgroundColor: authColors.tableBackground,
     paddingHorizontal: 20,
     paddingTop: 12,
     gap: 4,
@@ -2221,7 +2267,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   menuCard: {
-    backgroundColor: '#142A20',
+    backgroundColor: authColors.tableBackgroundMid,
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
@@ -2229,7 +2275,7 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     color: screenColors.text,
-    fontSize: 20,
+    fontSize: authTypography.subtitle,
     fontWeight: '700',
     marginBottom: 12,
   },
@@ -2258,7 +2304,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  menuText: { color: screenColors.text, fontSize: 16 },
+  menuText: { color: screenColors.text, fontSize: authTypography.body },
 
   savedNotice: {
     padding: 12,
@@ -2296,7 +2342,11 @@ const styles = StyleSheet.create({
     borderColor: screenColors.border,
     backgroundColor: screenColors.card,
   },
-  navPillText: { color: screenColors.gold, fontSize: 16, fontWeight: '600' },
+  navPillText: {
+    color: screenColors.gold,
+    fontSize: authTypography.body,
+    fontWeight: '600',
+  },
   tableHeader: { marginBottom: 16 },
   tableTitleBlock: {
     flex: 1,
@@ -2321,7 +2371,7 @@ const styles = StyleSheet.create({
   },
   statChipLabel: {
     color: screenColors.soft,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -2329,20 +2379,20 @@ const styles = StyleSheet.create({
   statChipValue: {
     textAlign: 'center',
     color: screenColors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '700',
     marginTop: 4,
     fontVariant: ['tabular-nums'],
   },
   title: {
     color: screenColors.text,
-    fontSize: 25,
+    fontSize: authTypography.metric,
     lineHeight: 32,
     fontWeight: '700',
   },
   segmented: {
     backgroundColor: 'rgba(245, 245, 245, 0.055)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderColor: authColors.borderSoft,
     borderRadius: authRadius.pill,
     borderWidth: 1,
     flexDirection: 'row',
@@ -2379,11 +2429,11 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     color: screenColors.gold,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '900',
   },
   segmentTextActive: {
-    color: '#17150B',
+    color: authColors.onGold,
   },
   stack: { marginTop: 16 },
   historyHeaderStack: {
@@ -2408,12 +2458,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: screenColors.text,
-    fontSize: 20,
+    fontSize: authTypography.subtitle,
     fontWeight: '900',
   },
   sectionSubtitle: {
     color: screenColors.soft,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '800',
     marginTop: 3,
   },
@@ -2451,13 +2501,13 @@ const styles = StyleSheet.create({
   },
   playerName: {
     color: screenColors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '600',
     flexShrink: 1,
   },
   playerAmount: {
     color: screenColors.text,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '700',
     textAlign: 'right',
     width: 82,

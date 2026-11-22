@@ -10,6 +10,7 @@ import {
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AppButton } from '../../components/ui/AppButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppLogo } from '../../components/ui/AppLogo';
 import { AppText } from '../../components/ui/AppText';
 import { Notice } from '../../components/ui/Notice';
@@ -28,6 +29,7 @@ import {
   authSpacing,
   authTextStyles,
 } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { canOpenQuickRound, quickRoundTables } from '../../utils/quickRound';
 
 type TableOption = ReturnType<typeof quickRoundTables>[number];
@@ -160,9 +162,9 @@ export function QuickRoundScreen({
           >
             <View style={styles.icon}>
               {option.shared ? (
-                <Users color={c.goldHighlight} size={20} strokeWidth={2.3} />
+                <AppIcon icon={Users} color={c.goldHighlight} />
               ) : (
-                <Spade color={c.goldHighlight} size={20} strokeWidth={2.3} />
+                <AppIcon icon={Spade} color={c.goldHighlight} />
               )}
             </View>
             <View style={styles.cardCopy}>
@@ -181,7 +183,7 @@ export function QuickRoundScreen({
                   .join(' · ')}
               </AppText>
             </View>
-            <ChevronRight color={c.textSecondary} size={20} />
+            <AppIcon icon={ChevronRight} color={c.textSecondary} />
           </Pressable>
         ))}
         {error ? (
@@ -253,7 +255,11 @@ const styles = StyleSheet.create({
     width: 40,
   },
   cardCopy: { flex: 1, gap: 2, minWidth: 0 },
-  cardTitle: { color: c.textPrimary, fontSize: 16, fontWeight: '700' },
+  cardTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
   cardPlayers: { ...authTextStyles.caption, color: c.textSecondary },
   cardMeta: {
     ...authTextStyles.caption,
@@ -261,7 +267,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   textButton: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  textButtonLabel: { color: c.goldHighlight, fontSize: 16, fontWeight: '700' },
+  textButtonLabel: {
+    color: c.goldHighlight,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
 });

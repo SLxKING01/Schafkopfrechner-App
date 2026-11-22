@@ -23,6 +23,7 @@ import {
 } from '../../services/shared/settlementEvents';
 import { useAuthStore } from '../../store/authStore';
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type { Settlement } from '../../types/game';
 
 type PersonalSettlement = {
@@ -324,7 +325,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: authSpacing.xl,
   },
   stack: { gap: authSpacing.md },
-  hint: { color: authColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  hint: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 19,
+  },
   card: {
     backgroundColor: authColors.surfaceElevated,
     borderColor: authColors.borderGold,
@@ -349,25 +354,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   flex: { flex: 1, minWidth: 0 },
-  title: { color: authColors.textPrimary, fontSize: 17, fontWeight: '700' },
+  title: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.button,
+    fontWeight: '700',
+  },
   section: {
     color: authColors.textPrimary,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '700',
     marginTop: authSpacing.sm,
   },
   strong: { color: authColors.textPrimary, fontWeight: '700' },
-  status: { color: authColors.textSecondary, fontSize: 13 },
+  status: { color: authColors.textSecondary, fontSize: authTypography.caption },
   link: {
     color: authColors.accentGreen,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  amount: { fontSize: 17, fontVariant: ['tabular-nums'], fontWeight: '800' },
+  amount: {
+    fontSize: authTypography.button,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+  },
   gold: {
     color: authColors.goldHighlight,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
   },

@@ -5,8 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { GameRound, GameTable, Player } from '../../types/game';
 import { formatRoundGameType } from '../../utils/cardSuits';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 import { RoundHistoryContent } from './RoundHistoryView';
 
@@ -46,10 +48,11 @@ export function RoundHistoryActions({
       >
         <View style={styles.card}>{children}</View>
         <View style={styles.more} pointerEvents="none">
-          <MoreHorizontal
+          <AppIcon
+            icon={MoreHorizontal}
+            size="sm"
+            weight="strong"
             color={authColors.textSecondary}
-            size={18}
-            strokeWidth={2.4}
           />
         </View>
       </Pressable>
@@ -163,7 +166,11 @@ const styles = StyleSheet.create({
     borderColor: authColors.borderSoft,
     gap: authSpacing.xs,
   },
-  title: { fontSize: 17, fontWeight: '600', padding: authSpacing.sm },
+  title: {
+    fontSize: authTypography.button,
+    fontWeight: '600',
+    padding: authSpacing.sm,
+  },
   item: {
     minHeight: authControlSizes.touch,
     padding: authSpacing.sm,

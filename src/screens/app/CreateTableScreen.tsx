@@ -25,6 +25,7 @@ import { AnimalAvatar } from '../../components/game/AnimalAvatar';
 import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
 import { AppButton } from '../../components/ui/AppButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { Notice } from '../../components/ui/Notice';
 import { PageHeader, RoundIconButton } from '../../components/ui/PageHeader';
@@ -39,6 +40,7 @@ import { useGameStore } from '../../store/gameStore';
 import { authColors as c, authTextStyles } from '../../theme';
 import { formEntering, selectionEntering } from '../../theme/motion';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type { Player, TableSettings } from '../../types/game';
 import type { AnimalAvatarId, FriendProfile } from '../../types/profile';
 
@@ -268,7 +270,7 @@ export function CreateTableScreen({
                 accessibilityLabel="Neuer Tisch schließen"
                 onPress={closeCreateTable}
               >
-                <X color={c.goldHighlight} size={20} strokeWidth={2.4} />
+                <AppIcon icon={X} weight="strong" color={c.goldHighlight} />
               </RoundIconButton>
             }
           />
@@ -351,7 +353,12 @@ export function CreateTableScreen({
                   pressed && canAddPlayer && styles.pressed,
                 ]}
               >
-                <Plus color={c.goldHighlight} size={18} strokeWidth={2.6} />
+                <AppIcon
+                  icon={Plus}
+                  size="sm"
+                  weight="strong"
+                  color={c.goldHighlight}
+                />
                 <AppText style={styles.addButtonText}>Hinzufügen</AppText>
               </Pressable>
             </View>
@@ -366,7 +373,7 @@ export function CreateTableScreen({
                   pressed && styles.pressed,
                 ]}
               >
-                <UserPlus color={c.goldHighlight} size={18} strokeWidth={2.3} />
+                <AppIcon icon={UserPlus} size="sm" color={c.goldHighlight} />
                 <AppText style={styles.friendsButtonText}>
                   Freunde hinzufügen
                 </AppText>
@@ -471,7 +478,7 @@ function PlayerPill({
             pressed && styles.pressed,
           ]}
         >
-          <X color={c.textSecondary} size={15} strokeWidth={2.8} />
+          <AppIcon icon={X} size="xs" weight="strong" color={c.textSecondary} />
         </Pressable>
       ) : null}
     </View>
@@ -505,7 +512,7 @@ const styles = StyleSheet.create({
     borderRadius: authRadius.sm,
     borderWidth: 1,
     color: c.textPrimary,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '600',
     minHeight: authControlSizes.field,
     paddingHorizontal: authSpacing.md,
@@ -536,7 +543,11 @@ const styles = StyleSheet.create({
     minHeight: authControlSizes.field,
     paddingHorizontal: authSpacing.md,
   },
-  addButtonText: { color: c.goldHighlight, fontSize: 15, fontWeight: '700' },
+  addButtonText: {
+    color: c.goldHighlight,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
   friendsButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -546,7 +557,7 @@ const styles = StyleSheet.create({
   },
   friendsButtonText: {
     color: c.goldHighlight,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '700',
   },
   playerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: authSpacing.sm },
@@ -566,7 +577,7 @@ const styles = StyleSheet.create({
   playerName: {
     color: c.textPrimary,
     flexShrink: 1,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '600',
   },
   removeButton: { marginLeft: 2, padding: 2 },

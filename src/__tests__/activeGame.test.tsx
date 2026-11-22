@@ -1,13 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act } from 'react';
-import { Alert, Platform, StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet, Text } from 'react-native';
 import { G } from 'react-native-svg';
 
-import { GoldButton } from '../components/auth/GoldButton';
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
 import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { SyncStatus } from '../components/game/SyncStatus';
-import { pressAppDialogButton } from '../components/ui/AppDialog';
 import { ActiveGameScreen } from '../screens/app/ActiveGameScreen';
 import { CreateTableScreen } from '../screens/app/CreateTableScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
@@ -610,7 +608,6 @@ it.each([
       stockAction: 'deposit',
     });
     const originalId = useGameStore.getState().currentTable!.id;
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     let view: ReturnType<typeof renderer.create>;
     await act(async () => {
       view = renderer.create(
@@ -620,36 +617,33 @@ it.each([
         />,
       );
     });
-    await act(async () =>
+    const press = (label: string) =>
       view.root
-        .findAllByProps({ accessibilityLabel: 'Spieltag abschliessen' })
+        .findAllByProps({ accessibilityLabel: label })
         .find(
           (node: { props: { onPress?: unknown } }) =>
             typeof node.props.onPress === 'function',
         )!
-        .props.onPress(),
-    );
+        .props.onPress();
+    await act(async () => press('Spieltag abschliessen'));
     expect(useGameStore.getState().activeGame).toBe(true);
-    const title =
-      resolution === 'refund' ? 'Stock verteilen' : 'Stock übernehmen';
-    if (platform === 'web') {
-      const button = view.root
-        .findAllByType(GoldButton)
-        .find(
-          (node: { props: { title: string } }) => node.props.title === title,
-        )!;
-      await act(async () => button.props.onPress());
-    } else {
-      const actions = alert.mock.calls.at(-1)![2]!;
-      expect(actions.map(({ text }) => text)).toEqual([
-        'Abbrechen',
-        'Stock verteilen',
-        'Stock übernehmen',
-      ]);
-      await act(async () =>
-        actions.find(({ text }) => text === title)!.onPress!(),
-      );
-    }
+    // The choice is rendered in-app, so it also works on the web where
+    // Alert.alert does nothing.
+    expect(
+      view.root.findAllByProps({ accessibilityLabel: 'Stock verteilen' })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      view.root.findAllByProps({ accessibilityLabel: 'Stock übernehmen' })
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      view.root.findAllByProps({ accessibilityLabel: 'Abschluss abbrechen' })
+        .length,
+    ).toBeGreaterThan(0);
+    await act(async () =>
+      press(resolution === 'refund' ? 'Stock verteilen' : 'Stock übernehmen'),
+    );
     expect(navigate).toHaveBeenCalledWith('Settlement', {
       tableId: originalId,
     });
@@ -657,6 +651,102 @@ it.each([
     await act(async () => view.unmount());
   },
 );
+
+it('archives the table through an in-app confirmation', async () => {
+  const originalId = useGameStore.getState().currentTable!.id;
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  const press = (label: string) =>
+    view.root
+      .findAllByProps({ accessibilityLabel: label })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress();
+  await act(async () => press('Tischmenü öffnen'));
+  await act(async () => press('Tisch archivieren'));
+  expect(useGameStore.getState().activeGame).toBe(true);
+  await act(async () => press('Archivieren bestätigen'));
+  expect(useGameStore.getState().activeGame).toBe(false);
+  expect(navigate).toHaveBeenCalledWith('Settlement', { tableId: originalId });
+  await act(async () => view.unmount());
+});
+
+it('shows the exact balance gap instead of a payment plan', async () => {
+  expect(
+    useGameStore.getState().addRound({
+      gameType: 'custom',
+      winnerId: '',
+      winnerIds: [],
+      loserIds: [],
+      amount: 1.5,
+      customAmounts: [
+        { playerId: 'a', amount: 1.5 },
+        { playerId: 'b', amount: -1.5 },
+      ],
+    }),
+  ).toBe(true);
+  // Simulate a corrupted saved/synced booking that no longer sums to zero.
+  useGameStore.setState((state) => ({
+    rounds: state.rounds.map((round) =>
+      round.gameType === 'custom'
+        ? {
+            ...round,
+            customAmounts: [
+              { playerId: 'a', amount: 1.5 },
+              { playerId: 'b', amount: -1.2 },
+            ],
+          }
+        : round,
+    ),
+  }));
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(
+      <ActiveGameScreen
+        navigation={{ navigate } as never}
+        route={{} as never}
+      />,
+    );
+  });
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Spieltag abschliessen' })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
+  // Confirm the safety question first.
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Abschließen' })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
+  expect(useGameStore.getState().activeGame).toBe(true);
+  expect(navigate).not.toHaveBeenCalledWith('Settlement', expect.anything());
+  const texts = view.root
+    .findAllByType(Text)
+    .map((node: { props: { children?: unknown } }) =>
+      [node.props.children].flat().join(''),
+    );
+  expect(texts).toContain('Abschluss nicht möglich');
+  expect(texts.some((text: string) => text.includes('+0,30 €'))).toBe(true);
+  await act(async () => view.unmount());
+});
 
 it('records Ramsch with a Jungfrau and restricts its bonus controls', async () => {
   const settings = structuredClone(
@@ -1089,7 +1179,15 @@ it('opens the exact newly closed table rather than a previously viewed archive',
     )!;
   await act(async () => button.props.onPress());
   expect(navigate).not.toHaveBeenCalledWith('Settlement', { tableId });
-  await act(async () => pressAppDialogButton('Abschließen'));
+  await act(async () =>
+    view.root
+      .findAllByProps({ accessibilityLabel: 'Abschließen' })
+      .find(
+        (node: { props: { onPress?: unknown } }) =>
+          typeof node.props.onPress === 'function',
+      )!
+      .props.onPress(),
+  );
   expect(navigate).toHaveBeenCalledWith('Settlement', { tableId });
   expect(
     useGameStore

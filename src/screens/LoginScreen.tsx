@@ -20,6 +20,7 @@ import { rememberSessionChoice } from '../services/auth/sessionPersistence';
 import { useAuthStore } from '../store/authStore';
 import { authColors } from '../theme/colors';
 import { authSpacing } from '../theme/spacing';
+import { authTypography } from '../theme/typography';
 
 type LoginScreenProps = AuthStackScreenProps<'Login'>;
 
@@ -186,7 +187,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
               accessibilityHint="Ausgeschaltet endet die Anmeldung, wenn du die App oder den Browser schließt."
               trackColor={{
                 false: 'rgba(245, 245, 245, 0.16)',
-                true: 'rgba(212, 175, 55, 0.42)',
+                true: authColors.borderGold,
               }}
               value={rememberMe}
             />
@@ -241,18 +242,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: authColors.errorText,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '700',
     lineHeight: 18,
   },
   optionText: {
     color: authColors.textSecondary,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: authTypography.caption,
   },
   forgotText: {
     color: authColors.goldHighlight,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '700',
   },
   footerLink: {
@@ -264,11 +265,11 @@ const styles = StyleSheet.create({
   },
   footerMuted: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
   },
   footerAccent: {
     color: authColors.goldHighlight,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '800',
   },
 });

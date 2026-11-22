@@ -2,11 +2,14 @@ import { ChevronRight } from 'lucide-react-native';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   type PressableProps,
+  StyleSheet,
   type ViewStyle,
 } from 'react-native';
 
+import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type Props = Pick<
@@ -22,7 +25,7 @@ type Props = Pick<
   style?: ViewStyle;
 };
 
-const gold = '#E7C65C';
+const gold = authColors.goldHighlight;
 
 export function GameActionButton({
   title,
@@ -49,7 +52,7 @@ export function GameActionButton({
       {loading ? (
         <ActivityIndicator color={gold} size="small" />
       ) : (
-        <ChevronRight color={gold} size={18} strokeWidth={2.4} />
+        <AppIcon icon={ChevronRight} size="sm" weight="strong" color={gold} />
       )}
     </Pressable>
   );
@@ -61,8 +64,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(231, 198, 92, 0.22)',
-    backgroundColor: 'rgba(231, 198, 92, 0.14)',
+    borderColor: 'rgba(242, 201, 76, 0.22)',
+    backgroundColor: 'rgba(242, 201, 76, 0.14)',
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6,
@@ -74,5 +77,10 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.988 }],
   },
   disabled: { opacity: 0.68 },
-  text: { color: gold, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  text: {
+    color: gold,
+    fontSize: authTypography.label,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
 });

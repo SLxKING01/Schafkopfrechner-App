@@ -161,7 +161,7 @@ begin
   return new;
 end $$;
 
-create or replace function public.sk_record_settlement_event(
+create or replace function private.sk_record_settlement_event(
   p_table_id uuid,p_payment_id text,p_action text,p_request_id uuid,p_expected_event uuid
 ) returns void language plpgsql security definer set search_path='' as $$
 declare

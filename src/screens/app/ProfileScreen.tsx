@@ -8,28 +8,27 @@ import {
   ChevronRight,
   CreditCard,
   FileText,
-  Info,
   KeyRound,
   LogOut,
+  ShieldCheck,
   Trash2,
   UserRoundCog,
   Users,
 } from 'lucide-react-native';
-import type { ComponentType } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppButton } from '../../components/ui/AppButton';
-import { appAlert } from '../../components/ui/AppDialog';
+import { AppIcon, type AppIconComponent } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
-import { InteractionSheet } from '../../components/ui/InteractionSheet';
 import { Notice } from '../../components/ui/Notice';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
+import { appAlert } from '../../lib/appAlert';
 import type {
   AppStackParamList,
   AuthStackParamList,
@@ -43,7 +42,7 @@ import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 
 type SettingRow = {
-  icon: ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
+  icon: AppIconComponent;
   title: string;
   subtitle?: string;
   tone?: 'default' | 'gold' | 'danger';
@@ -64,10 +63,7 @@ export function ProfileScreen() {
   const accentColor = PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'];
   const email = user?.email ?? 'Nicht gesetzt';
   const userId = user?.id;
-  const [showDeletion, setShowDeletion] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [deletionError, setDeletionError] = useState('');
-  const deletionLock = useRef(false);
   const openProfileEditor = () => navigation.navigate('EditProfile');
   // Guests run inside the auth stack, so Login/Register are reachable by name.
   const openAuth = (screen: 'Login' | 'Register') =>
@@ -85,25 +81,6 @@ export function ProfileScreen() {
 
     if (error) {
       appAlert('Abmelden fehlgeschlagen', error.message);
-    }
-  }
-
-  async function handleDeleteAccount() {
-    if (!userId || deletionLock.current) return;
-    deletionLock.current = true;
-    setDeleting(true);
-    setDeletionError('');
-    try {
-      await deleteAccount(userId);
-    } catch (reason) {
-      setDeletionError(
-        reason instanceof Error
-          ? reason.message
-          : 'Die Löschung konnte nicht bestätigt werden.',
-      );
-    } finally {
-      deletionLock.current = false;
-      setDeleting(false);
     }
   }
 
@@ -146,28 +123,56 @@ export function ProfileScreen() {
     },
   ];
 
+  function confirmDeleteAccount() {
+    const title = 'Konto endgültig löschen?';
+    const message =
+      'Dein Profil, Profilfoto, Freundschaften, Einladungen, PayPal.Me-Link und die Cloud-Sicherung werden dauerhaft gelöscht. ' +
+      'Gemeinsame Tische, die du erstellt hast, gehen an ein anderes Tischmitglied über; ohne weitere Mitglieder werden sie gelöscht. ' +
+      'Dies kann nicht rückgängig gemacht werden.';
+
+    appAlert(title, message, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Endgültig löschen',
+        style: 'destructive',
+        onPress: () => void runDeleteAccount(),
+      },
+    ]);
+  }
+
+  async function runDeleteAccount() {
+    if (deleting) return;
+    setDeleting(true);
+    const result = await deleteAccount();
+    setDeleting(false);
+
+    if (!result.ok) {
+      const text = `Dein Konto wurde nicht gelöscht. ${result.message}`;
+      appAlert('Löschen fehlgeschlagen', text);
+    }
+  }
+
   const privacyRows: SettingRow[] = [
     {
       icon: Trash2,
-      title: 'Konto löschen',
-      subtitle: 'Konto und persönliche Cloud-Daten dauerhaft löschen',
+      title: deleting ? 'Konto wird gelöscht …' : 'Konto löschen',
+      subtitle: 'Profil und Cloud-Daten dauerhaft entfernen',
       tone: 'danger',
-      onPress: () => {
-        setDeletionError('');
-        setShowDeletion(true);
-      },
+      onPress: deleting ? undefined : confirmDeleteAccount,
     },
   ];
 
   const legalRows: SettingRow[] = [
     {
-      icon: FileText,
+      icon: ShieldCheck,
       title: 'Datenschutzerklärung',
+      subtitle: 'Wie deine Daten verarbeitet werden',
       onPress: () => navigation.navigate('Legal', { page: 'privacy' }),
     },
     {
-      icon: Info,
+      icon: FileText,
       title: 'Impressum',
+      subtitle: 'Anbieter und Kontakt',
       onPress: () => navigation.navigate('Legal', { page: 'imprint' }),
     },
   ];
@@ -255,46 +260,12 @@ export function ProfileScreen() {
                 pressed && styles.pressed,
               ]}
             >
-              <LogOut color="#D65A5A" size={18} strokeWidth={2.2} />
+              <AppIcon icon={LogOut} size="sm" color={authColors.error} />
               <AppText style={styles.logoutText}>Abmelden</AppText>
             </Pressable>
           </>
         ) : null}
       </ScrollView>
-      <InteractionSheet
-        visible={showDeletion}
-        dismissible={!deleting}
-        onClose={() => setShowDeletion(false)}
-      >
-        <View accessibilityViewIsModal style={styles.deletion}>
-          <AppText accessibilityRole="header" style={styles.name}>
-            Konto dauerhaft löschen?
-          </AppText>
-          <AppText>
-            Dein Profil, Profilbilder, Freundschaften und persönliche
-            Cloud-Sicherungen werden dauerhaft gelöscht. Gemeinsame Tische
-            bleiben für die anderen Kontomitglieder erhalten. Lokale Spielstände
-            bleiben auf diesem Gerät.
-          </AppText>
-          {deletionError ? (
-            <AppText accessibilityRole="alert" style={styles.dangerText}>
-              {deletionError}
-            </AppText>
-          ) : null}
-          <AppButton
-            title="Konto endgültig löschen"
-            variant="danger"
-            loading={deleting}
-            onPress={handleDeleteAccount}
-          />
-          <AppButton
-            title="Abbrechen"
-            variant="secondary"
-            disabled={deleting}
-            onPress={() => setShowDeletion(false)}
-          />
-        </View>
-      </InteractionSheet>
     </AuthBackground>
   );
 }
@@ -327,7 +298,7 @@ function SettingsRow({
   const isDanger = tone === 'danger';
   const isGold = tone === 'gold';
   const iconColor = isDanger
-    ? '#D65A5A'
+    ? authColors.error
     : isGold
       ? authColors.goldHighlight
       : authColors.textPrimary;
@@ -349,7 +320,7 @@ function SettingsRow({
           isDanger && styles.settingIconDanger,
         ]}
       >
-        <Icon color={iconColor} size={19} strokeWidth={2.25} />
+        <AppIcon icon={Icon} size="md" color={iconColor} />
       </View>
       <View style={styles.settingCopy}>
         <Text
@@ -362,11 +333,7 @@ function SettingsRow({
           <Text style={styles.settingSubtitle}>{subtitle}</Text>
         ) : null}
       </View>
-      <ChevronRight
-        color={authColors.textSecondary}
-        size={18}
-        strokeWidth={2.2}
-      />
+      <AppIcon icon={ChevronRight} size="sm" color={authColors.textSecondary} />
     </Pressable>
   );
 }
@@ -427,7 +394,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: authColors.textPrimary,
-    fontSize: 22,
+    fontSize: authTypography.subtitle,
     fontWeight: '900',
   },
   email: {
@@ -502,7 +469,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dangerText: {
-    color: '#F29A9A',
+    color: authColors.errorText,
   },
   logout: {
     alignItems: 'center',
@@ -512,7 +479,7 @@ const styles = StyleSheet.create({
     padding: authSpacing.md,
   },
   logoutText: {
-    color: '#D65A5A',
+    color: authColors.error,
     fontSize: authTypography.body,
     fontWeight: '900',
   },

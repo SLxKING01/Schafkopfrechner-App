@@ -6,6 +6,7 @@ import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   GameTable,
   Player,
@@ -294,7 +295,11 @@ function makeSuggestions(
 }
 const s = StyleSheet.create({
   stack: { gap: authSpacing.md },
-  heading: { color: authColors.goldHighlight, fontWeight: '700', fontSize: 18 },
+  heading: {
+    color: authColors.goldHighlight,
+    fontWeight: '700',
+    fontSize: authTypography.subhead,
+  },
   note: { color: authColors.textSecondary, lineHeight: 22 },
   text: { color: authColors.textPrimary, flexShrink: 1 },
   row: {
@@ -311,7 +316,7 @@ const s = StyleSheet.create({
     borderColor: authColors.borderGold,
     borderRadius: 12,
     padding: authSpacing.md,
-    fontSize: 20,
+    fontSize: authTypography.subtitle,
     minHeight: 48,
   },
   action: { minHeight: 44, justifyContent: 'center' },

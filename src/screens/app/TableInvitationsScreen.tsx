@@ -13,6 +13,7 @@ import { AppState, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
 import { AppButton } from '../../components/ui/AppButton';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { Notice } from '../../components/ui/Notice';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -35,6 +36,7 @@ import { fingerprint } from '../../services/sync/syncGameState';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import type { ProfileCard } from '../../types/profile';
 import type {
   InvitationCommand,
@@ -679,7 +681,12 @@ function Choice({
       {avatar}
       <AppText style={s.strong}>{title}</AppText>
       {selected ? (
-        <Check color={authColors.goldHighlight} size={18} style={s.check} />
+        <AppIcon
+          icon={Check}
+          size="sm"
+          color={authColors.goldHighlight}
+          style={s.check}
+        />
       ) : null}
     </Pressable>
   );
@@ -687,9 +694,17 @@ function Choice({
 const s = StyleSheet.create({
   content: { paddingHorizontal: 20, gap: 12, paddingBottom: 40 },
   stack: { gap: 12 },
-  hint: { color: authColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  hint: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 19,
+  },
   strong: { color: authColors.textPrimary, fontWeight: '700' },
-  cardTitle: { color: authColors.textPrimary, fontSize: 17, fontWeight: '700' },
+  cardTitle: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.button,
+    fontWeight: '700',
+  },
   card: {
     padding: 16,
     gap: 10,

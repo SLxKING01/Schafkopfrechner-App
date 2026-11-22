@@ -21,6 +21,7 @@ import {
 } from '../../constants/tableSettings';
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type {
   BonusRuleId,
   GameRuleOptions,
@@ -31,6 +32,7 @@ import type {
 import { parseCustomAmountCents } from '../../utils/customRound';
 import { stockMode } from '../../utils/stockRules';
 import { AppButton } from '../ui/AppButton';
+import { AppIcon } from '../ui/AppIcon';
 import { AppSwitch } from '../ui/AppSwitch';
 import { AppText } from '../ui/AppText';
 
@@ -246,7 +248,7 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
               >
                 <AppText
                   style={{
-                    fontSize: 14,
+                    fontSize: authTypography.label,
                     textAlign: 'center',
                     color:
                       mode === id
@@ -528,10 +530,11 @@ export const TableSettingsEditor = memo(function TableSettingsEditor({
                     pressed && styles.pressed,
                   ]}
                 >
-                  <X
+                  <AppIcon
+                    icon={X}
+                    size="md"
+                    weight="strong"
                     color={authColors.goldHighlight}
-                    size={20}
-                    strokeWidth={2.5}
                   />
                 </Pressable>
               </View>
@@ -601,7 +604,7 @@ const SettingRow = memo(function SettingRow({
             pressed && styles.pressed,
           ]}
         >
-          <Info color="rgba(245, 245, 245, 0.5)" size={19} strokeWidth={2} />
+          <AppIcon icon={Info} size="md" color="rgba(245, 245, 245, 0.5)" />
         </Pressable>
         {!hideToggle ? (
           <View style={styles.switchColumn}>
@@ -682,7 +685,11 @@ const SettingRow = memo(function SettingRow({
                 pressed && styles.pressed,
               ]}
             >
-              <Minus color={authColors.goldHighlight} size={16} />
+              <AppIcon
+                icon={Minus}
+                size="sm"
+                color={authColors.goldHighlight}
+              />
             </Pressable>
             <Pressable
               accessibilityLabel={`${definition.label}: ${formatValue(entry.value, entry.mode)} Euro`}
@@ -711,7 +718,7 @@ const SettingRow = memo(function SettingRow({
                 pressed && styles.pressed,
               ]}
             >
-              <Plus color={authColors.goldHighlight} size={16} />
+              <AppIcon icon={Plus} size="sm" color={authColors.goldHighlight} />
             </Pressable>
           </View>
         )}
@@ -726,7 +733,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: '#20372D',
+    backgroundColor: authColors.tableCardElevated,
   },
   root: {
     gap: authSpacing.xl,
@@ -736,7 +743,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: authColors.textPrimary,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
   rows: {
@@ -760,7 +767,7 @@ const styles = StyleSheet.create({
   rowLabel: {
     color: authColors.textPrimary,
     flex: 1,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '700',
   },
   labelDisabled: {
@@ -782,7 +789,7 @@ const styles = StyleSheet.create({
   },
   tariffLabel: {
     color: 'rgba(245, 245, 245, 0.48)',
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '500',
   },
   tariffInputGroup: {
@@ -807,7 +814,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     backgroundColor: 'rgba(7, 17, 11, 0.72)',
-    borderColor: 'rgba(231, 198, 92, 0.16)',
+    borderColor: 'rgba(242, 201, 76, 0.16)',
     borderRadius: 14,
     borderWidth: 1,
     maxWidth: '100%',
@@ -827,7 +834,7 @@ const styles = StyleSheet.create({
   valueText: {
     color: authColors.textPrimary,
     flexShrink: 1,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '700',
     textAlign: 'center',
     minWidth: 56,
@@ -835,7 +842,7 @@ const styles = StyleSheet.create({
   },
   multiplierText: {
     color: authColors.goldHighlight,
-    fontSize: 14,
+    fontSize: authTypography.label,
     lineHeight: 24,
   },
   infoButton: {
@@ -854,8 +861,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   infoSheet: {
-    backgroundColor: '#142A20',
-    borderColor: 'rgba(231, 198, 92, 0.18)',
+    backgroundColor: authColors.tableBackgroundMid,
+    borderColor: 'rgba(242, 201, 76, 0.18)',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     borderWidth: 1,
@@ -877,7 +884,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     maxHeight: '90%',
     alignSelf: 'center',
-    backgroundColor: '#142A20',
+    backgroundColor: authColors.tableBackgroundMid,
     borderRadius: authRadius.lg,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -889,12 +896,12 @@ const styles = StyleSheet.create({
   warningContent: { gap: authSpacing.md },
   warningTitle: {
     color: authColors.textPrimary,
-    fontSize: 20,
+    fontSize: authTypography.subtitle,
     fontWeight: '600',
   },
   warningDescription: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
     lineHeight: 22,
   },
   warningConfirm: {
@@ -908,18 +915,18 @@ const styles = StyleSheet.create({
   },
   warningConfirmText: {
     color: authColors.onGold,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '600',
   },
   infoKicker: {
     color: authColors.goldHighlight,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '900',
     textTransform: 'uppercase',
   },
   infoTitle: {
     color: authColors.textPrimary,
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontWeight: '900',
     marginTop: 2,
   },
@@ -933,7 +940,7 @@ const styles = StyleSheet.create({
   },
   infoDescription: {
     color: 'rgba(245, 245, 245, 0.7)',
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '700',
     lineHeight: 22,
   },

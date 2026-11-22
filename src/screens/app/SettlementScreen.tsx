@@ -27,10 +27,10 @@ import {
   StatPanel,
 } from '../../components/statistics/StatisticsPanels';
 import { AppButton } from '../../components/ui/AppButton';
-import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
 import { InteractionSheet } from '../../components/ui/InteractionSheet';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { planClosedTableCorrection } from '../../services/game/closedTableCorrection';
 import {
@@ -785,7 +785,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
 const styles = StyleSheet.create({
   sectionTitle: {
     color: authColors.textPrimary,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontWeight: '700',
   },
   balanceRow: {

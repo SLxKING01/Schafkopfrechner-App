@@ -1,3 +1,0 @@
-[functions.delete-account]
-# The handler validates the bearer token against Auth before using admin APIs.
-verify_jwt = false

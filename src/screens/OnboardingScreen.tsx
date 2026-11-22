@@ -5,9 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
 import { AppLogo } from '../components/ui/AppLogo';
 import { AppText } from '../components/ui/AppText';
-import { theme } from '../constants/theme';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { useGuestModeStore } from '../store/guestModeStore';
+import { theme } from '../theme';
+import { authTypography } from '../theme/typography';
 
 type OnboardingScreenProps = AuthStackScreenProps<'Onboarding'>;
 
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 31,
+    fontSize: authTypography.title,
     fontWeight: '600',
     letterSpacing: 0,
     textAlign: 'center',
   },
   subtitle: {
     color: colors.mutedText,
-    fontSize: 16,
+    fontSize: authTypography.body,
     lineHeight: 23,
     marginTop: theme.spacing.sm,
     textAlign: 'center',
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#17150F',
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '700',
   },
   secondaryButton: {
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.text,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '600',
   },
   buttonPressed: {
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '600',
   },
   footer: {
@@ -252,16 +253,16 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     color: colors.mutedText,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     textDecorationLine: 'underline',
   },
   footerText: {
     color: colors.softText,
-    fontSize: 13,
+    fontSize: authTypography.caption,
   },
   versionText: {
     color: 'rgba(245, 245, 245, 0.28)',
-    fontSize: 11,
+    fontSize: authTypography.tiny,
     marginTop: theme.spacing.xs,
   },
 });

@@ -124,7 +124,7 @@ revoke all on function public.sk_personal_settlements() from public,anon;
 grant execute on function public.sk_personal_settlements() to authenticated;
 
 -- Keep payment rights tied to the participant even after general access ends.
-create or replace function public.sk_record_settlement_event(
+create or replace function private.sk_record_settlement_event(
   p_table_id uuid,p_payment_id text,p_action text,p_request_id uuid,p_expected_event uuid
 ) returns void language plpgsql security definer set search_path='' as $$
 declare

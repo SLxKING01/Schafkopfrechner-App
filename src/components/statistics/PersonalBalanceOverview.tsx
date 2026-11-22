@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   StatisticsEntry,
   StatisticsSummary,
@@ -223,10 +224,14 @@ export function PersonalBalanceOverview({
 const s = StyleSheet.create({
   container: { gap: authSpacing.lg },
   headline: { gap: authSpacing.xs },
-  heading: { fontSize: 23, lineHeight: 29, fontWeight: '800' },
+  heading: {
+    fontSize: authTypography.subtitle,
+    lineHeight: 29,
+    fontWeight: '800',
+  },
   balance: {
     color: authColors.goldHighlight,
-    fontSize: 44,
+    fontSize: authTypography.amount,
     lineHeight: 53,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
@@ -242,13 +247,21 @@ const s = StyleSheet.create({
     paddingVertical: authSpacing.xs,
     backgroundColor: authColors.surface,
   },
-  annotationLabel: { fontSize: 12 },
+  annotationLabel: { fontSize: authTypography.control },
   annotationValue: {
     color: authColors.goldHighlight,
-    fontSize: 14,
+    fontSize: authTypography.label,
     fontWeight: '800',
   },
   summary: { gap: authSpacing.xs },
-  results: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
-  note: { fontSize: 13, lineHeight: 19, color: authColors.textMutedGreen },
+  results: {
+    fontSize: authTypography.button,
+    lineHeight: 24,
+    fontWeight: '800',
+  },
+  note: {
+    fontSize: authTypography.caption,
+    lineHeight: 19,
+    color: authColors.textMutedGreen,
+  },
 });

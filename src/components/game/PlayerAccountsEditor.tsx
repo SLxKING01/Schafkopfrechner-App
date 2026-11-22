@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { appAlert } from '../../lib/appAlert';
 import { setSharedTableRole } from '../../services/shared/sharedTables';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authInteraction, authRadius } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import { tableAccess } from '../../utils/tableAccess';
-import { appAlert } from '../ui/AppDialog';
 import { AppText } from '../ui/AppText';
 
 export function PlayerAccountsEditor() {
@@ -143,7 +144,7 @@ export function PlayerAccountsEditor() {
 }
 const styles = StyleSheet.create({
   content: { marginTop: 20, gap: 12 },
-  hint: { fontSize: 12, color: authColors.textSecondary },
+  hint: { fontSize: authTypography.control, color: authColors.textSecondary },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -163,5 +164,5 @@ const styles = StyleSheet.create({
     borderColor: authColors.gold,
     backgroundColor: authColors.control,
   },
-  link: { color: authColors.gold, fontSize: 13 },
+  link: { color: authColors.gold, fontSize: authTypography.caption },
 });

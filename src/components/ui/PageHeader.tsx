@@ -4,6 +4,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors, authInteraction } from '../../theme';
 import { authControlSizes, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
+import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 
 /** Round icon button used for "Zurück", "Schließen" and similar header actions. */
@@ -51,10 +53,10 @@ export function PageHeader({
       <View style={styles.row}>
         {onBack ? (
           <RoundIconButton accessibilityLabel="Zurück" onPress={onBack}>
-            <ArrowLeft
+            <AppIcon
+              icon={ArrowLeft}
+              weight="strong"
               color={authColors.goldHighlight}
-              size={20}
-              strokeWidth={2.4}
             />
           </RoundIconButton>
         ) : null}
@@ -89,12 +91,16 @@ const styles = StyleSheet.create({
   title: { minWidth: 0 },
   kicker: {
     color: authColors.gold,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  subtitle: { color: authColors.textMutedGreen, fontSize: 14, marginTop: 2 },
+  subtitle: {
+    color: authColors.textMutedGreen,
+    fontSize: authTypography.label,
+    marginTop: 2,
+  },
   round: {
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.25)',

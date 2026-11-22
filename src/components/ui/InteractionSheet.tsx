@@ -221,6 +221,6 @@ function BottomInteractionSheet({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  background: { backgroundColor: '#0B1D16' },
+  background: { backgroundColor: authColors.tableBackground },
   handle: { backgroundColor: authColors.textSecondary, width: 42 },
 });

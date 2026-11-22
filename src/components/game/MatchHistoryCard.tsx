@@ -263,7 +263,11 @@ const styles = StyleSheet.create({
     fontSize: authTypography.caption,
     fontWeight: '600',
   },
-  entryTime: { color: authColors.textSecondary, fontSize: 10, marginTop: 2 },
+  entryTime: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.micro,
+    marginTop: 2,
+  },
   entryAmount: {
     width: historyColumnWidths.amount,
     textAlign: 'right',
@@ -281,7 +285,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 17,
   },
-  entryNote: { color: authColors.textSecondary, fontSize: 10, lineHeight: 14 },
+  entryNote: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.micro,
+    lineHeight: 14,
+  },
   stockText: {
     color: authColors.textSecondary,
     fontSize: authTypography.tiny,

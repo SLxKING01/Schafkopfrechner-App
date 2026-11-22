@@ -50,6 +50,7 @@ import {
   participationRevision,
   roundPlayers,
 } from '../utils/dealerOrder';
+import { describeFinishError } from '../utils/finishError';
 import { normalizeGameOptions } from '../utils/formatGameOptions';
 import {
   archiveFinishedGameDay,
@@ -156,6 +157,8 @@ type GameStore = {
   settleInterimPayments: (tableId: string, revision: string) => boolean;
   voidInterimPayment: (tableId: string, id: string) => boolean;
   finishGameDay: (stockResolution?: 'refund' | 'carry') => boolean;
+  /** Reason the last finishGameDay call failed, if it did. */
+  finishError?: string;
   markSettlementPaid: (id: string, isPaid?: boolean, tableId?: string) => void;
   resetGame: () => void;
   setTableOrderIds: (tableOrderIds: string[]) => void;
@@ -1690,9 +1693,11 @@ export const useGameStore = create<GameStore>()(
         return saved;
       },
       finishGameDay: (stockResolution) => {
+        set({ finishError: undefined });
         if (!hasTablePermission(true)) return false;
         set({ roundError: undefined });
         let didFinish = false;
+        let finishError: string | undefined;
         set((state) => {
           if (
             !state.currentTable ||
@@ -1757,9 +1762,8 @@ export const useGameStore = create<GameStore>()(
               );
             }
           } catch (error) {
-            return {
-              roundError: error instanceof Error ? error.message : undefined,
-            };
+            finishError = describeFinishError(error);
+            return state;
           }
           const closed = {
             ...state,
@@ -1796,6 +1800,7 @@ export const useGameStore = create<GameStore>()(
             isOffline: false,
           };
         });
+        if (finishError) set({ finishError });
         return didFinish;
       },
       markSettlementPaid: (id, isPaid = true, tableId) => {

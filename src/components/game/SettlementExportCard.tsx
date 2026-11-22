@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { authColors } from '../../theme/colors';
 import { authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import {
   exportDate,
   exportMoney,
@@ -156,25 +157,37 @@ const styles = StyleSheet.create({
   header: { gap: authSpacing.sm },
   brand: {
     color: authColors.goldHighlight,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '700',
     letterSpacing: 1.8,
   },
   title: {
     color: authColors.textPrimary,
-    fontSize: 27,
+    fontSize: authTypography.title,
     lineHeight: 33,
     fontWeight: '700',
   },
-  meta: { color: authColors.textSecondary, fontSize: 11, lineHeight: 16 },
+  meta: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.tiny,
+    lineHeight: 16,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: authSpacing.sm,
   },
-  heading: { color: authColors.textPrimary, fontSize: 17, fontWeight: '700' },
-  badge: { color: authColors.goldHighlight, fontSize: 11, fontWeight: '600' },
+  heading: {
+    color: authColors.textPrimary,
+    fontSize: authTypography.button,
+    fontWeight: '700',
+  },
+  badge: {
+    color: authColors.goldHighlight,
+    fontSize: authTypography.tiny,
+    fontWeight: '600',
+  },
   paymentPanel: {
     backgroundColor: authColors.control,
     borderWidth: 1,
@@ -186,7 +199,7 @@ const styles = StyleSheet.create({
   paymentGroup: { gap: authSpacing.xs },
   recipient: {
     color: authColors.textPrimary,
-    fontSize: 14,
+    fontSize: authTypography.label,
     lineHeight: 20,
     fontWeight: '600',
   },
@@ -209,7 +222,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     color: authColors.textPrimary,
-    fontSize: 16,
+    fontSize: authTypography.body,
     lineHeight: 22,
   },
   money: {
@@ -217,19 +230,27 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     textAlign: 'right',
     color: authColors.textPrimary,
-    fontSize: 17,
+    fontSize: authTypography.button,
     lineHeight: 23,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   gold: { color: authColors.goldHighlight },
   muted: { color: authColors.textSecondary },
-  note: { color: authColors.textSecondary, fontSize: 14, lineHeight: 20 },
-  small: { color: authColors.textSecondary, fontSize: 10, lineHeight: 15 },
+  note: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.label,
+    lineHeight: 20,
+  },
+  small: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.micro,
+    lineHeight: 15,
+  },
   history: { gap: authSpacing.sm },
   historyTitle: {
     color: authColors.textSecondary,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '600',
   },
   footer: {

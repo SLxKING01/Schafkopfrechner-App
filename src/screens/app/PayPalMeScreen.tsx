@@ -7,13 +7,14 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { AuthInput } from '../../components/auth/AuthInput';
 import { GoldButton } from '../../components/auth/GoldButton';
 import { AppButton } from '../../components/ui/AppButton';
-import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
 import { Notice } from '../../components/ui/Notice';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { appAlert } from '../../lib/appAlert';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { paypalMeHandle } from '../../utils/paypalMe';
 
 export function PayPalMeScreen() {
@@ -200,5 +201,9 @@ const styles = StyleSheet.create({
     paddingBottom: authSpacing.xxxl,
     paddingHorizontal: authSpacing.xl,
   },
-  text: { color: authColors.textSecondary, fontSize: 15, lineHeight: 22 },
+  text: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.label,
+    lineHeight: 22,
+  },
 });

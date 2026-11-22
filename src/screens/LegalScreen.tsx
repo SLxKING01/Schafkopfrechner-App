@@ -1,11 +1,18 @@
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { AuthBackground } from '../components/auth/AuthBackground';
+import { GoldButton } from '../components/auth/GoldButton';
 import { AppText } from '../components/ui/AppText';
 import { Notice } from '../components/ui/Notice';
 import { PageHeader } from '../components/ui/PageHeader';
-import { type LegalPage, legalPages } from '../constants/legal';
+import {
+  legalLinkFor,
+  type LegalPage,
+  legalPages,
+  openLegalLink,
+} from '../constants/legal';
 import { authColors, authSpacing } from '../theme';
+import { authTypography } from '../theme/typography';
 
 export function LegalScreen({
   navigation,
@@ -15,6 +22,9 @@ export function LegalScreen({
   route: { params: { page: LegalPage } };
 }) {
   const page = legalPages[route.params.page];
+  // The full text is published on the website; the app shows it in-app once a
+  // copy is stored in `legalPages`, otherwise it links to the website.
+  const link = legalLinkFor(route.params.page);
   return (
     <AuthBackground withEdgeBorder={false}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -25,6 +35,16 @@ export function LegalScreen({
               {paragraph}
             </AppText>
           ))
+        ) : link ? (
+          <>
+            <AppText style={styles.paragraph}>
+              Der vollständige Text steht auf unserer Website.
+            </AppText>
+            <GoldButton
+              title={`${page.title} öffnen`}
+              onPress={() => void openLegalLink(link)}
+            />
+          </>
         ) : (
           <Notice tone="info">Dieser Text wird gerade erstellt.</Notice>
         )}
@@ -41,7 +61,7 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     color: authColors.textPrimary,
-    fontSize: 15,
+    fontSize: authTypography.label,
     lineHeight: 22,
   },
 });

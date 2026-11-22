@@ -16,6 +16,7 @@ import {
   authSpacing as space,
   authTextStyles,
 } from '../theme';
+import { authTypography } from '../theme/typography';
 import { calculateMatchDaySummary } from '../utils/calculateMatchDaySummary';
 import { historicalNames } from '../utils/historicalNames';
 import { winningIds } from '../utils/winningParty';
@@ -228,8 +229,12 @@ const styles = StyleSheet.create({
     gap: space.md,
     justifyContent: 'space-between',
   },
-  name: { color: c.textPrimary, flex: 1, fontSize: 15 },
-  amount: { fontSize: 15, fontVariant: ['tabular-nums'], fontWeight: '700' },
+  name: { color: c.textPrimary, flex: 1, fontSize: authTypography.label },
+  amount: {
+    fontSize: authTypography.label,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+  },
   positive: { color: '#8FD19A' },
   negative: { color: c.errorText },
   neutral: { color: c.textSecondary },
@@ -244,10 +249,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
   },
-  paymentTitle: { color: c.textPrimary, fontSize: 16, fontWeight: '700' },
+  paymentTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.body,
+    fontWeight: '700',
+  },
   paymentAmount: {
     color: c.goldHighlight,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
   },
@@ -269,10 +278,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   gameCopy: { flex: 1, gap: 2, minWidth: 0 },
-  gameTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
+  gameTitle: {
+    color: c.textPrimary,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
   rate: {
     color: c.textPrimary,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontVariant: ['tabular-nums'],
     fontWeight: '700',
     minWidth: 48,

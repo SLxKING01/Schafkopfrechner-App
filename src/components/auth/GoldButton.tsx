@@ -70,7 +70,11 @@ export function GoldButton({
           end={{ x: 1, y: 1 }}
           style={styles.button}
         >
-          {loading ? <ActivityIndicator color="#17150B" size="small" /> : icon}
+          {loading ? (
+            <ActivityIndicator color={authColors.onGold} size="small" />
+          ) : (
+            icon
+          )}
           <AppText style={styles.text}>{title}</AppText>
         </LinearGradient>
       </Pressable>

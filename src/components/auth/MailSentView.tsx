@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { AppButton } from '../ui/AppButton';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 import { Notice } from '../ui/Notice';
 import { GoldButton } from './GoldButton';
@@ -56,11 +58,7 @@ export function MailSentView({
   return (
     <View style={styles.stack}>
       <View style={styles.head}>
-        <MailCheck
-          color={authColors.goldHighlight}
-          size={34}
-          strokeWidth={1.8}
-        />
+        <AppIcon icon={MailCheck} color={authColors.goldHighlight} />
         <AppText accessibilityLiveRegion="polite" style={styles.message}>
           {message}
         </AppText>
@@ -94,9 +92,13 @@ const styles = StyleSheet.create({
   head: { alignItems: 'center', gap: authSpacing.sm },
   message: {
     color: authColors.textPrimary,
-    fontSize: 16,
+    fontSize: authTypography.body,
     lineHeight: 23,
     textAlign: 'center',
   },
-  email: { color: authColors.goldHighlight, fontSize: 15, fontWeight: '700' },
+  email: {
+    color: authColors.goldHighlight,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
 });

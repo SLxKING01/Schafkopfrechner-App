@@ -31,6 +31,7 @@ import {
   tableTrend,
 } from '../../utils/statistics';
 import { CardSuitIcon } from '../game/CardSuitIcon';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 export const money = (n: number) =>
@@ -310,9 +311,17 @@ export function GameTypeStatistics({
               <View style={s.inline}>
                 <AppText style={s.bold}>{formatRoundGameType(g.id)}</AppText>
                 {expanded === g.id ? (
-                  <ChevronDown size={16} color={c.goldHighlight} />
+                  <AppIcon
+                    icon={ChevronDown}
+                    size="xs"
+                    color={c.goldHighlight}
+                  />
                 ) : (
-                  <ChevronRight size={16} color={c.goldHighlight} />
+                  <AppIcon
+                    icon={ChevronRight}
+                    size="xs"
+                    color={c.goldHighlight}
+                  />
                 )}
               </View>
               <StatNote>

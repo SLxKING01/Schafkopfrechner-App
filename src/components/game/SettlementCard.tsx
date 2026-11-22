@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: authColors.goldHighlight,
-    fontSize: 18,
+    fontSize: authTypography.subhead,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
   },
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     color: authColors.goldHighlight,
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '700',
   },
   pressed: { opacity: 0.8 },

@@ -40,38 +40,38 @@ Unter **Authentication → URL Configuration → Redirect URLs** müssen für di
 
 Die Vorlage **Reset Password** muss den Supabase-Bestätigungslink `{{ .ConfirmationURL }}` verwenden. Die Mail wird auf demselben Gerät in der installierten App beziehungsweise im selben Browser geöffnet, in dem sie angefordert wurde. Für den nativen Rücksprung ist ein Build mit dem App-Schema erforderlich.
 
-## Kontolöschung
+## Konto löschen
 
-Zuerst die Migration `20261107140826_account_deletion.sql` im Zielprojekt
-einspielen, dann die Edge Function `delete-account` mit
-`supabase functions deploy delete-account --project-ref <projekt>` bereitstellen.
-Die Funktion verwendet die serverseitigen Variablen `SUPABASE_URL` und
-`SUPABASE_SERVICE_ROLE_KEY`. Der App-Client sendet nur seine eigene Sitzung.
+Migration `20261117203204_account_deletion.sql` stellt das Löschen des eigenen Kontos in der App bereit (App Store Richtlinie 5.1.1(v), Google Play). Ablauf im Client (`src/services/auth/deleteAccount.ts`):
 
-Nach der Bestätigung im Profil entfernt die Funktion die Profilbilder über die
-Storage API. Anschließend löscht Supabase Auth das Konto samt Sitzungen. Die
-Datenbank löscht Profil, Freundschaften, Einladungen und persönliche
-Cloud-Sicherung. Ein eigener Tisch ohne weiteres Kontomitglied wird gelöscht.
-Bei einem gemeinsamen Tisch übernimmt ein verbleibendes Kontomitglied, bevorzugt
-mit Schreibrecht. Runden, Salden, Zahlungsstatus und Spielerplatz-IDs bleiben
-erhalten. Kontoverknüpfungen und zugehörige Anzeigenamen werden aus dem
-gemeinsamen Spiel- und Zahlungsverlauf entfernt oder durch „Gelöschtes Konto“
-ersetzt. Lokale Spielstände verbleiben auf dem Gerät.
+1. `sk_account_release_photo()` entfernt den Profilfoto-Verweis, damit die Storage-Policy das Löschen der Dateien erlaubt.
+2. Die App löscht alle Dateien unter `<uid>/` im Bucket `profile-photos` über die Storage-API (direktes Löschen in `storage.objects` blockiert Supabase).
+3. `sk_account_delete()` bricht ab, solange noch Fotos existieren, übergibt eigene gemeinsame Tische an ein anderes Mitglied (bevorzugt mit Schreibrecht; es erhält Schreibrecht) bzw. löscht Tische ohne weitere Mitglieder und löscht anschließend `auth.users`. Profil, Freundschaften, Einladungen, Cloud-Spielstand und PayPal.Me-Link folgen per `ON DELETE CASCADE`.
 
-`npm run test:database` prüft den Datenbankteil mit isolierten Testkonten.
-Für die Abnahme im Zielprojekt zwei Wegwerfkonten verwenden. Mit dem ersten
-ein Profilbild und einen gemeinsamen Tisch anlegen, das zweite Konto einladen,
-dann das erste Konto über **Profil → Konto löschen** löschen. Prüfen, dass
-Anmeldung und Sitzungsverlängerung des ersten Kontos fehlschlagen, seine Dateien
-verschwunden sind und das zweite Konto den Tisch samt Spielstand weiter öffnen
-und verwalten kann.
+`verify-account-deletion.sql` prüft den Ablauf in PGlite (`npm run test:database`).
+
+## Meldungen von Konten
+
+Migration `20261117214019_profile_reports.sql`: Unter **Profil → Freunde** kann jedes Konto in der Liste, in Anfragen und im Suchergebnis über **Melden** gemeldet werden (Apple-Richtlinie 1.2). Gespeichert werden Grund, optionale Beschreibung und ein Abbild von Anzeigename und Profilbild in `private.sk_profile_reports`. Dieselbe Person kann dasselbe Konto höchstens einmal pro Tag melden, insgesamt höchstens 20 Meldungen pro Tag.
+
+Offene Meldungen im SQL-Editor prüfen:
+
+```sql
+select r.created_at, r.reason, r.details, r.display_name, r.photo_path, r.target_id
+from private.sk_profile_reports r where r.status = 'open' order by r.created_at;
+```
+
+Nach der Prüfung `status` auf `actioned` oder `dismissed` setzen. Ein unpassendes Profil lässt sich zurücksetzen, indem Anzeigename und Bild in `private.sk_profiles` geändert werden; bei schweren Fällen das Konto unter Authentication → Users sperren oder löschen. Apple erwartet eine Bearbeitung innerhalb von 24 Stunden. Für eine Benachrichtigung bei neuen Meldungen eignet sich ein Database Webhook auf die Tabelle.
 
 ## Tischzugriff und Abschlusskorrekturen
 
-Die Migrationen `20261107143209_shared_table_access_exit.sql` und
-`20261107143748_closed_table_correction.sql` in dieser Reihenfolge anwenden.
+Die Migrationen `20261122120000_shared_table_access_exit.sql` und
+`20261122120100_closed_table_correction.sql` in dieser Reihenfolge anwenden
+(noch nicht im Projekt eingespielt). Sie ersetzen nur die private
+Implementierung von `sk_record_settlement_event`; der öffentliche Wrapper aus
+`20261117204558_private_settlement_functions.sql` bleibt erhalten.
 Der Zugriffswechsel lässt Spielerplatz und Aktivstatus bestehen. Ehemalige
-Teilnehmer sehen unter **Tische → Persönliche Abrechnungen ehemaliger Tische**
+Teilnehmer sehen unter **Tische → Frühere Abrechnungen**
 ihren Saldo, eigene Zahlungen und deren Historie. Ein erneuter Beitritt zum
 laufenden Tisch erfordert eine neue Einladung für denselben Spielerplatz.
 

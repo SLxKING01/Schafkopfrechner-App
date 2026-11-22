@@ -1,11 +1,12 @@
 import { gameRuleDefinitions } from '../constants/tableSettings';
+import { authColors } from '../theme/colors';
 import type { CardSuit } from '../types/game';
 
 export const cardSuits: { id: CardSuit; label: string; color: string }[] = [
-  { id: 'eichel', label: 'Eichel', color: '#C8944D' },
-  { id: 'gras', label: 'Gras', color: '#6FA972' },
-  { id: 'herz', label: 'Herz', color: '#E0635C' },
-  { id: 'schellen', label: 'Schellen', color: '#E7C65C' },
+  { id: 'eichel', label: 'Eichel', color: authColors.suitEichel },
+  { id: 'gras', label: 'Gras', color: authColors.suitGras },
+  { id: 'herz', label: 'Herz', color: authColors.suitHerz },
+  { id: 'schellen', label: 'Schellen', color: authColors.suitSchellen },
 ];
 
 export function supportsCardSuit(gameType: string) {

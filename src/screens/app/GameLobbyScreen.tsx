@@ -45,9 +45,10 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { SchafkopfBackdrop } from '../../components/dashboard/SchafkopfBackdrop';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { SharedTableConflictNotice } from '../../components/game/SharedTablePanel';
-import { appAlert } from '../../components/ui/AppDialog';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { appAlert } from '../../lib/appAlert';
 import type { AppStackParamList } from '../../navigation/types';
 import {
   exitSharedTable,
@@ -58,6 +59,7 @@ import { listTableInvitations } from '../../services/shared/tableInvitations';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useTableVisibilityStore } from '../../store/tableVisibilityStore';
+import { authColors } from '../../theme/colors';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import { isStockBooking } from '../../utils/accounting';
@@ -67,26 +69,26 @@ import {
 } from '../../utils/tableOrder';
 
 const screenColors = {
-  background: '#0B1D16',
-  backgroundMid: '#10241C',
-  backgroundSoft: '#163328',
-  card: '#1A2D24',
-  gold: '#E7C65C',
-  text: '#F5F5F5',
-  muted: 'rgba(245, 245, 245, 0.62)',
-  soft: 'rgba(245, 245, 245, 0.38)',
-  border: 'rgba(231, 198, 92, 0.28)',
-  shadow: '#000000',
+  background: authColors.tableBackground,
+  backgroundMid: authColors.tableBackgroundMid,
+  backgroundSoft: authColors.tableBackgroundSoft,
+  card: authColors.tableCard,
+  gold: authColors.goldHighlight,
+  text: authColors.textPrimary,
+  muted: authColors.textMuted,
+  soft: authColors.textFaint,
+  border: 'rgba(242, 201, 76, 0.28)',
+  shadow: authColors.shadow,
 };
 
 const suitTheme = {
   eichel: {
     background: 'rgba(143, 94, 44, 0.22)',
-    border: 'rgba(231, 198, 92, 0.26)',
-    glow: 'rgba(231, 198, 92, 0.22)',
+    border: 'rgba(242, 201, 76, 0.26)',
+    glow: 'rgba(242, 201, 76, 0.22)',
     icon: Nut,
     label: 'Eichel',
-    tone: '#C8944D',
+    tone: authColors.suitEichel,
   },
   gras: {
     background: 'rgba(66, 113, 82, 0.24)',
@@ -94,7 +96,7 @@ const suitTheme = {
     glow: 'rgba(111, 169, 114, 0.18)',
     icon: Leaf,
     label: 'Gras',
-    tone: '#6FA972',
+    tone: authColors.suitGras,
   },
   herz: {
     background: 'rgba(151, 60, 55, 0.22)',
@@ -102,15 +104,15 @@ const suitTheme = {
     glow: 'rgba(224, 99, 92, 0.2)',
     icon: Heart,
     label: 'Herz',
-    tone: '#E0635C',
+    tone: authColors.suitHerz,
   },
   schelle: {
-    background: 'rgba(231, 198, 92, 0.2)',
-    border: 'rgba(231, 198, 92, 0.28)',
-    glow: 'rgba(231, 198, 92, 0.24)',
+    background: 'rgba(242, 201, 76, 0.2)',
+    border: 'rgba(242, 201, 76, 0.28)',
+    glow: 'rgba(242, 201, 76, 0.24)',
     icon: Bell,
     label: 'Schelle',
-    tone: '#E7C65C',
+    tone: authColors.suitSchellen,
   },
 } satisfies Record<
   SchafkopfSuit,
@@ -602,7 +604,7 @@ export function GameLobbyScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <Settings color={screenColors.gold} size={20} strokeWidth={2.2} />
+            <AppIcon icon={Settings} size="md" color={screenColors.gold} />
           </Pressable>
         }
       />
@@ -624,7 +626,7 @@ export function GameLobbyScreen() {
           >
             <View style={styles.shortcutTop}>
               <View style={styles.shortcutIcon}>
-                <Mail color={screenColors.gold} size={20} strokeWidth={2.3} />
+                <AppIcon icon={Mail} color={screenColors.gold} />
               </View>
               {receivedInvitations ? (
                 <View style={styles.shortcutBadge}>
@@ -647,11 +649,7 @@ export function GameLobbyScreen() {
           >
             <View style={styles.shortcutTop}>
               <View style={styles.shortcutIcon}>
-                <ReceiptText
-                  color={screenColors.gold}
-                  size={20}
-                  strokeWidth={2.3}
-                />
+                <AppIcon icon={ReceiptText} color={screenColors.gold} />
               </View>
             </View>
             <AppText style={styles.shortcutTitle}>Frühere Abrechnungen</AppText>
@@ -736,7 +734,12 @@ export function GameLobbyScreen() {
           onPress={openCreateTable}
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
         >
-          <Plus color="#17150B" size={28} strokeWidth={2.8} />
+          <AppIcon
+            icon={Plus}
+            size="xl"
+            weight="strong"
+            color={authColors.onGold}
+          />
         </Pressable>
       ) : null}
 
@@ -821,11 +824,12 @@ const TableCard = memo(function TableCard({
                 pressed && styles.swipePressed,
               ]}
             >
-              <Pin
-                color="#17150B"
-                fill={table.isFavorite ? '#17150B' : 'transparent'}
-                size={22}
-                strokeWidth={2.5}
+              <AppIcon
+                icon={Pin}
+                size="lg"
+                weight="strong"
+                color={authColors.onGold}
+                fill={table.isFavorite ? authColors.onGold : 'transparent'}
               />
               <AppText style={styles.favoriteActionText}>
                 {table.isFavorite ? 'Gepinnt' : 'Pinnen'}
@@ -847,7 +851,12 @@ const TableCard = memo(function TableCard({
                   pressed && styles.swipePressed,
                 ]}
               >
-                <Copy color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppIcon
+                  icon={Copy}
+                  size="md"
+                  weight="strong"
+                  color={screenColors.text}
+                />
                 <AppText style={styles.swipeText}>Als Vorlage</AppText>
               </Pressable>
               <Pressable
@@ -863,7 +872,12 @@ const TableCard = memo(function TableCard({
                   pressed && styles.swipePressed,
                 ]}
               >
-                <Pencil color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppIcon
+                  icon={Pencil}
+                  size="md"
+                  weight="strong"
+                  color={screenColors.text}
+                />
                 <AppText style={styles.swipeText}>Umbenennen</AppText>
               </Pressable>
               <Pressable
@@ -879,7 +893,12 @@ const TableCard = memo(function TableCard({
                   pressed && styles.swipePressed,
                 ]}
               >
-                <LogOut color={screenColors.text} size={20} strokeWidth={2.4} />
+                <AppIcon
+                  icon={LogOut}
+                  size="md"
+                  weight="strong"
+                  color={screenColors.text}
+                />
                 <AppText style={styles.swipeText}>Verlassen</AppText>
               </Pressable>
             </View>
@@ -924,7 +943,12 @@ const TableCard = memo(function TableCard({
                   pointerEvents="none"
                   style={styles.symbolGloss}
                 />
-                <SuitIcon color={suit.tone} size={25} strokeWidth={2.35} />
+                <AppIcon
+                  icon={SuitIcon}
+                  size="lg"
+                  weight="strong"
+                  color={suit.tone}
+                />
                 <AppText style={[styles.symbolLabel, { color: suit.tone }]}>
                   {suit.label}
                 </AppText>
@@ -934,10 +958,11 @@ const TableCard = memo(function TableCard({
                   <AppText style={styles.tableName}>{table.name}</AppText>
                   {table.isFavorite ? (
                     <View style={styles.favoriteBadge}>
-                      <Pin
+                      <AppIcon
+                        icon={Pin}
+                        size="xs"
+                        weight="strong"
                         color={screenColors.gold}
-                        size={12}
-                        strokeWidth={2.5}
                       />
                     </View>
                   ) : null}
@@ -947,10 +972,10 @@ const TableCard = memo(function TableCard({
                 </Text>
                 <AppText style={styles.tableDate}>{table.lastPlayed}</AppText>
               </View>
-              <ChevronRight
+              <AppIcon
+                icon={ChevronRight}
+                size="md"
                 color={screenColors.soft}
-                size={20}
-                strokeWidth={2.2}
               />
             </Pressable>
             {canReorder ? (
@@ -966,10 +991,11 @@ const TableCard = memo(function TableCard({
                   pressed && styles.dragHandlePressed,
                 ]}
               >
-                <GripVertical
+                <AppIcon
+                  icon={GripVertical}
+                  size="md"
+                  weight="strong"
                   color={screenColors.gold}
-                  size={20}
-                  strokeWidth={2.3}
                 />
               </Pressable>
             ) : null}
@@ -1115,7 +1141,12 @@ function LeaveTableSheet({
 
         <Animated.View style={styles.dialogCard}>
           <View style={styles.leaveIcon}>
-            <LogOut color="#DFA0A0" size={24} strokeWidth={2.4} />
+            <AppIcon
+              icon={LogOut}
+              size="lg"
+              weight="strong"
+              color={authColors.errorText}
+            />
           </View>
           <AppText style={styles.sheetTitle}>Tisch verlassen?</AppText>
           <AppText style={styles.sheetSubtitle}>
@@ -1191,7 +1222,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   headerSuit: {
-    color: 'rgba(231, 198, 92, 0.055)',
+    color: 'rgba(242, 201, 76, 0.055)',
     fontSize: 96,
     fontWeight: '800',
     position: 'absolute',
@@ -1213,7 +1244,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 2,
   },
-  sectionTitle: { color: screenColors.text, fontSize: 18, fontWeight: '700' },
+  sectionTitle: {
+    color: screenColors.text,
+    fontSize: authTypography.subhead,
+    fontWeight: '700',
+  },
   sectionHint: {
     color: screenColors.soft,
     fontSize: authTypography.caption,
@@ -1262,13 +1297,13 @@ const styles = StyleSheet.create({
   },
   shortcutBadgeText: {
     color: '#17150B',
-    fontSize: 13,
+    fontSize: authTypography.caption,
     fontWeight: '800',
     textAlign: 'center',
   },
   shortcutTitle: {
     color: screenColors.text,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '700',
   },
   loading: {
@@ -1277,7 +1312,7 @@ const styles = StyleSheet.create({
     gap: authSpacing.md,
     justifyContent: 'center',
   },
-  loadingText: { color: screenColors.muted, fontSize: 15 },
+  loadingText: { color: screenColors.muted, fontSize: authTypography.label },
   draggingCardWrap: {
     elevation: 18,
     shadowColor: screenColors.gold,
@@ -1306,7 +1341,7 @@ const styles = StyleSheet.create({
   },
   favoriteAction: {
     alignItems: 'center',
-    backgroundColor: '#C5AA54',
+    backgroundColor: authColors.gold,
     borderRadius: 14,
     gap: 7,
     justifyContent: 'center',
@@ -1314,23 +1349,27 @@ const styles = StyleSheet.create({
     width: 68,
     alignSelf: 'stretch',
   },
-  favoriteActionText: { color: '#172219', fontSize: 10, fontWeight: '600' },
+  favoriteActionText: {
+    color: authColors.onGold,
+    fontSize: authTypography.micro,
+    fontWeight: '600',
+  },
   copyAction: { backgroundColor: '#27473E' },
   renameAction: { backgroundColor: '#4D482F' },
-  leaveAction: { backgroundColor: '#563535' },
+  leaveAction: { backgroundColor: authColors.dangerSurface },
   swipePressed: {
     opacity: 0.82,
     transform: [{ scale: 0.97 }],
   },
   swipeText: {
     color: screenColors.text,
-    fontSize: 10,
+    fontSize: authTypography.micro,
     fontWeight: '600',
     textAlign: 'center',
   },
   tableCard: {
     alignItems: 'center',
-    backgroundColor: '#1A3025',
+    backgroundColor: authColors.tableCard,
     borderColor: 'rgba(245,245,245,0.09)',
     borderRadius: 22,
     borderWidth: 1,
@@ -1351,7 +1390,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.982 }],
   },
   tableCardDragging: {
-    borderColor: 'rgba(231, 198, 92, 0.52)',
+    borderColor: 'rgba(242, 201, 76, 0.52)',
     elevation: 18,
     shadowColor: screenColors.gold,
     shadowOffset: { height: 20, width: 0 },
@@ -1359,11 +1398,11 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
   },
   tableCardCurrent: {
-    backgroundColor: '#1C3327',
+    backgroundColor: authColors.tableCard,
     borderColor: 'rgba(231,198,92,0.27)',
   },
   tableCardFavorite: {
-    borderColor: 'rgba(231, 198, 92, 0.28)',
+    borderColor: 'rgba(242, 201, 76, 0.28)',
     shadowColor: screenColors.gold,
     shadowOpacity: 0.18,
   },
@@ -1390,8 +1429,8 @@ const styles = StyleSheet.create({
   },
   dragHandle: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.1)',
-    borderColor: 'rgba(231, 198, 92, 0.2)',
+    backgroundColor: 'rgba(242, 201, 76, 0.1)',
+    borderColor: 'rgba(242, 201, 76, 0.2)',
     borderRadius: 15,
     borderWidth: 1,
     height: 42,
@@ -1399,7 +1438,7 @@ const styles = StyleSheet.create({
     width: 34,
   },
   dragHandlePressed: {
-    backgroundColor: 'rgba(231, 198, 92, 0.18)',
+    backgroundColor: 'rgba(242, 201, 76, 0.18)',
     transform: [{ scale: 0.96 }],
   },
   tableTitleRow: {
@@ -1410,14 +1449,14 @@ const styles = StyleSheet.create({
   tableName: {
     color: screenColors.text,
     flexShrink: 1,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '700',
     lineHeight: 21,
   },
   favoriteBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
-    borderColor: 'rgba(231, 198, 92, 0.22)',
+    backgroundColor: 'rgba(242, 201, 76, 0.12)',
+    borderColor: 'rgba(242, 201, 76, 0.22)',
     borderRadius: authRadius.pill,
     borderWidth: 1,
     height: 22,
@@ -1426,14 +1465,14 @@ const styles = StyleSheet.create({
   },
   tablePlayers: {
     color: screenColors.muted,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '400',
     lineHeight: 17,
     marginTop: 4,
   },
   tableDate: {
-    color: '#A4B99C',
-    fontSize: 11,
+    color: authColors.textMutedGreen,
+    fontSize: authTypography.tiny,
     fontWeight: '500',
     marginTop: 7,
   },
@@ -1463,8 +1502,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.62)',
   },
   dialogCard: {
-    backgroundColor: '#1A2D24',
-    borderColor: 'rgba(231, 198, 92, 0.18)',
+    backgroundColor: authColors.tableCard,
+    borderColor: 'rgba(242, 201, 76, 0.18)',
     borderRadius: 32,
     borderWidth: 1,
     gap: authSpacing.md,
@@ -1478,7 +1517,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     color: screenColors.text,
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontWeight: '900',
   },
   sheetSubtitle: {
@@ -1498,18 +1537,18 @@ const styles = StyleSheet.create({
   },
   leaveHint: {
     color: screenColors.soft,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '700',
     lineHeight: 18,
     marginTop: -authSpacing.xs,
   },
   renameInput: {
-    backgroundColor: '#10241C',
+    backgroundColor: authColors.tableBackgroundMid,
     borderColor: 'rgba(245, 245, 245, 0.1)',
     borderRadius: 22,
     borderWidth: 1,
     color: screenColors.text,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '700',
     minHeight: 58,
     paddingHorizontal: authSpacing.lg,
@@ -1534,7 +1573,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   cancelButton: {
-    backgroundColor: 'rgba(245, 245, 245, 0.08)',
+    backgroundColor: authColors.borderSoft,
     borderColor: 'rgba(245, 245, 245, 0.1)',
     borderWidth: 1,
   },
@@ -1549,8 +1588,8 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   leaveConfirmButton: {
-    backgroundColor: '#692B2C',
-    shadowColor: '#692B2C',
+    backgroundColor: authColors.dangerSurface,
+    shadowColor: authColors.dangerSurface,
     shadowOffset: { height: 8, width: 0 },
     shadowOpacity: 0.22,
     shadowRadius: 16,
@@ -1561,17 +1600,17 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: screenColors.muted,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
   saveButtonText: {
-    color: '#17150B',
-    fontSize: 16,
+    color: authColors.onGold,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
   leaveConfirmText: {
     color: screenColors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
 });

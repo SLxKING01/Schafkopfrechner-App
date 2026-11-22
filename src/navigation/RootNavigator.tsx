@@ -11,7 +11,6 @@ import { Linking, Modal, Platform } from 'react-native';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { AppLoadingScreen } from '../components/AppLoadingScreen';
 import { ProfileSetupPrompt } from '../components/profile/ProfileSetupPrompt';
-import { AppDialogHost } from '../components/ui/AppDialog';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useFriendsSession } from '../hooks/useFriendsSession';
 import { useProfileSession } from '../hooks/useOwnProfile';
@@ -402,7 +401,6 @@ export function RootNavigator() {
       {isAuthenticated && !recovery ? (
         <ProfileSetupPrompt key={userId} />
       ) : null}
-      <AppDialogHost />
       {recovery ? (
         <Modal presentationStyle="fullScreen" onRequestClose={() => undefined}>
           <ResetPasswordScreen

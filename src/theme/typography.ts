@@ -28,6 +28,8 @@ export const authTypography = {
   body: 16,
   caption: 13,
   tiny: 11,
+  /** Badges and labels inside small chips */
+  micro: 10,
   control: 12,
   label: 15,
   subhead: 18,

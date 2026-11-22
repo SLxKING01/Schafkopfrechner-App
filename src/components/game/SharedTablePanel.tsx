@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { appAlert } from '../../lib/appAlert';
 import {
   loadSharedTableAfterConflict,
   syncSharedTable,
@@ -8,8 +9,8 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import { tableAccess } from '../../utils/tableAccess';
-import { appAlert } from '../ui/AppDialog';
 import { AppText } from '../ui/AppText';
 
 export function SharedTablePanel({
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginVertical: 12,
   },
-  text: { color: authColors.textSecondary, fontSize: 13 },
+  text: { color: authColors.textSecondary, fontSize: authTypography.caption },
   link: { color: authColors.gold, fontWeight: '700' },
   action: { minHeight: 44, justifyContent: 'center' },
 });

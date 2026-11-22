@@ -9,6 +9,7 @@ import {
 
 import { usePlayerAccounts } from '../../hooks/usePlayerAccounts';
 import { authColors } from '../../theme/colors';
+import { authTypography } from '../../theme/typography';
 import type { FriendProfile } from '../../types/profile';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { AppText } from '../ui/AppText';
@@ -93,7 +94,7 @@ export function AccountPicker({
 }
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 12, maxHeight: '100%' },
-  hint: { color: authColors.textSecondary, fontSize: 13 },
+  hint: { color: authColors.textSecondary, fontSize: authTypography.caption },
   input: {
     color: authColors.textPrimary,
     borderColor: authColors.borderSoft,

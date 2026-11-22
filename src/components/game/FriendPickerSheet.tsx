@@ -7,10 +7,12 @@ import { Minus, Plus, Search, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
 import type { FriendProfile } from '../../types/profile';
 import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 import { InteractionSheet } from '../ui/InteractionSheet';
 
@@ -24,12 +26,12 @@ type FriendPickerSheetProps = {
 };
 
 const colors = {
-  card: '#1A2D24',
-  gold: '#E7C65C',
-  input: '#10241C',
-  muted: 'rgba(245, 245, 245, 0.62)',
-  soft: 'rgba(245, 245, 245, 0.36)',
-  text: '#F5F5F5',
+  card: authColors.tableCard,
+  gold: authColors.goldHighlight,
+  input: authColors.tableBackgroundMid,
+  muted: authColors.textMuted,
+  soft: authColors.textFaint,
+  text: authColors.textPrimary,
 };
 
 export function FriendPickerSheet({
@@ -77,12 +79,12 @@ export function FriendPickerSheet({
               pressed && styles.pressed,
             ]}
           >
-            <X color={colors.gold} size={20} strokeWidth={2.5} />
+            <AppIcon icon={X} size="md" weight="strong" color={colors.gold} />
           </Pressable>
         </View>
 
         <View style={styles.searchBox}>
-          <Search color={colors.soft} size={18} />
+          <AppIcon icon={Search} size="sm" color={colors.soft} />
           <BottomSheetTextInput
             keyboardAppearance="dark"
             onChangeText={setQuery}
@@ -153,14 +155,18 @@ export function FriendPickerSheet({
                   ]}
                 >
                   {isSelected ? (
-                    <Minus color="#17150B" size={18} strokeWidth={3} />
+                    <AppIcon
+                      icon={Minus}
+                      size="sm"
+                      weight="strong"
+                      color={authColors.onGold}
+                    />
                   ) : (
-                    <Plus
-                      color={
-                        isDisabled ? 'rgba(245, 245, 245, 0.36)' : colors.gold
-                      }
-                      size={18}
-                      strokeWidth={2.8}
+                    <AppIcon
+                      icon={Plus}
+                      size="sm"
+                      weight="strong"
+                      color={isDisabled ? authColors.textFaint : colors.gold}
                     />
                   )}
                 </View>
@@ -182,7 +188,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 24,
+    fontSize: authTypography.metric,
     fontWeight: '900',
   },
   subtitle: {
@@ -205,7 +211,7 @@ const styles = StyleSheet.create({
   searchBox: {
     alignItems: 'center',
     backgroundColor: colors.input,
-    borderColor: 'rgba(231, 198, 92, 0.18)',
+    borderColor: 'rgba(242, 201, 76, 0.18)',
     borderRadius: 22,
     borderWidth: 1,
     flexDirection: 'row',
@@ -217,7 +223,7 @@ const styles = StyleSheet.create({
   searchInput: {
     color: colors.text,
     flex: 1,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '700',
   },
   listContent: {
@@ -227,7 +233,7 @@ const styles = StyleSheet.create({
   friendRow: {
     alignItems: 'center',
     backgroundColor: 'rgba(16, 36, 28, 0.72)',
-    borderColor: 'rgba(245, 245, 245, 0.08)',
+    borderColor: authColors.borderSoft,
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
@@ -246,7 +252,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   onlineDot: {
-    backgroundColor: '#5BBE63',
+    backgroundColor: authColors.accentGreen,
     borderColor: colors.card,
     borderRadius: 999,
     borderWidth: 2,
@@ -261,24 +267,24 @@ const styles = StyleSheet.create({
   },
   friendName: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: authTypography.body,
     fontWeight: '900',
   },
   friendMeta: {
     color: colors.soft,
-    fontSize: 12,
+    fontSize: authTypography.control,
     fontWeight: '800',
     marginTop: 3,
   },
   toggleButton: {
     alignItems: 'center',
-    backgroundColor: 'rgba(231, 198, 92, 0.12)',
+    backgroundColor: 'rgba(242, 201, 76, 0.12)',
     borderRadius: authRadius.pill,
     height: 38,
     justifyContent: 'center',
     width: 38,
   },
   toggleButtonDisabled: {
-    backgroundColor: 'rgba(245, 245, 245, 0.08)',
+    backgroundColor: authColors.borderSoft,
   },
 });

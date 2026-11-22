@@ -3,12 +3,14 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { authColors, authInteraction, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import {
   type StatisticsEntry,
   type StatisticsRound,
   summarizePlayPositions,
   summarizeStatistics,
 } from '../../utils/statistics';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 import { PersonalBalanceOverview } from './PersonalBalanceOverview';
 import {
@@ -131,9 +133,9 @@ function DetailRow({
     >
       <AppText style={styles.detailTitle}>{title}</AppText>
       {expanded ? (
-        <ChevronDown size={20} color={authColors.goldHighlight} />
+        <AppIcon icon={ChevronDown} color={authColors.goldHighlight} />
       ) : (
-        <ChevronRight size={20} color={authColors.goldHighlight} />
+        <AppIcon icon={ChevronRight} color={authColors.goldHighlight} />
       )}
     </Pressable>
   );
@@ -154,7 +156,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: authColors.listSeparator,
   },
-  detailTitle: { flexShrink: 1, fontSize: 17, fontWeight: '700' },
+  detailTitle: {
+    flexShrink: 1,
+    fontSize: authTypography.button,
+    fontWeight: '700',
+  },
   detailBody: { gap: authSpacing.md, paddingVertical: authSpacing.lg },
   position: { gap: authSpacing.xs, paddingVertical: authSpacing.xs },
 });

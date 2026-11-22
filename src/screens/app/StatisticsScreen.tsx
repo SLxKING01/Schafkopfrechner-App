@@ -12,6 +12,7 @@ import {
   StatPanel,
 } from '../../components/statistics/StatisticsPanels';
 import { TableStatisticsView } from '../../components/statistics/TableStatisticsView';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppText } from '../../components/ui/AppText';
 import { InteractionSheet } from '../../components/ui/InteractionSheet';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -24,6 +25,7 @@ import {
   authInteraction,
   authSpacing,
 } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { dashboardPersonal } from '../../utils/dashboardPersonal';
 import type { StatisticsRound } from '../../utils/statistics';
 
@@ -231,7 +233,11 @@ function FilterField({
         {value}
       </AppText>
       {disabled ? null : (
-        <ChevronDown size={17} color={authColors.goldHighlight} />
+        <AppIcon
+          icon={ChevronDown}
+          size="sm"
+          color={authColors.goldHighlight}
+        />
       )}
     </Pressable>
   );
@@ -264,7 +270,9 @@ function PickerRow({
         <AppText style={styles.filterValue}>{title}</AppText>
         {subtitle ? <StatNote>{subtitle}</StatNote> : null}
       </View>
-      {selected ? <Check size={18} color={authColors.goldHighlight} /> : null}
+      {selected ? (
+        <AppIcon icon={Check} size="sm" color={authColors.goldHighlight} />
+      ) : null}
     </Pressable>
   );
 }
@@ -279,7 +287,11 @@ const styles = StyleSheet.create({
   },
   top: { gap: authSpacing.md },
   header: { gap: authSpacing.xs },
-  subtitle: { color: authColors.textMutedGreen, fontSize: 15, lineHeight: 21 },
+  subtitle: {
+    color: authColors.textMutedGreen,
+    fontSize: authTypography.label,
+    lineHeight: 21,
+  },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: authSpacing.sm },
   // Compact chips instead of two wide fields.
   filter: {
@@ -296,7 +308,7 @@ const styles = StyleSheet.create({
   },
   filterValue: {
     flexShrink: 1,
-    fontSize: 14,
+    fontSize: authTypography.label,
     lineHeight: 19,
     fontWeight: '700',
   },

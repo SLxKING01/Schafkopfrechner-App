@@ -4,6 +4,8 @@ import { Pressable, StyleSheet } from 'react-native';
 
 import { authColors } from '../../theme/colors';
 import { authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type SocialButtonProps = {
@@ -23,7 +25,7 @@ export function SocialButton({
       onPress={onPress}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
-      <Icon color={authColors.textPrimary} size={19} strokeWidth={1.9} />
+      <AppIcon icon={Icon} size="md" color={authColors.textPrimary} />
       <AppText style={styles.text}>{title}</AppText>
     </Pressable>
   );
@@ -49,7 +51,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: authColors.textPrimary,
-    fontSize: 14,
+    fontSize: authTypography.label,
     fontWeight: '700',
   },
 });

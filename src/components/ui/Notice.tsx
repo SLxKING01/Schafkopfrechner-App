@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { authColors, authSpacing } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import { AppText } from './AppText';
 
 type NoticeTone = 'error' | 'success' | 'info';
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
     backgroundColor: authColors.surfaceElevated,
     borderColor: authColors.borderSoft,
   },
-  text: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
+  text: { fontSize: authTypography.label, fontWeight: '600', lineHeight: 20 },
 });
 
 const textStyles = StyleSheet.create({

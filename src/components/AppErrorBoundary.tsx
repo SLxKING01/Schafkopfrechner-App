@@ -2,7 +2,7 @@ import type { ErrorInfo, ReactNode } from 'react';
 import { Component } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { theme } from '../constants/theme';
+import { theme } from '../theme';
 import { AppButton } from './ui/AppButton';
 import { AppText } from './ui/AppText';
 

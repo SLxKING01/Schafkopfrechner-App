@@ -7,6 +7,7 @@ import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
 import { MailSentView } from '../components/auth/MailSentView';
 import { PasswordRuleList } from '../components/auth/PasswordRuleList';
+import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
 import { Notice } from '../components/ui/Notice';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -15,6 +16,7 @@ import { register, resendConfirmation } from '../services/auth/register';
 import { useAuthStore } from '../store/authStore';
 import { authColors } from '../theme/colors';
 import { authSpacing } from '../theme/spacing';
+import { authTypography } from '../theme/typography';
 import { passwordProblem, signUpErrorMessage } from '../utils/passwordRules';
 
 type RegisterScreenProps = AuthStackScreenProps<'Register'>;
@@ -192,7 +194,12 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
             ]}
           >
             {privacyAccepted ? (
-              <Check color={authColors.onGold} size={15} strokeWidth={3} />
+              <AppIcon
+                icon={Check}
+                size="xs"
+                weight="strong"
+                color={authColors.onGold}
+              />
             ) : null}
           </Pressable>
           <AppText style={styles.privacyText}>
@@ -239,7 +246,11 @@ const styles = StyleSheet.create({
   },
   checkboxOn: { backgroundColor: authColors.gold },
   checkboxError: { borderColor: authColors.errorBorder },
-  privacyText: { color: authColors.textPrimary, flex: 1, fontSize: 14 },
+  privacyText: {
+    color: authColors.textPrimary,
+    flex: 1,
+    fontSize: authTypography.label,
+  },
   privacyLink: {
     color: authColors.goldHighlight,
     fontWeight: '700',
@@ -254,11 +265,11 @@ const styles = StyleSheet.create({
   },
   footerMuted: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
   },
   footerAccent: {
     color: authColors.goldHighlight,
-    fontSize: 15,
+    fontSize: authTypography.label,
     fontWeight: '800',
   },
 });

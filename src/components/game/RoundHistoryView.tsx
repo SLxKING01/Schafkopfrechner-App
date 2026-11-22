@@ -1,3 +1,4 @@
+import { ChevronLeft } from 'lucide-react-native';
 import { type ReactElement, useState } from 'react';
 import {
   FlatList,
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { authColors } from '../../theme/colors';
 import { authControlSizes, authRadius, authSpacing } from '../../theme/spacing';
+import { authTypography } from '../../theme/typography';
 import type {
   GameRound,
   GameTable,
@@ -24,6 +26,7 @@ import {
   roundHistorySummary,
 } from '../../utils/roundHistory';
 import { GoldButton } from '../auth/GoldButton';
+import { AppIcon } from '../ui/AppIcon';
 import { AppText } from '../ui/AppText';
 
 type Props = {
@@ -86,7 +89,7 @@ export function RoundHistoryContent({
           onPress={onClose}
           style={styles.back}
         >
-          <AppText style={styles.backText}>‹</AppText>
+          <AppIcon icon={ChevronLeft} size="lg" />
         </Pressable>
         <View style={styles.headerCopy}>
           <AppText accessibilityRole="header" style={styles.title}>
@@ -328,9 +331,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backText: { fontSize: 32, color: authColors.textPrimary },
   headerCopy: { flex: 1, minWidth: 0, gap: authSpacing.xs },
-  title: { fontSize: 21, fontWeight: '600', color: authColors.textPrimary },
+  title: {
+    fontSize: authTypography.subtitle,
+    fontWeight: '600',
+    color: authColors.textPrimary,
+  },
   content: {
     padding: authSpacing.lg,
     gap: authSpacing.xl,
@@ -346,11 +352,15 @@ const styles = StyleSheet.create({
   },
   currentText: {
     color: authColors.goldHighlight,
-    fontSize: 17,
+    fontSize: authTypography.button,
     fontWeight: '600',
     lineHeight: 24,
   },
-  note: { color: authColors.textSecondary, fontSize: 13, lineHeight: 19 },
+  note: {
+    color: authColors.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 19,
+  },
   event: { flexDirection: 'row', gap: authSpacing.md },
   dot: {
     width: 28,
@@ -360,11 +370,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotText: { color: authColors.onGold, fontSize: 20 },
+  dotText: { color: authColors.onGold, fontSize: authTypography.subtitle },
   eventBody: { flex: 1, minWidth: 0, gap: authSpacing.xs },
   restore: { gap: authSpacing.sm, marginTop: authSpacing.md },
-  eventTitle: { fontSize: 17, fontWeight: '600' },
-  gameLabel: { fontSize: 13, color: authColors.goldHighlight },
+  eventTitle: { fontSize: authTypography.button, fontWeight: '600' },
+  gameLabel: {
+    fontSize: authTypography.caption,
+    color: authColors.goldHighlight,
+  },
   changes: {
     marginTop: authSpacing.sm,
     padding: authSpacing.md,
@@ -375,17 +388,24 @@ const styles = StyleSheet.create({
     borderColor: authColors.borderSoft,
   },
   diff: { gap: authSpacing.xs },
-  diffLabel: { fontSize: 13, color: authColors.textPrimary },
+  diffLabel: {
+    fontSize: authTypography.caption,
+    color: authColors.textPrimary,
+  },
   values: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline' },
-  old: { fontSize: 15, color: authColors.textSecondary, flexShrink: 1 },
+  old: {
+    fontSize: authTypography.label,
+    color: authColors.textSecondary,
+    flexShrink: 1,
+  },
   new: {
-    fontSize: 15,
+    fontSize: authTypography.label,
     color: authColors.goldHighlight,
     fontWeight: '600',
     flexShrink: 1,
   },
   footer: {
-    fontSize: 13,
+    fontSize: authTypography.caption,
     lineHeight: 19,
     color: authColors.textSecondary,
     paddingTop: authSpacing.lg,
@@ -394,7 +414,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     color: authColors.textSecondary,
-    fontSize: 15,
+    fontSize: authTypography.label,
     lineHeight: 23,
     paddingVertical: authSpacing.xl,
   },

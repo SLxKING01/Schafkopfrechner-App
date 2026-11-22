@@ -22,7 +22,6 @@ export function generateTableHashCode(existingCodes: string[] = []) {
 }
 
 export function createGameTable(payload: CreateTablePayload): GameTable {
-  // TODO: persist table in Supabase when multiplayer sync is introduced.
   return {
     id: crypto.randomUUID(),
     hashCode: generateTableHashCode(payload.existingHashCodes),

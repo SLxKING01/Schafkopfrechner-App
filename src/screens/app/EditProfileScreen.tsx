@@ -50,6 +50,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useProfileAppearanceStore } from '../../store/profileAppearanceStore';
 import { acceptOwnProfile, refreshOwnProfile } from '../../store/profileStore';
 import { authColors as c, authRadius, authSpacing as sp } from '../../theme';
+import { authTypography } from '../../theme/typography';
 import type {
   OwnProfile,
   ProfileDraft,
@@ -685,11 +686,23 @@ const s = StyleSheet.create({
     alignSelf: 'center',
   },
   cancel: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
-  cancelText: { color: c.goldHighlight, fontSize: 15, fontWeight: '700' },
+  cancelText: {
+    color: c.goldHighlight,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
   choiceRow: { flexDirection: 'row', gap: sp.sm },
   choice: { flex: 1, paddingHorizontal: sp.sm },
-  label: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
-  private: { color: c.textSecondary, fontSize: 15, fontWeight: '400' },
+  label: {
+    color: c.textPrimary,
+    fontSize: authTypography.label,
+    fontWeight: '700',
+  },
+  private: {
+    color: c.textSecondary,
+    fontSize: authTypography.label,
+    fontWeight: '400',
+  },
   accentHeading: {
     alignItems: 'baseline',
     flexDirection: 'row',
@@ -704,7 +717,11 @@ const s = StyleSheet.create({
     paddingVertical: sp.md,
   },
   preview: { alignItems: 'center', gap: sp.md, paddingVertical: sp.md },
-  hint: { color: c.textSecondary, fontSize: 13, lineHeight: 20 },
+  hint: {
+    color: c.textSecondary,
+    fontSize: authTypography.caption,
+    lineHeight: 20,
+  },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: sp.sm },
   animals: {
     flexDirection: 'row',
