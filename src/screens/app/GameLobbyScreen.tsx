@@ -21,7 +21,6 @@ import {
 import type { ComponentType } from 'react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   type ListRenderItemInfo,
@@ -43,10 +42,12 @@ import { AuthBackground } from '../../components/auth/AuthBackground';
 import { SchafkopfBackdrop } from '../../components/dashboard/SchafkopfBackdrop';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { SharedTableConflictNotice } from '../../components/game/SharedTablePanel';
+import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
 import { PageHeader } from '../../components/ui/PageHeader';
 import type { AppStackParamList } from '../../navigation/types';
 import {
+  exitSharedTable,
   openSharedTable,
   useSharedTableStatus,
 } from '../../services/shared/sharedTables';
@@ -190,6 +191,8 @@ export function GameLobbyScreen() {
   const [isRenameFocused, setIsRenameFocused] = useState(false);
   const [leaveTableCandidate, setLeaveTableCandidate] =
     useState<TablePreview | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState('');
   const visibility = useTableVisibilityStore();
   const { hydrate: hydrateVisibility, hideTable } = visibility;
   const scope = userId ? `user:${userId}` : 'guest';
@@ -238,9 +241,9 @@ export function GameLobbyScreen() {
     });
     const automaticTables: TablePreview[] = remoteTables.map((remote) => ({
       id: remote.id,
-      name: remote.payload.currentTable.name,
-      players: remote.payload.players.map((player) => player.name).join(' · '),
-      lastPlayed: remote.payload.activeGame
+      name: remote.name,
+      players: remote.players.map((player) => player.name).join(' · '),
+      lastPlayed: remote.active
         ? 'Gemeinsamer Tisch · läuft'
         : 'Gemeinsamer Tisch · abgeschlossen',
       suit: 'schelle',
@@ -328,7 +331,7 @@ export function GameLobbyScreen() {
             else navigation.navigate('Settlement', { tableId: table.id });
           })
           .catch((reason: Error) =>
-            Alert.alert('Tisch nicht geöffnet', reason.message),
+            appAlert('Tisch nicht geöffnet', reason.message),
           );
         return;
       }
@@ -350,13 +353,14 @@ export function GameLobbyScreen() {
   }, [activeGame, currentTable, navigation]);
 
   const copyTable = useCallback((table: TablePreview) => {
-    Alert.alert(
+    appAlert(
       'Tisch kopieren',
       `${table.name} wird später als Vorlage für neue Runden verwendet.`,
     );
   }, []);
 
   const leaveTable = useCallback((table: TablePreview) => {
+    setLeaveError('');
     setLeaveTableCandidate(table);
   }, []);
 
@@ -410,15 +414,31 @@ export function GameLobbyScreen() {
   );
 
   const closeLeaveTable = useCallback(() => {
-    setLeaveTableCandidate(null);
-  }, []);
+    if (!leaving) setLeaveTableCandidate(null);
+  }, [leaving]);
 
-  const confirmLeaveTable = useCallback(() => {
-    if (!leaveTableCandidate) {
+  const leaveRemote = remoteTables.find(
+    (remote) => remote.id === leaveTableCandidate?.id,
+  );
+  const canLeaveShared =
+    !!userId && !!leaveRemote?.ownerId && leaveRemote.ownerId !== userId;
+  const confirmLeaveTable = useCallback(async () => {
+    if (!leaveTableCandidate || leaving) return;
+    const tableId = leaveTableCandidate.id;
+    if (canLeaveShared && userId) {
+      setLeaving(true);
+      setLeaveError('');
+      try {
+        await exitSharedTable(tableId, userId);
+        setLeaveTableCandidate(null);
+        navigation.navigate('PersonalSettlements');
+      } catch {
+        setLeaveError('Der Tisch konnte nicht verlassen werden.');
+      } finally {
+        setLeaving(false);
+      }
       return;
     }
-
-    const tableId = leaveTableCandidate.id;
     setLeaveTableCandidate(null);
     if (
       (tableId === currentTable?.id && activeGame) ||
@@ -426,9 +446,19 @@ export function GameLobbyScreen() {
     )
       return;
     void hideTable(scope, tableId).catch((error: Error) =>
-      Alert.alert('Tisch nicht entfernt', error.message),
+      appAlert('Tisch nicht entfernt', error.message),
     );
-  }, [activeGame, currentTable?.id, leaveTableCandidate, hideTable, scope]);
+  }, [
+    activeGame,
+    canLeaveShared,
+    currentTable?.id,
+    leaveTableCandidate,
+    leaving,
+    hideTable,
+    navigation,
+    scope,
+    userId,
+  ]);
 
   const openRenameTable = useCallback((table: TablePreview) => {
     setRenameTable(table);
@@ -517,6 +547,17 @@ export function GameLobbyScreen() {
         >
           <AppText style={{ color: screenColors.gold }}>
             Tischeinladungen ansehen
+          </AppText>
+        </Pressable>
+      ) : null}
+      {userId ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('PersonalSettlements')}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <AppText style={{ color: screenColors.gold }}>
+            Persönliche Abrechnungen ehemaliger Tische
           </AppText>
         </Pressable>
       ) : null}
@@ -613,6 +654,9 @@ export function GameLobbyScreen() {
       />
       <LeaveTableSheet
         tableName={leaveTableCandidate?.name ?? ''}
+        shared={canLeaveShared}
+        busy={leaving}
+        error={leaveError}
         isActive={Boolean(
           (activeGame && leaveTableCandidate?.id === currentTable?.id) ||
           leaveTableCandidate?.hasOpenPayments,
@@ -936,6 +980,9 @@ function RenameTableSheet({
 
 type LeaveTableSheetProps = {
   tableName: string;
+  shared: boolean;
+  busy: boolean;
+  error: string;
   isActive: boolean;
   visible: boolean;
   onCancel: () => void;
@@ -944,6 +991,9 @@ type LeaveTableSheetProps = {
 
 function LeaveTableSheet({
   tableName,
+  shared,
+  busy,
+  error,
   isActive,
   visible,
   onCancel,
@@ -974,14 +1024,18 @@ function LeaveTableSheet({
             Möchtest du {tableName || 'diesen Tisch'} wirklich verlassen?
           </AppText>
           <AppText style={styles.leaveHint}>
-            {isActive
-              ? 'Dieser Tisch bleibt in deiner Übersicht, solange der Spielabend läuft oder Zahlungen offen sind.'
-              : 'Der Tisch wird aus deiner Übersicht entfernt.'}
+            {shared
+              ? 'Dein Zugriff auf Spiele und Tischdaten endet. Dein Spielerplatz bleibt erhalten und deine Zahlungen findest du unter „Persönliche Abrechnungen“.'
+              : isActive
+                ? 'Dieser Tisch bleibt in deiner Übersicht, solange der Spielabend läuft oder Zahlungen offen sind.'
+                : 'Der Tisch wird aus deiner Übersicht entfernt.'}
           </AppText>
+          {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
 
           <View style={styles.sheetActions}>
             <Pressable
               accessibilityRole="button"
+              disabled={busy}
               onPress={onCancel}
               style={({ pressed }) => [
                 styles.sheetButton,
@@ -993,6 +1047,7 @@ function LeaveTableSheet({
             </Pressable>
             <Pressable
               accessibilityRole="button"
+              disabled={busy}
               onPress={onConfirm}
               style={({ pressed }) => [
                 styles.sheetButton,
@@ -1000,7 +1055,9 @@ function LeaveTableSheet({
                 pressed && styles.sheetButtonPressed,
               ]}
             >
-              <AppText style={styles.leaveConfirmText}>Verlassen</AppText>
+              <AppText style={styles.leaveConfirmText}>
+                {busy ? 'Wird verlassen …' : 'Verlassen'}
+              </AppText>
             </Pressable>
           </View>
         </Animated.View>

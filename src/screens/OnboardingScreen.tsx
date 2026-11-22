@@ -3,16 +3,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CardSuitIcon } from '../components/game/CardSuitIcon';
+import { AppLogo } from '../components/ui/AppLogo';
 import { AppText } from '../components/ui/AppText';
 import { theme } from '../constants/theme';
 import type { AuthStackScreenProps } from '../navigation/types';
+import { useGuestModeStore } from '../store/guestModeStore';
 
 type OnboardingScreenProps = AuthStackScreenProps<'Onboarding'>;
 
 const colors = {
   background: '#161816',
   surface: '#2F6B2F',
-  surfaceDeep: '#203A20',
   accent: '#D9A441',
   text: '#F5F5F5',
   mutedText: 'rgba(245, 245, 245, 0.66)',
@@ -22,8 +23,11 @@ const colors = {
 };
 
 export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
+  const enableGuestMode = useGuestModeStore((state) => state.setEnabled);
+
   function continueOffline() {
-    navigation.navigate('MainTabs');
+    enableGuestMode(true);
+    navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
   }
 
   return (
@@ -54,17 +58,7 @@ export function OnboardingScreen({ navigation }: OnboardingScreenProps) {
 
       <View style={styles.content}>
         <View style={styles.hero}>
-          <View style={styles.logoShadow}>
-            <View style={styles.logo} aria-hidden>
-              <Ionicons name="leaf-outline" size={34} color={colors.accent} />
-              <Ionicons
-                name="heart-outline"
-                size={21}
-                color={colors.accent}
-                style={styles.logoHeart}
-              />
-            </View>
-          </View>
+          <AppLogo />
 
           <View style={styles.titleGroup}>
             <AppText accessibilityRole="header" style={styles.title}>
@@ -185,27 +179,6 @@ const styles = StyleSheet.create({
     flex: 0.35,
     justifyContent: 'center',
     paddingTop: theme.spacing.xl,
-  },
-  logoShadow: {
-    borderRadius: 39,
-    elevation: 7,
-    shadowColor: colors.accent,
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
-  },
-  logo: {
-    alignItems: 'center',
-    backgroundColor: colors.surfaceDeep,
-    borderColor: 'rgba(217, 164, 65, 0.32)',
-    borderRadius: 39,
-    borderWidth: 1,
-    height: 78,
-    justifyContent: 'center',
-    width: 78,
-  },
-  logoHeart: {
-    marginTop: -9,
   },
   titleGroup: {
     alignItems: 'center',

@@ -1,12 +1,12 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
 import {
   StatAction,
   StatHeading,
   StatNote,
-  TableStatisticsPanel,
 } from '../../components/statistics/StatisticsPanels';
+import { TableStatisticsView } from '../../components/statistics/TableStatisticsView';
 import { useGameOverview } from '../../hooks/useGameOverview';
 import { useOverviewNavigation } from '../../hooks/useOverviewNavigation';
 import type { AppStackScreenProps } from '../../navigation/types';
@@ -21,14 +21,17 @@ export function TableStatisticsScreen({
   const table = statisticsTables.find((t) => t.id === route.params.tableKey);
   return (
     <AuthBackground>
+      <View style={styles.header}>
+        <StatAction onPress={() => navigation.goBack()}>‹ Zurück</StatAction>
+        <StatHeading>Tischstatistik</StatHeading>
+      </View>
       <ScrollView
+        style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
       >
-        <StatAction onPress={() => navigation.goBack()}>‹ Zurück</StatAction>
-        <StatHeading>Tischstatistik</StatHeading>
         {table ? (
-          <TableStatisticsPanel
+          <TableStatisticsView
             key={table.id}
             table={table}
             onOpen={(r) => openStatisticsRound(table, r)}
@@ -41,8 +44,13 @@ export function TableStatisticsScreen({
   );
 }
 const styles = StyleSheet.create({
-  content: {
+  header: {
     padding: authSpacing.lgPlus,
+    gap: authSpacing.md,
+  },
+  scroll: { flex: 1 },
+  content: {
+    paddingHorizontal: authSpacing.lgPlus,
     paddingBottom: authSpacing.xxxl,
     gap: authSpacing.md,
   },

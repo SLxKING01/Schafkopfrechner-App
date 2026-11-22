@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useGameStore } from '../store/gameStore';
+import { useGuestModeStore } from '../store/guestModeStore';
 import { useMatchDayStore } from '../store/matchDayStore';
 import { usePlayerStore } from '../store/playerStore';
 
@@ -8,7 +9,8 @@ export function useStoresHydrated() {
   const [isHydrated, setIsHydrated] = useState(
     usePlayerStore.persist.hasHydrated() &&
       useGameStore.persist.hasHydrated() &&
-      useMatchDayStore.persist.hasHydrated(),
+      useMatchDayStore.persist.hasHydrated() &&
+      useGuestModeStore.persist.hasHydrated(),
   );
 
   useEffect(() => {
@@ -16,7 +18,8 @@ export function useStoresHydrated() {
       setIsHydrated(
         usePlayerStore.persist.hasHydrated() &&
           useGameStore.persist.hasHydrated() &&
-          useMatchDayStore.persist.hasHydrated(),
+          useMatchDayStore.persist.hasHydrated() &&
+          useGuestModeStore.persist.hasHydrated(),
       );
     };
 
@@ -26,6 +29,8 @@ export function useStoresHydrated() {
       useGameStore.persist.onFinishHydration(updateHydrationState);
     const unsubscribeMatchDayStore =
       useMatchDayStore.persist.onFinishHydration(updateHydrationState);
+    const unsubscribeGuestModeStore =
+      useGuestModeStore.persist.onFinishHydration(updateHydrationState);
 
     updateHydrationState();
 
@@ -33,6 +38,7 @@ export function useStoresHydrated() {
       unsubscribePlayerStore();
       unsubscribeGameStore();
       unsubscribeMatchDayStore();
+      unsubscribeGuestModeStore();
     };
   }, []);
 

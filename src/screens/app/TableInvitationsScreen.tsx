@@ -9,6 +9,7 @@ import { AppText } from '../../components/ui/AppText';
 import type { AppStackScreenProps } from '../../navigation/types';
 import { readFriends } from '../../services/friends/friends';
 import {
+  exitSharedTable,
   publishSharedTable,
   refreshSharedTables,
   sharedSnapshot,
@@ -67,8 +68,13 @@ export function InvitationsContent({
   onBack: () => void;
 }) {
   const currentActor = useAuthStore((s) => s.user?.id);
-  const table = useGameStore((s) => s.currentTable);
-  const players = useGameStore((s) => s.players);
+  const archived = useGameStore((s) =>
+    s.archivedGameDays.find((day) => day.table.id === tableId),
+  );
+  const currentTable = useGameStore((s) => s.currentTable);
+  const currentPlayers = useGameStore((s) => s.players);
+  const table = archived?.table ?? currentTable;
+  const players = archived?.players ?? currentPlayers;
   const [state, setState] = useState<InvitationState | null>(null);
   const [friends, setFriends] = useState<ProfileCard[]>([]);
   const [pending, setPending] = useState<InvitationCommand | null>(null);
@@ -80,6 +86,7 @@ export function InvitationsContent({
   const [playerId, setPlayerId] = useState('');
   const [friendId, setFriendId] = useState('');
   const [role, setRole] = useState<'read' | 'write'>('read');
+  const [revoking, setRevoking] = useState<string | null>(null);
   const gate = useRef(false);
   const alive = useRef(true);
   const validActor = useCallback(
@@ -145,7 +152,9 @@ export function InvitationsContent({
         setNotice(
           command.action === 'accept'
             ? 'Einladung angenommen. Der gemeinsame Tisch steht jetzt unter „Tische“.'
-            : 'Änderung bestätigt.',
+            : command.action === 'cancel'
+              ? 'Einladung zurückgezogen.'
+              : 'Änderung bestätigt.',
         );
       }
       // Membership is confirmed before discovery; opening remains an explicit action.
@@ -232,6 +241,45 @@ export function InvitationsContent({
     table.isActive;
   const entries =
     state?.invitations.filter((i) => !tableId || i.tableId === tableId) ?? [];
+  const canManage =
+    table?.id === tableId &&
+    table?.shared?.ownerId === actor &&
+    table.shared.userId === actor;
+  const members = canManage ? table.shared?.members : undefined;
+  const revokedSeat = (account: string) =>
+    !!members && !members.some((member) => member.userId === account);
+  const eligibleSeats = players.filter(
+    (p) => !p.userId || revokedSeat(p.userId),
+  );
+  const selectedSeat = eligibleSeats.find((p) => p.id === playerId);
+  const eligibleFriends = friends.filter((f) =>
+    selectedSeat?.userId
+      ? f.id === selectedSeat.userId
+      : !players.some((p) => p.userId === f.id),
+  );
+
+  async function revoke(userId: string) {
+    if (!tableId || gate.current || !validActor()) return;
+    gate.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      await exitSharedTable(tableId, userId);
+      await syncSharedTable();
+      if (validActor()) {
+        setRevoking(null);
+        setNotice(
+          'Tischzugriff entzogen. Die persönliche Abrechnung bleibt zugänglich.',
+        );
+      }
+    } catch {
+      if (validActor()) setError('Tischzugriff konnte nicht entzogen werden.');
+    } finally {
+      gate.current = false;
+      if (validActor()) setBusy(false);
+    }
+  }
+
   return (
     <AuthBackground>
       <FlatList
@@ -275,6 +323,40 @@ export function InvitationsContent({
                 />
               </View>
             )}
+            {members?.some((member) => member.userId !== actor) ? (
+              <View style={s.card}>
+                <AppText variant="subtitle">Tischzugriffe</AppText>
+                {members
+                  .filter((member) => member.userId !== actor)
+                  .map((member) => (
+                    <View key={member.userId} style={s.stack}>
+                      <Action
+                        title={`Zugriff entziehen: ${players.find((p) => p.userId === member.userId)?.name ?? 'Teilnehmer'}`}
+                        disabled={busy}
+                        onPress={() => setRevoking(member.userId)}
+                      />
+                      {revoking === member.userId ? (
+                        <>
+                          <AppText>
+                            Spielerplatz und Abrechnung bleiben erhalten. Der
+                            Zugriff auf den Tisch endet.
+                          </AppText>
+                          <Action
+                            title="Entzug bestätigen"
+                            disabled={busy}
+                            onPress={() => void revoke(member.userId)}
+                          />
+                          <Action
+                            title="Abbrechen"
+                            disabled={busy}
+                            onPress={() => setRevoking(null)}
+                          />
+                        </>
+                      ) : null}
+                    </View>
+                  ))}
+              </View>
+            ) : null}
             {canInvite ? (
               <View style={s.card}>
                 <AppText variant="subtitle">
@@ -284,36 +366,35 @@ export function InvitationsContent({
                   1. Spielerplatz auswählen. Name, bisherige Spiele und Saldo
                   dieses Platzes bleiben erhalten.
                 </AppText>
-                {players
-                  .filter((p) => !p.userId)
-                  .map((p) => (
-                    <Action
-                      key={p.id}
-                      title={`Platz: ${p.name}`}
-                      selected={playerId === p.id}
-                      disabled={disabled}
-                      onPress={() => setPlayerId(p.id)}
-                    />
-                  ))}
-                {!players.some((p) => !p.userId) && (
+                {eligibleSeats.map((p) => (
+                  <Action
+                    key={p.id}
+                    title={`Platz: ${p.name}`}
+                    selected={playerId === p.id}
+                    disabled={disabled}
+                    onPress={() => {
+                      setPlayerId(p.id);
+                      setFriendId('');
+                    }}
+                  />
+                ))}
+                {!eligibleSeats.length && (
                   <AppText>Alle Spielerplätze sind bereits verknüpft.</AppText>
                 )}
                 <AppText>2. Freund auswählen.</AppText>
-                {friends
-                  .filter((f) => !players.some((p) => p.userId === f.id))
-                  .map((f) => (
-                    <View key={f.id} style={s.row}>
-                      <ProfileAvatar profile={f} size={32} />
-                      <View style={s.flex}>
-                        <Action
-                          title={f.displayName}
-                          selected={friendId === f.id}
-                          disabled={disabled}
-                          onPress={() => setFriendId(f.id)}
-                        />
-                      </View>
+                {eligibleFriends.map((f) => (
+                  <View key={f.id} style={s.row}>
+                    <ProfileAvatar profile={f} size={32} />
+                    <View style={s.flex}>
+                      <Action
+                        title={f.displayName}
+                        selected={friendId === f.id}
+                        disabled={disabled}
+                        onPress={() => setFriendId(f.id)}
+                      />
                     </View>
-                  ))}
+                  </View>
+                ))}
                 {!friends.length && !loading && (
                   <AppText>
                     Noch keine Freunde geladen. Füge zuerst unter Profil →
@@ -339,7 +420,11 @@ export function InvitationsContent({
                 </AppText>
                 <Action
                   title="Einladung senden"
-                  disabled={disabled || !playerId || !friendId}
+                  disabled={
+                    disabled ||
+                    !selectedSeat ||
+                    !eligibleFriends.some((f) => f.id === friendId)
+                  }
                   onPress={() => void send()}
                 />
               </View>

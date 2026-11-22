@@ -86,6 +86,14 @@ export type GameTable = {
   };
   roundHistory?: RoundHistoryEvent[];
   interimPayments?: InterimPayment[];
+  settlementRevisions?: {
+    id: string;
+    occurredAt: string;
+    actor: RoundHistoryActor;
+    balances: PlayerBalance[];
+    settlements: Settlement[];
+    carriedPaymentIds: string[];
+  }[];
   id: string;
   hashCode: string;
   name: string;

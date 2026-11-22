@@ -3,6 +3,7 @@ import { act } from 'react';
 import { Alert, Platform, StyleSheet, Text } from 'react-native';
 import { G } from 'react-native-svg';
 
+import { GoldButton } from '../components/auth/GoldButton';
 import { MatchHistoryCard } from '../components/game/MatchHistoryCard';
 import { RoundEntrySheet } from '../components/game/RoundEntrySheet';
 import { SyncStatus } from '../components/game/SyncStatus';
@@ -584,9 +585,15 @@ it('lets all four deposit Stock and pays it to the two selected Sauspiel winners
   await act(async () => view.unmount());
 });
 
-it.each(['refund', 'carry'] as const)(
-  'offers a funded Stock resolution and opens the original table settlement for %s',
-  async (resolution) => {
+it.each([
+  ['web', 'refund'],
+  ['web', 'carry'],
+  ['ios', 'refund'],
+  ['ios', 'carry'],
+] as const)(
+  'offers a funded Stock resolution on %s and opens the original table settlement for %s',
+  async (platform, resolution) => {
+    jest.replaceProperty(Platform, 'OS', platform);
     const settings = structuredClone(
       useGameStore.getState().currentTable!.settings,
     );
@@ -622,19 +629,26 @@ it.each(['refund', 'carry'] as const)(
         .props.onPress(),
     );
     expect(useGameStore.getState().activeGame).toBe(true);
-    const actions = alert.mock.calls.at(-1)![2]!;
-    expect(actions.map(({ text }) => text)).toEqual([
-      'Abbrechen',
-      'Stock verteilen',
-      'Stock übernehmen',
-    ]);
-    await act(async () =>
-      actions.find(
-        ({ text }) =>
-          text ===
-          (resolution === 'refund' ? 'Stock verteilen' : 'Stock übernehmen'),
-      )!.onPress!(),
-    );
+    const title =
+      resolution === 'refund' ? 'Stock verteilen' : 'Stock übernehmen';
+    if (platform === 'web') {
+      const button = view.root
+        .findAllByType(GoldButton)
+        .find(
+          (node: { props: { title: string } }) => node.props.title === title,
+        )!;
+      await act(async () => button.props.onPress());
+    } else {
+      const actions = alert.mock.calls.at(-1)![2]!;
+      expect(actions.map(({ text }) => text)).toEqual([
+        'Abbrechen',
+        'Stock verteilen',
+        'Stock übernehmen',
+      ]);
+      await act(async () =>
+        actions.find(({ text }) => text === title)!.onPress!(),
+      );
+    }
     expect(navigate).toHaveBeenCalledWith('Settlement', {
       tableId: originalId,
     });
@@ -1379,7 +1393,7 @@ it('pauses and reactivates through the centered player menu while keeping its ba
     view.root.findAllByProps({ accessibilityLabel: 'Spieltyp Rufspiel' }),
   ).toHaveLength(0);
   await act(async () => row().props.onLongPress());
-  expect(button('Berkay als Geber ausw�hlen')).toBeUndefined();
+  expect(button('Berkay als Geber auswählen')).toBeUndefined();
   await act(async () => button('Berkay wieder aktivieren').props.onPress());
   expect(useGameStore.getState().players[0].isPaused).toBe(false);
   expect(useGameStore.getState().players.map((p) => p.id)).toEqual([

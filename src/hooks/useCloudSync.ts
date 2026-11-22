@@ -68,8 +68,9 @@ export function useCloudSync(ready: boolean) {
       if (AppState.currentState !== 'active') return;
       if (useAuthStore.getState().user?.id !== userId) return;
       void (async () => {
-        await syncSharedTable();
-        await refreshSharedTables();
+        const discovered = await refreshSharedTables();
+        if (useAuthStore.getState().user?.id !== userId) return;
+        await syncSharedTable(discovered);
         if (!useGameStore.getState().currentTable?.shared)
           await useGameStore.getState().syncNow();
       })().catch(() => {

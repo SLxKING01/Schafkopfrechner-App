@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { setSharedTableRole } from '../../services/shared/sharedTables';
 import { useAuthStore } from '../../store/authStore';
@@ -7,6 +7,7 @@ import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authInteraction, authRadius } from '../../theme/spacing';
 import { tableAccess } from '../../utils/tableAccess';
+import { appAlert } from '../ui/AppDialog';
 import { AppText } from '../ui/AppText';
 
 export function PlayerAccountsEditor() {
@@ -116,7 +117,7 @@ export function PlayerAccountsEditor() {
               accessibilityRole="button"
               accessibilityLabel={`Kontozugriff für ${player.name} entfernen`}
               onPress={() =>
-                Alert.alert(
+                appAlert(
                   'Kontozugriff entfernen?',
                   'Dieser Spieler bleibt in den bisherigen Spielen enthalten. Sein Konto kann den Tisch danach nicht mehr öffnen.',
                   [

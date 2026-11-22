@@ -1,11 +1,10 @@
-import { Apple, Lock, Mail, User } from 'lucide-react-native';
+import { Lock, Mail, User } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthInput } from '../components/auth/AuthInput';
 import { AuthShell } from '../components/auth/AuthShell';
 import { GoldButton } from '../components/auth/GoldButton';
-import { SocialButton } from '../components/auth/SocialButton';
 import { AppText } from '../components/ui/AppText';
 import type { AuthStackScreenProps } from '../navigation/types';
 import { register } from '../services/auth/register';
@@ -21,14 +20,15 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmationPending, setConfirmationPending] = useState(false);
   const setSession = useAuthStore((state) => state.setSession);
 
   async function handleRegister() {
+    if (isSubmitting || confirmationPending) return;
+    setError('');
     if (!username.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert(
-        'Registrierung unvollständig',
-        'Bitte alle Felder ausfüllen.',
-      );
+      setError('Bitte alle Felder ausfüllen.');
       return;
     }
 
@@ -37,46 +37,25 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
       [...username.trim()].length > 40 ||
       /[\u0000-\u001f\u007f-\u009f]/.test(username)
     ) {
-      Alert.alert(
-        'Anzeigename prüfen',
-        'Bitte 2 bis 40 Zeichen ohne Zeilenumbrüche eingeben.',
-      );
+      setError('Bitte 2 bis 40 Zeichen ohne Zeilenumbrüche eingeben.');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert(
-        'Passwörter stimmen nicht überein',
-        'Bitte prüfe deine Eingabe.',
-      );
+      setError('Passwörter stimmen nicht überein.');
       return;
     }
 
     setIsSubmitting(true);
-    const result = await register({ username, email, password });
-    setIsSubmitting(false);
-
-    if (result.error) {
-      Alert.alert('Registrierung fehlgeschlagen', result.error.message);
-      return;
+    try {
+      const result = await register({ username, email, password });
+      if (result.error) setError(result.error.message);
+      else if (result.session) setSession(result.session);
+      else setConfirmationPending(true);
+    } catch {
+      setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (result.session) {
-      setSession(result.session);
-      return;
-    }
-
-    Alert.alert(
-      'Account erstellt',
-      'Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.',
-      [{ text: 'Zum Login', onPress: () => navigation.navigate('Login') }],
-    );
-  }
-
-  function showSocialPending() {
-    Alert.alert(
-      'Social Login',
-      'Apple und Google Login werden nach der Supabase Provider-Konfiguration aktiviert.',
-    );
   }
 
   return (
@@ -97,77 +76,68 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         </Pressable>
       }
     >
-      <View style={styles.form}>
-        <AuthInput
-          autoCapitalize="words"
-          autoComplete="username"
-          editable={!isSubmitting}
-          icon={User}
-          placeholder="Anzeigename"
-          textContentType="username"
-          value={username}
-          onChangeText={setUsername}
-        />
-        <AuthInput
-          autoCapitalize="none"
-          autoComplete="email"
-          editable={!isSubmitting}
-          icon={Mail}
-          keyboardType="email-address"
-          placeholder="E-Mail"
-          textContentType="emailAddress"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <AuthInput
-          autoComplete="new-password"
-          editable={!isSubmitting}
-          icon={Lock}
-          isPassword
-          placeholder="Passwort"
-          textContentType="newPassword"
-          value={password}
-          onChangeText={setPassword}
-        />
-        <AuthInput
-          autoComplete="new-password"
-          editable={!isSubmitting}
-          icon={Lock}
-          isPassword
-          placeholder="Passwort bestätigen"
-          textContentType="newPassword"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-
-        <View style={styles.socialRow}>
-          <SocialButton
-            icon={Apple}
-            title="Apple"
-            onPress={showSocialPending}
+      {confirmationPending ? (
+        <AppText accessibilityLiveRegion="polite">
+          Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.
+        </AppText>
+      ) : (
+        <View style={styles.form}>
+          <AuthInput
+            autoCapitalize="words"
+            autoComplete="username"
+            editable={!isSubmitting}
+            icon={User}
+            placeholder="Anzeigename"
+            textContentType="username"
+            value={username}
+            onChangeText={setUsername}
           />
-          <SocialButton
+          <AuthInput
+            autoCapitalize="none"
+            autoComplete="email"
+            editable={!isSubmitting}
             icon={Mail}
-            title="Google"
-            onPress={showSocialPending}
+            keyboardType="email-address"
+            placeholder="E-Mail"
+            textContentType="emailAddress"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <AuthInput
+            autoComplete="new-password"
+            editable={!isSubmitting}
+            icon={Lock}
+            isPassword
+            placeholder="Passwort"
+            textContentType="newPassword"
+            value={password}
+            onChangeText={setPassword}
+          />
+          <AuthInput
+            autoComplete="new-password"
+            editable={!isSubmitting}
+            icon={Lock}
+            isPassword
+            placeholder="Passwort bestätigen"
+            textContentType="newPassword"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+          />
+
+          {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
+          <GoldButton
+            title="Account erstellen"
+            loading={isSubmitting}
+            onPress={handleRegister}
           />
         </View>
-
-        <GoldButton
-          title={isSubmitting ? 'Erstellen...' : 'Account erstellen'}
-          onPress={handleRegister}
-        />
-      </View>
+      )}
     </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
   form: {
-    gap: authSpacing.md,
-  },
-  socialRow: {
-    flexDirection: 'row',
     gap: authSpacing.md,
   },
   footerLink: {

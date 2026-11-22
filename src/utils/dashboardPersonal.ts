@@ -21,6 +21,7 @@ export function dashboardPersonal(tables: StatisticsTable[], userId?: string) {
       : [];
   });
   return {
+    entries,
     summary: summarizeStatistics(entries),
     memberships,
     hasIdentity: memberships.size > 0,

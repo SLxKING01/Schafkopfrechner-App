@@ -1,45 +1,38 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {
+  type NavigationProp,
+  useFocusEffect,
+  useNavigation,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  Bell,
-  Brush,
   ChevronRight,
-  CircleDollarSign,
   CreditCard,
-  FileText,
-  HelpCircle,
   KeyRound,
-  LayoutGrid,
   Lock,
   LogOut,
-  MessageSquareText,
-  ShieldCheck,
-  Smartphone,
-  Sparkles,
-  TableProperties,
   UserRoundCog,
   Users,
-  Volume2,
-  WalletCards,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
-import { useCallback } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthBackground } from '../../components/auth/AuthBackground';
+import { GoldButton } from '../../components/auth/GoldButton';
 import { ProfileAvatar } from '../../components/profile/ProfileAvatar';
+import { AppButton } from '../../components/ui/AppButton';
+import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
+import { InteractionSheet } from '../../components/ui/InteractionSheet';
+import { Notice } from '../../components/ui/Notice';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { PROFILE_ACCENTS } from '../../constants/profileCustomization';
 import { useOwnProfile } from '../../hooks/useOwnProfile';
-import type { AppStackParamList } from '../../navigation/types';
+import type {
+  AppStackParamList,
+  AuthStackParamList,
+} from '../../navigation/types';
+import { deleteAccount } from '../../services/auth/deleteAccount';
 import { useAuthStore } from '../../store/authStore';
 import { refreshOwnProfile } from '../../store/profileStore';
 import { authColors } from '../../theme/colors';
@@ -57,7 +50,6 @@ type SettingRow = {
 type SettingsSectionProps = {
   title: string;
   rows: SettingRow[];
-  premium?: boolean;
 };
 
 export function ProfileScreen() {
@@ -69,7 +61,16 @@ export function ProfileScreen() {
   const accentColor = PROFILE_ACCENTS[profile?.accentId ?? 'forestGreen'];
   const email = user?.email ?? 'Nicht gesetzt';
   const userId = user?.id;
+  const [showDeletion, setShowDeletion] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletionError, setDeletionError] = useState('');
+  const deletionLock = useRef(false);
   const openProfileEditor = () => navigation.navigate('EditProfile');
+  // Guests run inside the auth stack, so Login/Register are reachable by name.
+  const openAuth = (screen: 'Login' | 'Register') =>
+    (navigation as unknown as NavigationProp<AuthStackParamList>).navigate(
+      screen,
+    );
   useFocusEffect(
     useCallback(() => {
       if (userId) void refreshOwnProfile(userId);
@@ -80,15 +81,27 @@ export function ProfileScreen() {
     const { error } = await signOut();
 
     if (error) {
-      Alert.alert('Logout fehlgeschlagen', error.message);
+      appAlert('Logout fehlgeschlagen', error.message);
     }
   }
 
-  function showPrepared(setting: string) {
-    Alert.alert(
-      setting,
-      'Diese Einstellung wird später mit deinen Profil-Daten verbunden.',
-    );
+  async function handleDeleteAccount() {
+    if (!userId || deletionLock.current) return;
+    deletionLock.current = true;
+    setDeleting(true);
+    setDeletionError('');
+    try {
+      await deleteAccount(userId);
+    } catch (reason) {
+      setDeletionError(
+        reason instanceof Error
+          ? reason.message
+          : 'Die Löschung konnte nicht bestätigt werden.',
+      );
+    } finally {
+      deletionLock.current = false;
+      setDeleting(false);
+    }
   }
 
   const accountRows: SettingRow[] = [
@@ -123,135 +136,16 @@ export function ProfileScreen() {
     },
   ];
 
-  const gameRows: SettingRow[] = [
-    {
-      icon: CircleDollarSign,
-      title: 'Standard Einsatz',
-      subtitle: 'Für neue Runden voreinstellen',
-      onPress: () => showPrepared('Standard Einsatz'),
-    },
-    {
-      icon: Smartphone,
-      title: 'Haptisches Feedback',
-      subtitle: 'Vibration bei wichtigen Aktionen',
-      onPress: () => showPrepared('Haptisches Feedback'),
-    },
-    {
-      icon: Volume2,
-      title: 'Soundeffekte',
-      subtitle: 'Dezente Sounds für Spielaktionen',
-      onPress: () => showPrepared('Soundeffekte'),
-    },
-    {
-      icon: Brush,
-      title: 'Kartenstil',
-      subtitle: 'Traditionell, modern oder kompakt',
-      onPress: () => showPrepared('Kartenstil'),
-    },
-    {
-      icon: TableProperties,
-      title: 'Tisch-Einstellungen',
-      subtitle: 'Regeln und Anzeige pro Tisch',
-      onPress: () => showPrepared('Tisch-Einstellungen'),
-    },
-  ];
-
-  const designRows: SettingRow[] = [
-    {
-      icon: Sparkles,
-      title: 'Theme',
-      subtitle: 'Dunkelgrün Premium',
-      onPress: () => showPrepared('Theme'),
-    },
-    {
-      icon: Brush,
-      title: 'Karten-Design',
-      subtitle: 'Optik für Spielkarten und Symbole',
-      onPress: () => showPrepared('Karten-Design'),
-    },
-    {
-      icon: LayoutGrid,
-      title: 'Tabellen-Layout',
-      subtitle: 'Kompakt oder ausführlich',
-      onPress: () => showPrepared('Tabellen-Layout'),
-    },
-  ];
-
-  const subscriptionRows: SettingRow[] = [
-    {
-      icon: Sparkles,
-      title: 'Premium verwalten',
-      subtitle: 'Status, Vorteile und Rechnungen',
-      tone: 'gold',
-      onPress: () => showPrepared('Premium verwalten'),
-    },
-    {
-      icon: WalletCards,
-      title: 'Verfügbare Abos',
-      subtitle: 'Monatlich, jährlich oder Verein',
-      tone: 'gold',
-      onPress: () => showPrepared('Verfügbare Abos'),
-    },
-    {
-      icon: CreditCard,
-      title: 'Abo kündigen',
-      subtitle: 'Premium bleibt bis Periodenende aktiv',
-      onPress: () => showPrepared('Abo kündigen'),
-    },
-  ];
-
   const privacyRows: SettingRow[] = [
     {
-      icon: Bell,
-      title: 'Benachrichtigungen',
-      subtitle: 'Einladungen, Ergebnisse und Hinweise',
-      onPress: () => showPrepared('Benachrichtigungen'),
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Datenschutzeinstellungen',
-      subtitle: 'Sichtbarkeit und Datenfreigaben',
-      onPress: () => showPrepared('Datenschutzeinstellungen'),
-    },
-    {
-      icon: Smartphone,
-      title: 'Apps verwalten',
-      subtitle: 'Verbundene Geräte und Integrationen',
-      onPress: () => showPrepared('Apps verwalten'),
-    },
-    {
       icon: Lock,
-      title: 'Konto schließen',
-      subtitle: 'Dauerhaft deaktivieren',
+      title: 'Konto löschen',
+      subtitle: 'Konto und persönliche Cloud-Daten dauerhaft löschen',
       tone: 'danger',
-      onPress: () => showPrepared('Konto schließen'),
-    },
-  ];
-
-  const supportRows: SettingRow[] = [
-    {
-      icon: MessageSquareText,
-      title: 'Feedback senden',
-      subtitle: 'Ideen, Fehler und Wünsche teilen',
-      onPress: () => showPrepared('Feedback senden'),
-    },
-    {
-      icon: HelpCircle,
-      title: 'Hilfe',
-      subtitle: 'Regeln, Fragen und App-Support',
-      onPress: () => showPrepared('Hilfe'),
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Datenschutz',
-      subtitle: 'Wie deine Daten verarbeitet werden',
-      onPress: () => showPrepared('Datenschutz'),
-    },
-    {
-      icon: FileText,
-      title: 'Impressum',
-      subtitle: 'Rechtliche Angaben',
-      onPress: () => showPrepared('Impressum'),
+      onPress: () => {
+        setDeletionError('');
+        setShowDeletion(true);
+      },
     },
   ];
 
@@ -265,71 +159,128 @@ export function ProfileScreen() {
         style={styles.scrollView}
       >
         <PageHeader title="Profil" />
-        <View style={[styles.profileHeader, { borderColor: accentColor }]}>
-          <View style={[styles.avatarGlow, { backgroundColor: accentColor }]} />
-          <Pressable
-            accessibilityLabel="Profil bearbeiten"
-            accessibilityRole="button"
-            onPress={openProfileEditor}
-            style={({ pressed }) => [
-              styles.avatarButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <ProfileAvatar profile={profile} size={64} />
-          </Pressable>
-          <View style={styles.profileCopy}>
-            <Text numberOfLines={1} style={styles.name}>
-              {username}
-            </Text>
-            <Text numberOfLines={1} style={styles.email}>
-              {email}
-            </Text>
+        {!userId ? (
+          <View style={[styles.profileHeader, styles.guestCard]}>
+            <View style={styles.guestRow}>
+              <ProfileAvatar profile={profile} size={56} />
+              <View style={styles.profileCopy}>
+                <Text style={styles.name}>Du spielst als Gast</Text>
+                <AppText style={styles.email}>
+                  Deine Tische liegen nur auf diesem Gerät. Mit einem Account
+                  werden sie gesichert und du kannst mit Freunden spielen.
+                </AppText>
+              </View>
+            </View>
+            <GoldButton title="Anmelden" onPress={() => openAuth('Login')} />
+            <AppButton
+              title="Account erstellen"
+              variant="secondary"
+              onPress={() => openAuth('Register')}
+            />
           </View>
-        </View>
-
-        {loading && !profile ? <AppText>Profil wird geladen …</AppText> : null}
-        {error ? (
-          <AppText accessibilityRole="alert" selectable>
-            Profil konnte nicht aktualisiert werden. {error}
-          </AppText>
         ) : null}
-        <SettingsSection title="Account" rows={accountRows} />
-        <SettingsSection title="Spiel" rows={gameRows} />
-        <SettingsSection title="Design" rows={designRows} />
-        <SettingsSection title="Abo" rows={subscriptionRows} premium />
-        <SettingsSection title="Sicherheit & Datenschutz" rows={privacyRows} />
-        <SettingsSection title="Support" rows={supportRows} />
+        {userId ? (
+          <View style={[styles.profileHeader, { borderColor: accentColor }]}>
+            <View
+              style={[styles.avatarGlow, { backgroundColor: accentColor }]}
+            />
+            <Pressable
+              accessibilityLabel="Profil bearbeiten"
+              accessibilityRole="button"
+              onPress={openProfileEditor}
+              style={({ pressed }) => [
+                styles.avatarButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ProfileAvatar profile={profile} size={64} />
+            </Pressable>
+            <View style={styles.profileCopy}>
+              <Text numberOfLines={1} style={styles.name}>
+                {username}
+              </Text>
+              <Text numberOfLines={1} style={styles.email}>
+                {email}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleLogout}
-          style={({ pressed }) => [styles.logout, pressed && styles.pressed]}
-        >
-          <LogOut color="#D65A5A" size={18} strokeWidth={2.2} />
-          <AppText style={styles.logoutText}>Logout</AppText>
-        </Pressable>
+        {userId ? (
+          <>
+            {loading && !profile ? (
+              <Notice tone="info">Profil wird geladen …</Notice>
+            ) : null}
+            {error ? (
+              <Notice>{`Profil konnte nicht aktualisiert werden. ${error}`}</Notice>
+            ) : null}
+            <SettingsSection title="Account" rows={accountRows} />
+            <SettingsSection
+              title="Sicherheit & Datenschutz"
+              rows={privacyRows}
+            />
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.logout,
+                pressed && styles.pressed,
+              ]}
+            >
+              <LogOut color="#D65A5A" size={18} strokeWidth={2.2} />
+              <AppText style={styles.logoutText}>Logout</AppText>
+            </Pressable>
+          </>
+        ) : null}
       </ScrollView>
+      <InteractionSheet
+        visible={showDeletion}
+        dismissible={!deleting}
+        onClose={() => setShowDeletion(false)}
+      >
+        <View accessibilityViewIsModal style={styles.deletion}>
+          <AppText accessibilityRole="header" style={styles.name}>
+            Konto dauerhaft löschen?
+          </AppText>
+          <AppText>
+            Dein Profil, Profilbilder, Freundschaften und persönliche
+            Cloud-Sicherungen werden dauerhaft gelöscht. Gemeinsame Tische
+            bleiben für die anderen Kontomitglieder erhalten. Lokale Spielstände
+            bleiben auf diesem Gerät.
+          </AppText>
+          {deletionError ? (
+            <AppText accessibilityRole="alert" style={styles.dangerText}>
+              {deletionError}
+            </AppText>
+          ) : null}
+          <AppButton
+            title="Konto endgültig löschen"
+            variant="danger"
+            loading={deleting}
+            onPress={handleDeleteAccount}
+          />
+          <AppButton
+            title="Abbrechen"
+            variant="secondary"
+            disabled={deleting}
+            onPress={() => setShowDeletion(false)}
+          />
+        </View>
+      </InteractionSheet>
     </AuthBackground>
   );
 }
 
-function SettingsSection({
-  title,
-  rows,
-  premium = false,
-}: SettingsSectionProps) {
+function SettingsSection({ title, rows }: SettingsSectionProps) {
   return (
     <View style={styles.sectionWrap}>
-      <AppText style={[styles.sectionTitle, premium && styles.premiumTitle]}>
-        {title}
-      </AppText>
-      <View style={[styles.sectionCard, premium && styles.premiumCard]}>
+      <AppText style={styles.sectionTitle}>{title}</AppText>
+      <View style={styles.sectionCard}>
         {rows.map((row, index) => (
           <SettingsRow
             key={row.title}
             isLast={index === rows.length - 1}
-            premium={premium}
             {...row}
           />
         ))}
@@ -341,14 +292,13 @@ function SettingsSection({
 function SettingsRow({
   icon: Icon,
   isLast,
-  premium = false,
   subtitle,
   title,
   tone = 'default',
   onPress,
-}: SettingRow & { isLast: boolean; premium?: boolean }) {
+}: SettingRow & { isLast: boolean }) {
   const isDanger = tone === 'danger';
-  const isGold = tone === 'gold' || premium;
+  const isGold = tone === 'gold';
   const iconColor = isDanger
     ? '#D65A5A'
     : isGold
@@ -397,6 +347,10 @@ function SettingsRow({
 }
 
 const styles = StyleSheet.create({
+  deletion: {
+    gap: authSpacing.md,
+    padding: authSpacing.xl,
+  },
   scrollView: {
     flex: 1,
   },
@@ -420,6 +374,15 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 16, width: 0 },
     shadowOpacity: 0.18,
     shadowRadius: 26,
+  },
+  guestCard: {
+    alignItems: 'stretch',
+    flexDirection: 'column',
+  },
+  guestRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: authSpacing.md,
   },
   avatarButton: {
     borderRadius: authRadius.pill,
@@ -458,9 +421,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: authSpacing.xs,
     textTransform: 'uppercase',
   },
-  premiumTitle: {
-    color: authColors.goldHighlight,
-  },
   sectionCard: {
     backgroundColor: 'rgba(13, 27, 19, 0.72)',
     borderColor: authColors.borderSoft,
@@ -471,11 +431,6 @@ const styles = StyleSheet.create({
     shadowOffset: { height: 14, width: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 22,
-  },
-  premiumCard: {
-    borderColor: 'rgba(242, 201, 76, 0.24)',
-    shadowColor: authColors.gold,
-    shadowOpacity: 0.16,
   },
   settingRow: {
     alignItems: 'center',

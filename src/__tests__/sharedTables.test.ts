@@ -74,9 +74,11 @@ beforeEach(() => {
       ? [
           {
             id: remote.id,
-            payload: clone(remote.payload),
             version: remote.version,
-            updated_at: remote.updatedAt,
+            name: remote.payload.currentTable.name,
+            active: remote.payload.activeGame,
+            table_active: remote.payload.currentTable.isActive,
+            players: clone(remote.payload.players),
             owner_id: 'phone-a',
             sk_live_members: [{ role: 'write' }],
           },
@@ -314,9 +316,26 @@ it('discovers a table assigned to the signed-in player without a code', async ()
   clearTable();
   await refreshSharedTables();
   expect(useSharedTableStatus.getState().tables[0].id).toBe(remote.id);
+  expect(useSharedTableStatus.getState().tables[0]).not.toHaveProperty(
+    'payload',
+  );
   expect(useSharedTableStatus.getState().tablesUserId).toBe('phone-b');
   await openSharedTable(remote.id);
   expect(useGameStore.getState().currentTable!.id).toBe(remote.id);
+});
+
+it('skips an unchanged full table read when discovery confirms the synced version', async () => {
+  await publishSharedTable();
+  const summaries = await refreshSharedTables();
+  mockRpc.mockClear();
+  await syncSharedTable(summaries);
+  expect(mockRpc).not.toHaveBeenCalled();
+  remote.version += 1;
+  await syncSharedTable(await refreshSharedTables());
+  expect(mockRpc).toHaveBeenCalledWith(
+    'sk_live_command',
+    expect.objectContaining({ p_action: 'read' }),
+  );
 });
 it('automatically publishes a local table associated with the current account', async () => {
   const first = useGameStore.getState().players[0];

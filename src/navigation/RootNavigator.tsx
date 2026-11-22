@@ -11,6 +11,7 @@ import { Linking, Modal, Platform } from 'react-native';
 import { AppErrorBoundary } from '../components/AppErrorBoundary';
 import { AppLoadingScreen } from '../components/AppLoadingScreen';
 import { ProfileSetupPrompt } from '../components/profile/ProfileSetupPrompt';
+import { AppDialogHost } from '../components/ui/AppDialog';
 import { useCloudSync } from '../hooks/useCloudSync';
 import { useFriendsSession } from '../hooks/useFriendsSession';
 import { useProfileSession } from '../hooks/useOwnProfile';
@@ -23,12 +24,11 @@ import { EditProfileScreen } from '../screens/app/EditProfileScreen';
 import { EditTableScreen } from '../screens/app/EditTableScreen';
 import { FriendsScreen } from '../screens/app/FriendsScreen';
 import { PayPalMeScreen } from '../screens/app/PayPalMeScreen';
+import { PersonalSettlementsScreen } from '../screens/app/PersonalSettlementsScreen';
 import { QuickRoundScreen } from '../screens/app/QuickRoundScreen';
 import { SettlementScreen } from '../screens/app/SettlementScreen';
-import { TableArchiveScreen } from '../screens/app/TableArchiveScreen';
 import { TableInvitationsScreen } from '../screens/app/TableInvitationsScreen';
 import { TableStatisticsScreen } from '../screens/app/TableStatisticsScreen';
-import { CloseMatchDayScreen } from '../screens/CloseMatchDayScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MatchDayDetailsScreen } from '../screens/MatchDayDetailsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
@@ -40,6 +40,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { parseRecoveryLink } from '../services/auth/passwordRecovery';
 import { useAuthStore } from '../store/authStore';
 import { useGameStore } from '../store/gameStore';
+import { useGuestModeStore } from '../store/guestModeStore';
 import { authColors } from '../theme/colors';
 import { quickRoundURL } from '../utils/quickRound';
 import { AppTabs } from './AppTabs';
@@ -79,9 +80,11 @@ const rootStackScreenOptions: NativeStackNavigationOptions = {
 };
 
 function AuthStackNavigator() {
+  // Guests who chose "Ohne Account spielen" before start directly in the app.
+  const guestMode = useGuestModeStore((state) => state.enabled);
   return (
     <AuthStack.Navigator
-      initialRouteName="Onboarding"
+      initialRouteName={guestMode ? 'MainTabs' : 'Onboarding'}
       screenOptions={sharedStackScreenOptions}
     >
       <AuthStack.Screen
@@ -108,11 +111,6 @@ function AuthStackNavigator() {
         name="MainTabs"
         component={AppStackNavigator}
         options={{ headerShown: false }}
-      />
-      <AuthStack.Screen
-        name="CloseMatchDay"
-        component={CloseMatchDayScreen}
-        options={{ title: 'Spieltag abschließen' }}
       />
       <AuthStack.Screen
         name="MatchDayDetails"
@@ -155,6 +153,11 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <AppStack.Screen
+        name="PersonalSettlements"
+        component={PersonalSettlementsScreen}
+        options={{ title: 'Persönliche Abrechnungen' }}
+      />
+      <AppStack.Screen
         name="TableInvitations"
         component={TableInvitationsScreen}
         options={{ headerShown: false }}
@@ -194,11 +197,6 @@ function AppStackNavigator() {
         component={TableStatisticsScreen}
         options={{ headerShown: false }}
       />
-      <AppStack.Screen
-        name="TableArchive"
-        component={TableArchiveScreen}
-        options={{ headerShown: false }}
-      />
     </AppStack.Navigator>
   );
 }
@@ -223,6 +221,10 @@ export function RootNavigator() {
   const authLoading = useAuthStore((state) => state.loading);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const initializeAuth = useAuthStore((state) => state.initialize);
+  useEffect(() => {
+    // After signing in the guest choice no longer applies.
+    if (isAuthenticated) useGuestModeStore.getState().setEnabled(false);
+  }, [isAuthenticated]);
   const loading =
     !storesHydrated ||
     !gameRestore.restored ||
@@ -369,6 +371,7 @@ export function RootNavigator() {
       {isAuthenticated && !recovery ? (
         <ProfileSetupPrompt key={userId} />
       ) : null}
+      <AppDialogHost />
       {recovery ? (
         <Modal presentationStyle="fullScreen" onRequestClose={() => undefined}>
           <ResetPasswordScreen

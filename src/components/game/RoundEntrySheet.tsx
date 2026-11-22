@@ -274,6 +274,7 @@ type Props = {
   onClose: () => void;
   onDismiss: () => void;
   onSaved: (eventId?: string) => void;
+  onPreviewCorrection?: (payload: CreateRoundPayload) => void;
 };
 function initialDraft(
   table: GameTable | null,
@@ -328,6 +329,7 @@ export function RoundEntrySheet({
   onClose,
   onDismiss,
   onSaved,
+  onPreviewCorrection,
 }: Props) {
   const [players] = useState(() =>
     editingRound
@@ -367,11 +369,11 @@ export function RoundEntrySheet({
   );
   const currentTable = useGameStore((state) => state.currentTable);
   const ownerId = useAuthStore((state) => state.user?.id ?? 'guest');
-  const canWrite = tableAccess(
-    currentTable,
-    ownerId === 'guest' ? undefined : ownerId,
-  ).canWrite;
-  const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${!editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
+  const canWrite = onPreviewCorrection
+    ? tableAccess(table, ownerId === 'guest' ? undefined : ownerId).canManage
+    : tableAccess(currentTable, ownerId === 'guest' ? undefined : ownerId)
+        .canWrite;
+  const key = `${ownerId}:${table?.id ?? 'none'}:${editingRound?.id ?? 'new'}${onPreviewCorrection ? ':closed' : !editingRound && initialDeclarerId ? `:player:${initialDeclarerId}` : ''}`;
   const storageKey = roundDraftStorageKey(key);
   const revision = roundDraftRevision(table, roster, rounds, editingRound);
   const cached = drafts.get(key);
@@ -972,6 +974,12 @@ export function RoundEntrySheet({
     setSaving(true);
     setSaveError('');
     try {
+      if (onPreviewCorrection) {
+        if (!tableAccess(table, useAuthStore.getState().user?.id).canManage)
+          throw new Error('Nur der Ersteller kann den Abschluss korrigieren.');
+        onPreviewCorrection(payload);
+        return;
+      }
       if (
         !tableAccess(
           useGameStore.getState().currentTable,
@@ -1059,7 +1067,7 @@ export function RoundEntrySheet({
             ) !== openingParticipation
           )
             throw new Error(
-              'Die Besetzung oder Sitzordnung hat sich ge�ndert. Bitte die Eingabe schlie�en und erneut �ffnen.',
+              'Die Besetzung oder Sitzordnung hat sich geändert. Bitte die Eingabe schließen und erneut öffnen.',
             );
           const result = editingRound
             ? state.updateRound(editingRound.id, payload)
@@ -1256,7 +1264,7 @@ export function RoundEntrySheet({
                   {editingRound ? 'Mitgespielt' : 'Spielen'}:{' '}
                   {players.map((p) => p.name).join(', ')}
                   {editingRound?.roundContext
-                    ? ` � Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
+                    ? ` · Geber: ${roster.find((p) => p.id === editingRound.roundContext!.dealerIdBefore)?.name ?? 'unbekannt'}`
                     : ''}
                 </AppText>
               ) : null}
@@ -2104,12 +2112,16 @@ export function RoundEntrySheet({
                 title={
                   committedId && saveError
                     ? 'Erneut auf Gerät speichern'
-                    : title
+                    : onPreviewCorrection
+                      ? 'Differenzabrechnung ansehen'
+                      : title
                 }
                 accessibilityLabel={
                   committedId && saveError
                     ? 'Erneut auf Gerät speichern'
-                    : title
+                    : onPreviewCorrection
+                      ? 'Differenzabrechnung ansehen'
+                      : title
                 }
                 disabled={
                   !canWrite ||

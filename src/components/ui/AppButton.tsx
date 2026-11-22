@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { authControlSizes, theme } from '../../theme';
+import { authColors, authControlSizes, theme } from '../../theme';
 import { AppText } from './AppText';
 
 type AppButtonVariant = 'primary' | 'secondary' | 'danger';
@@ -50,7 +50,7 @@ export function AppButton({
             variant === 'secondary'
               ? theme.colors.secondaryText
               : variant === 'danger'
-                ? theme.colors.dangerText
+                ? authColors.errorText
                 : theme.colors.primaryText
           }
         />
@@ -84,11 +84,17 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: theme.colors.primary,
   },
+  // Secondary and danger actions are outlined so the gold primary stays the
+  // single most prominent action on a screen.
   secondary: {
     backgroundColor: theme.colors.secondary,
+    borderColor: authColors.borderGold,
+    borderWidth: 1,
   },
   danger: {
-    backgroundColor: theme.colors.danger,
+    backgroundColor: authColors.errorBackground,
+    borderColor: authColors.errorBorder,
+    borderWidth: 1,
   },
   disabled: {
     backgroundColor: theme.colors.disabled,
@@ -104,7 +110,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: theme.colors.secondaryText,
   },
-  dangerText: { color: theme.colors.dangerText },
+  dangerText: { color: authColors.errorText },
   disabledText: {
     color: theme.colors.disabledText,
   },

@@ -66,6 +66,12 @@ jest.mock(
 jest.mock('../components/auth/AuthBackground', () => ({
   AuthBackground: jest.requireActual('react-native').View,
 }));
+jest.mock('../components/game/RoundEntrySheet', () => ({
+  RoundEntrySheet: jest.requireActual('react-native').View,
+}));
+jest.mock('../components/ui/InteractionSheet', () => ({
+  InteractionSheet: jest.requireActual('react-native').View,
+}));
 
 beforeEach(() => {
   jest.replaceProperty(Platform, 'OS', 'web');

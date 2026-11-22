@@ -11,6 +11,7 @@
     "web-build",
     "android",
     "ios",
+    "supabase/functions",
     "babel.config.js",
     "metro.config.js",
     "jest.config.js"

@@ -390,14 +390,13 @@ export function calculateRoundBalances(
     amount: fromSafeCents(ledger.get(id)!),
   }));
   // While stock is held, the players' balances plus the pot sum to zero.
-  if (
-    balances.reduce(
-      (sum, balance) => sum + BigInt(toSafeCents(balance.amount)!),
-      BigInt(pot),
-    ) !== 0n
-  )
+  const difference = balances.reduce(
+    (sum, balance) => sum + BigInt(toSafeCents(balance.amount)!),
+    BigInt(pot),
+  );
+  if (difference !== 0n)
     throw new Error(
-      'Die Salden und der Stock müssen zusammen null Cent ergeben.',
+      `Salden und Stock weichen um ${difference} Cent von null ab.`,
     );
   return balances;
 }
@@ -420,7 +419,7 @@ function requireBalancedCents(balances: BalanceInput[]) {
     return { playerId, cents };
   });
   if (total !== 0 || credits !== debts)
-    throw new Error('Die Salden müssen zusammen null Cent ergeben.');
+    throw new Error(`Die Salden weichen um ${total} Cent von null ab.`);
   return result;
 }
 

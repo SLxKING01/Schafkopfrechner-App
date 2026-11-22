@@ -1,4 +1,4 @@
-import type { SharedTableRemote } from '../services/shared/sharedTables';
+import type { SharedTableSummary } from '../services/shared/sharedTables';
 import type { ArchivedGameDay, GameTable, Player } from '../types/game';
 import { roundPlayers } from './dealerOrder';
 import { tableAccess } from './tableAccess';
@@ -27,7 +27,7 @@ export function quickRoundTables(
     activeGame: boolean;
     archivedGameDays: ArchivedGameDay[];
   },
-  sharedTables: SharedTableRemote[],
+  sharedTables: SharedTableSummary[],
   userId: string,
   hiddenIds: readonly string[],
 ) {
@@ -48,18 +48,16 @@ export function quickRoundTables(
   for (const { table, players } of state.archivedGameDays)
     addLocal(table, players, table.isActive);
 
-  for (const { id, ownerId, role, payload } of sharedTables) {
-    const { currentTable: table, players, activeGame } = payload;
+  for (const { id, ownerId, role, name, players, active } of sharedTables) {
     // Prefer verified remote permissions over any local copy.
     options.delete(id);
     if (
       !hiddenIds.includes(id) &&
       (role === 'write' || ownerId === userId) &&
-      activeGame &&
-      table.isActive &&
-      roundPlayers(table, players, 0).length === 4
+      active &&
+      [4, 5].includes(players.filter((player) => !player.isPaused).length)
     )
-      options.set(id, { id, name: table.name, shared: true });
+      options.set(id, { id, name, shared: true });
   }
   return [...options.values()];
 }

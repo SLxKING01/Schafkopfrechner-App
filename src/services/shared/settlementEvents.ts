@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { supabase } from '../../lib/supabase';
 import type { GameTable, Player, Settlement } from '../../types/game';
+import { isCarriedPayment } from '../../utils/interimPayments';
 
 export const paymentActionLabels = {
   report: 'Als bezahlt melden',
@@ -11,11 +12,11 @@ export const paymentActionLabels = {
   undo_confirm: 'Bestätigung zurücknehmen',
 };
 export type PaymentAction = keyof typeof paymentActionLabels;
-type PaymentEvent = {
+export type PaymentEvent = {
   id: string;
   payment_id: string;
   action: PaymentAction;
-  actor_id: string;
+  actor_id: string | null;
   actor_name: string;
   player_name: string;
   delegated: boolean;
@@ -62,7 +63,13 @@ export function allowedPaymentActions(
   table: GameTable,
   actorId: string | undefined,
 ): PaymentAction[] {
-  if (!actorId || actorId !== table.shared?.userId || payment.isPaid) return [];
+  if (
+    !actorId ||
+    actorId !== table.shared?.userId ||
+    payment.isPaid ||
+    isCarriedPayment(table, payment.id)
+  )
+    return [];
   const represents = (id: string) => {
     const player = players.find((candidate) => candidate.id === id);
     return (
@@ -156,16 +163,7 @@ export function useSettlementEvents(
     writing.current = true;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc('sk_record_settlement_event', {
-        p_table_id: tableId,
-        p_payment_id: paymentId,
-        p_action: action,
-        p_request_id: Crypto.randomUUID(),
-        p_expected_event:
-          events.findLast((event) => event.payment_id === paymentId)?.id ??
-          null,
-      });
-      if (error) throw error;
+      await recordSettlementEvent(tableId, paymentId, action, events);
     } finally {
       writing.current = false;
       setBusy(false);
@@ -179,4 +177,21 @@ export function useSettlementEvents(
     error: failure?.scope === scope ? failure?.message : undefined,
     record,
   };
+}
+
+export async function recordSettlementEvent(
+  tableId: string,
+  paymentId: string,
+  action: PaymentAction,
+  events: PaymentEvent[],
+) {
+  const { error } = await supabase.rpc('sk_record_settlement_event', {
+    p_table_id: tableId,
+    p_payment_id: paymentId,
+    p_action: action,
+    p_request_id: Crypto.randomUUID(),
+    p_expected_event:
+      events.findLast((event) => event.payment_id === paymentId)?.id ?? null,
+  });
+  if (error) throw new Error(error.message);
 }

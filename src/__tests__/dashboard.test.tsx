@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { Platform } from 'react-native';
 
-import { Metric, StatAction } from '../components/statistics/StatisticsPanels';
+import { StatAction } from '../components/statistics/StatisticsPanels';
 import { DashboardScreen } from '../screens/app/DashboardScreen';
 import { StatisticsScreen } from '../screens/app/StatisticsScreen';
 import { useSharedTableStatus } from '../services/shared/sharedTables';
@@ -39,6 +39,9 @@ jest.mock('../components/auth/AuthBackground', () => {
     ),
   };
 });
+jest.mock('../components/ui/InteractionSheet', () => ({
+  InteractionSheet: jest.requireActual('react-native').View,
+}));
 beforeEach(() => {
   jest.replaceProperty(Platform, 'OS', 'web');
   mockNavigate.mockClear();
@@ -66,13 +69,28 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it('switches between overall, player and table statistics and opens a selected trend round', async () => {
+it('offers only personal and table scopes, then shows player statistics inside the table', async () => {
+  useAuthStore.setState({
+    user: { id: 'my-account', user_metadata: {} } as never,
+  });
+  useGameStore.getState().createTable('Anderer Tisch', [
+    { id: 'c', name: 'C', isLocal: false, userId: 'account-c' },
+    { id: 'e', name: 'E', isLocal: true },
+  ]);
+  seedLegacyRound({
+    gameType: 'rufspiel',
+    winnerId: 'c',
+    loserIds: ['e'],
+    amount: 1,
+  });
+  await useGameStore.getState().finishGameDay();
   useGameStore.getState().createTable(
     'Statistiktisch',
     ['a', 'b', 'c', 'd'].map((id) => ({
       id,
       name: id.toUpperCase(),
       isLocal: true,
+      userId: id === 'a' ? 'my-account' : id === 'c' ? 'account-c' : undefined,
     })),
   );
   seedLegacyRound({
@@ -114,27 +132,34 @@ it('switches between overall, player and table statistics and opens a selected t
         (node: { props: { onPress?: unknown } }) =>
           typeof node.props.onPress === 'function',
       )!;
+  expect(button('Auswertung auswählen').props.accessibilityValue.text).toBe(
+    'Mein Spiel',
+  );
   expect(
-    view.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Gespielte Runden',
-      )?.props.value,
-  ).toBe('2');
-  await act(async () => action('Spieler').props.onPress());
-  expect(
-    view.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Spielbilanz',
-      )?.props.value,
-  ).toBe('-0,20 €');
+    button('Spielbilanz im Verlauf').props.accessibilityValue.text,
+  ).toContain('-0,20 €');
+  await act(async () => button('Nach Spielart').props.onPress());
   await act(async () => button('Rufspiel auswerten').props.onPress());
-  expect(JSON.stringify(view.toJSON())).toContain('Deine Rolle');
+  expect(JSON.stringify(view.toJSON())).toContain('Rolle im Spiel');
   expect(JSON.stringify(view.toJSON())).toContain('Eichel');
-  await act(async () => action('Tisch').props.onPress());
+  await act(async () => button('Zeitraum auswählen').props.onPress());
+  await act(async () => button('Gesamter Zeitraum').props.onPress());
+  expect(button('Zeitraum auswählen').props.accessibilityValue.text).toBe(
+    'Gesamter Zeitraum',
+  );
+  await act(async () => button('Auswertung auswählen').props.onPress());
+  expect(
+    button('Mein Spiel, Meine Spiele über alle zugeordneten Tische'),
+  ).toBeTruthy();
+  expect(button('Gesamt, Spiele über alle Tische')).toBeUndefined();
+  expect(button('C, Statistiktisch')).toBeUndefined();
+  expect(button('Statistik für C')).toBeUndefined();
+  await act(async () => button('Statistiktisch, 2 Spiele').props.onPress());
+  await act(async () => button('Statistik für C').props.onPress());
+  expect(
+    button('Spielbilanz im Verlauf').props.accessibilityValue.text,
+  ).toContain('+0,20 €');
+  await act(async () => action('Alle am Tisch').props.onPress());
   expect(JSON.stringify(view.toJSON())).toContain('Sauspiel-Partnerschaften');
   await act(async () => button('Partnerschaft A und B öffnen').props.onPress());
   expect(JSON.stringify(view.toJSON())).toContain(
@@ -351,22 +376,9 @@ it('uses the same account-based personal totals in dashboard and player statisti
   await act(async () => {
     stats = renderer.create(<StatisticsScreen />);
   });
-  const playerTab = stats.root
-    .findAllByType(StatAction)
-    .find(
-      (node: { props: { children: unknown } }) =>
-        node.props.children === 'Spieler',
-    )!;
-  await act(async () => playerTab.props.onPress());
-  expect(
-    stats.root
-      .findAllByType(Metric)
-      .find(
-        (node: { props: { label: string } }) =>
-          node.props.label === 'Spielbilanz',
-      )?.props.value,
-  ).toBe('+2,40 €');
-  expect(JSON.stringify(stats.toJSON())).toContain('Meine Gesamtstatistik');
+  const rendered = JSON.stringify(stats.toJSON());
+  expect(rendered).toContain('+2,40 €');
+  expect(rendered).toContain('Mein Spiel');
   await act(async () => {
     ui.view.unmount();
     stats.unmount();
@@ -409,19 +421,9 @@ it('shows no table cards on the dashboard even when local and shared tables exis
       {
         id: 'shared-table',
         version: 1,
-        updatedAt: new Date().toISOString(),
-        payload: {
-          currentTable: {
-            ...state.currentTable!,
-            id: 'shared-table',
-            name: 'Gemeinsamer Tisch',
-          },
-          players: state.players,
-          rounds: state.rounds,
-          balances: state.balances,
-          settlements: state.settlements,
-          activeGame: true,
-        },
+        name: 'Gemeinsamer Tisch',
+        players: state.players,
+        active: true,
       },
     ],
   });

@@ -1,5 +1,5 @@
 import { createGameTable } from '../services/game/createTable';
-import type { SharedTableRemote } from '../services/shared/sharedTables';
+import type { SharedTableSummary } from '../services/shared/sharedTables';
 import { canOpenQuickRound, quickRoundTables } from '../utils/quickRound';
 
 const players = ['a', 'b', 'c', 'd'].map((id) => ({
@@ -9,21 +9,14 @@ const players = ['a', 'b', 'c', 'd'].map((id) => ({
 }));
 const table = createGameTable({ name: 'Lokal', players });
 const remoteTable = createGameTable({ name: 'Gemeinsam', players });
-const payload = {
-  currentTable: remoteTable,
-  players,
-  rounds: [],
-  balances: [],
-  settlements: [],
-  activeGame: true,
-};
-const remote: SharedTableRemote = {
+const remote: SharedTableSummary = {
   id: remoteTable.id,
+  version: 1,
   ownerId: 'other',
   role: 'write',
-  version: 1,
-  updatedAt: '',
-  payload,
+  name: remoteTable.name,
+  players,
+  active: true,
 };
 const state = {
   currentTable: table,
@@ -40,12 +33,7 @@ it('offers all eligible tables and excludes hidden, read-only and completed tabl
     quickRoundTables(state, [{ ...remote, role: 'read' }], 'user', [table.id]),
   ).toEqual([]);
   expect(
-    quickRoundTables(
-      state,
-      [{ ...remote, payload: { ...payload, activeGame: false } }],
-      'user',
-      [table.id],
-    ),
+    quickRoundTables(state, [{ ...remote, active: false }], 'user', [table.id]),
   ).toEqual([]);
 });
 

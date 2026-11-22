@@ -39,3 +39,54 @@ Unter **Authentication → URL Configuration → Redirect URLs** müssen für di
 - Web: die jeweilige App-URL mit `?recovery=1`, zum Beispiel `http://localhost:8081/?recovery=1` für die lokale Webvorschau.
 
 Die Vorlage **Reset Password** muss den Supabase-Bestätigungslink `{{ .ConfirmationURL }}` verwenden. Die Mail wird auf demselben Gerät in der installierten App beziehungsweise im selben Browser geöffnet, in dem sie angefordert wurde. Für den nativen Rücksprung ist ein Build mit dem App-Schema erforderlich.
+
+## Kontolöschung
+
+Zuerst die Migration `20261107140826_account_deletion.sql` im Zielprojekt
+einspielen, dann die Edge Function `delete-account` mit
+`supabase functions deploy delete-account --project-ref <projekt>` bereitstellen.
+Die Funktion verwendet die serverseitigen Variablen `SUPABASE_URL` und
+`SUPABASE_SERVICE_ROLE_KEY`. Der App-Client sendet nur seine eigene Sitzung.
+
+Nach der Bestätigung im Profil entfernt die Funktion die Profilbilder über die
+Storage API. Anschließend löscht Supabase Auth das Konto samt Sitzungen. Die
+Datenbank löscht Profil, Freundschaften, Einladungen und persönliche
+Cloud-Sicherung. Ein eigener Tisch ohne weiteres Kontomitglied wird gelöscht.
+Bei einem gemeinsamen Tisch übernimmt ein verbleibendes Kontomitglied, bevorzugt
+mit Schreibrecht. Runden, Salden, Zahlungsstatus und Spielerplatz-IDs bleiben
+erhalten. Kontoverknüpfungen und zugehörige Anzeigenamen werden aus dem
+gemeinsamen Spiel- und Zahlungsverlauf entfernt oder durch „Gelöschtes Konto“
+ersetzt. Lokale Spielstände verbleiben auf dem Gerät.
+
+`npm run test:database` prüft den Datenbankteil mit isolierten Testkonten.
+Für die Abnahme im Zielprojekt zwei Wegwerfkonten verwenden. Mit dem ersten
+ein Profilbild und einen gemeinsamen Tisch anlegen, das zweite Konto einladen,
+dann das erste Konto über **Profil → Konto löschen** löschen. Prüfen, dass
+Anmeldung und Sitzungsverlängerung des ersten Kontos fehlschlagen, seine Dateien
+verschwunden sind und das zweite Konto den Tisch samt Spielstand weiter öffnen
+und verwalten kann.
+
+## Tischzugriff und Abschlusskorrekturen
+
+Die Migrationen `20261107143209_shared_table_access_exit.sql` und
+`20261107143748_closed_table_correction.sql` in dieser Reihenfolge anwenden.
+Der Zugriffswechsel lässt Spielerplatz und Aktivstatus bestehen. Ehemalige
+Teilnehmer sehen unter **Tische → Persönliche Abrechnungen ehemaliger Tische**
+ihren Saldo, eigene Zahlungen und deren Historie. Ein erneuter Beitritt zum
+laufenden Tisch erfordert eine neue Einladung für denselben Spielerplatz.
+
+Am abgeschlossenen Tisch können Ersteller ein Spiel zur Korrektur öffnen.
+Die Vorschau zeigt alte und neue Salden und die zusätzlich nötigen Zahlungen.
+Gemeldete, unbestätigte Zahlungen blockieren das Speichern. Die Datenbank
+prüft die Tischversion und den Zahlungsstand erneut beim Schreiben. Bestätigte
+Zahlungen aus früheren Abrechnungsversionen bleiben erhalten.
+
+`npm run test:database` prüft Rechteentzug, Wiedereinladung, persönliche
+Abrechnung und eine Korrektur mit bestätigter Zahlung auf isoliertem PostgreSQL.
+
+## Größe des Tabellenabrufs
+
+`node scripts/measure-shared-table-discovery.cjs` vergleicht zwei synthetische
+Antworten mit jeweils zwei Tischen und 1.000 Spielen je Tisch. Die Messung
+erfasst unkomprimierte JSON-Bytes beim Listenabruf. Spielhistorie und
+Abrechnung werden weiterhin geladen, wenn der Tisch geöffnet wird.

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { getSession } from '../services/auth/getSession';
 import { logout } from '../services/auth/logout';
 import type { AuthUser } from '../types/auth';
+import { useGuestModeStore } from './guestModeStore';
 
 type AuthStore = {
   user: AuthUser | null;
@@ -75,6 +76,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
     const { error } = await logout();
 
     if (!error) {
+      // Leaving the app (or guest mode) returns to onboarding on the next start.
+      useGuestModeStore.getState().setEnabled(false);
       set({
         user: null,
         session: null,

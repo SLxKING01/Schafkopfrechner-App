@@ -1,7 +1,6 @@
 import { Handshake } from 'lucide-react-native';
 import { useState } from 'react';
 import {
-  Alert,
   Linking,
   Platform,
   Pressable,
@@ -15,6 +14,7 @@ import { GoldButton } from '../../components/auth/GoldButton';
 import { EmptyGameState } from '../../components/game/EmptyGameState';
 import { InterimPaymentsPanel } from '../../components/game/InterimPaymentsPanel';
 import { MatchHistoryCard } from '../../components/game/MatchHistoryCard';
+import { RoundEntrySheet } from '../../components/game/RoundEntrySheet';
 import { RoundHistoryActions } from '../../components/game/RoundHistoryActions';
 import { RoundHistoryModal } from '../../components/game/RoundHistoryView';
 import { SettlementCard } from '../../components/game/SettlementCard';
@@ -27,19 +27,25 @@ import {
   StatPanel,
 } from '../../components/statistics/StatisticsPanels';
 import { AppButton } from '../../components/ui/AppButton';
+import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
+import { InteractionSheet } from '../../components/ui/InteractionSheet';
 import type { AppStackScreenProps } from '../../navigation/types';
+import { planClosedTableCorrection } from '../../services/game/closedTableCorrection';
 import {
   allowedPaymentActions,
   paymentActionLabels,
   paymentState,
   useSettlementEvents,
 } from '../../services/shared/settlementEvents';
+import { saveSharedTableCorrection } from '../../services/shared/sharedTables';
+import { reliableStorage } from '../../storage/reliableStorage';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { authColors } from '../../theme/colors';
 import { authSpacing } from '../../theme/spacing';
 import { authTypography } from '../../theme/typography';
+import type { CreateRoundPayload, GameRound } from '../../types/game';
 import {
   getStockBalanceCents,
   isCustomBooking,
@@ -48,7 +54,10 @@ import {
   roundWinnerIds,
 } from '../../utils/accounting';
 import { formatRoundGameType } from '../../utils/cardSuits';
-import { outstandingBalances } from '../../utils/interimPayments';
+import {
+  isCarriedPayment,
+  outstandingBalances,
+} from '../../utils/interimPayments';
 import { paypalMePaymentURL } from '../../utils/paypalMe';
 import { createStatisticsTable } from '../../utils/statistics';
 import { tableAccess } from '../../utils/tableAccess';
@@ -63,6 +72,14 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [paypalErrorId, setPaypalErrorId] = useState<string>();
+  const [correctionRound, setCorrectionRound] = useState<GameRound | null>(
+    null,
+  );
+  const [preview, setPreview] = useState<ReturnType<
+    typeof planClosedTableCorrection
+  > | null>(null);
+  const [correctionBusy, setCorrectionBusy] = useState(false);
+  const [correctionError, setCorrectionError] = useState('');
   const currentTable = useGameStore((state) => state.currentTable);
   const actorId = useAuthStore((state) => state.user?.id);
   const currentPlayers = useGameStore((state) => state.players);
@@ -123,6 +140,84 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
     players.map((player) => [player.id, player.name]),
   );
   const getPlayerName = (id: string) => playerNameById.get(id) ?? 'Unbekannt';
+  const canCorrect =
+    !!archived &&
+    !table?.isActive &&
+    tableAccess(table, actorId).canManage &&
+    (!shared || !!journal.events);
+
+  function previewCorrection(payload: CreateRoundPayload) {
+    if (!archived || !correctionRound || !canCorrect)
+      throw new Error('Dieser Abschluss ist nicht zur Korrektur verfügbar.');
+    setPreview(
+      planClosedTableCorrection(
+        archived,
+        correctionRound.id,
+        payload,
+        journal.events ?? [],
+      ),
+    );
+    setCorrectionRound(null);
+    setCorrectionError('');
+  }
+
+  async function saveCorrection() {
+    if (!preview || !canCorrect || preview.pending || correctionBusy) return;
+    setCorrectionBusy(true);
+    setCorrectionError('');
+    try {
+      if (preview.day.table.shared) {
+        await saveSharedTableCorrection(preview.day, preview.expectedEvent);
+      } else {
+        const state = useGameStore.getState();
+        const before = state.archivedGameDays.find(
+          (day) => day.table.id === preview.day.table.id,
+        );
+        const lastRevision = preview.day.table.settlementRevisions?.at(-1);
+        if (
+          before?.table.settlementRevisions?.at(-1)?.id === lastRevision?.id
+        ) {
+          await reliableStorage.retryWrites();
+        } else {
+          if (
+            !before ||
+            before.table.shared ||
+            before.balances !== lastRevision?.balances ||
+            before.settlements !== lastRevision?.settlements
+          )
+            throw new Error(
+              'Der Tisch wurde geändert. Bitte erstelle eine neue Vorschau.',
+            );
+          useGameStore.setState({
+            archivedGameDays: state.archivedGameDays.map((day) =>
+              day === before ? preview.day : day,
+            ),
+            ...(state.currentTable?.id === preview.day.table.id
+              ? {
+                  currentTable: preview.day.table,
+                  rounds: preview.day.rounds,
+                  balances: preview.day.balances,
+                  settlements: preview.day.settlements,
+                }
+              : {}),
+          });
+        }
+        if (!(await reliableStorage.confirmWrite('schafkopfrechner-games')))
+          throw new Error(
+            'Die Korrektur ist noch nicht auf dem Gerät gesichert. Bitte erneut speichern.',
+          );
+      }
+      setPreview(null);
+    } catch (error) {
+      setCorrectionError(
+        error instanceof Error
+          ? error.message
+          : 'Die Korrektur konnte nicht gespeichert werden.',
+      );
+    } finally {
+      setCorrectionBusy(false);
+    }
+  }
 
   function startNewTable() {
     navigation.navigate('CreateTable');
@@ -277,7 +372,9 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                     }
                     to={getPlayerName(settlement.toPlayerId)}
                     onMarkPaid={
-                      !shared && tableAccess(table, actorId).canManage
+                      !shared &&
+                      tableAccess(table, actorId).canManage &&
+                      !isCarriedPayment(table, settlement.id)
                         ? () =>
                             markSettlementPaid(
                               settlement.id,
@@ -329,7 +426,7 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
                               void journal
                                 .record(settlement.id, action)
                                 .catch(() =>
-                                  Alert.alert(
+                                  appAlert(
                                     'Zahlungsstatus konnte nicht geändert werden',
                                     'Der aktuelle Stand wird neu geladen. Bitte prüfe ihn und versuche es bei Bedarf erneut.',
                                   ),
@@ -428,95 +525,219 @@ export function SettlementScreen({ navigation, route }: SettlementScreenProps) {
         <StatAction onPress={() => setHistoryVisible(true)}>
           Änderungsverlauf des Tisches
         </StatAction>
+        {shared && tableAccess(table, actorId).canManage ? (
+          <StatAction
+            onPress={() =>
+              navigation.navigate('TableInvitations', { tableId: table.id })
+            }
+          >
+            Tischzugriffe verwalten
+          </StatAction>
+        ) : null}
         <View style={styles.stack}>
           <AppText style={styles.sectionTitle}>
             Spielverlauf · {rounds.filter(isPlayedRound).length} Spiele
           </AppText>
           {[...rounds].reverse().map((round) => (
-            <RoundHistoryActions
-              key={round.id}
-              table={table}
-              players={players}
-              rounds={rounds}
-              round={round}
-            >
-              <MatchHistoryCard
-                misdealPlayer={
-                  round.misdealPlayerId
-                    ? getPlayerName(round.misdealPlayerId)
-                    : undefined
-                }
-                customAmounts={
-                  isCustomBooking(round)
-                    ? round.customAmounts!.map((entry) => ({
-                        name: getPlayerName(entry.playerId),
-                        amount: entry.amount,
-                      }))
-                    : undefined
-                }
-                participation={
-                  round.participantIds
-                    ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` � Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
-                    : undefined
-                }
-                stockMovement={
-                  round.stockRulesVersion === 1 &&
-                  (round.stockAction === 'double' ||
-                    round.stockAction === 'payout')
-                    ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
-                    : undefined
-                }
-                details={
-                  isStockBooking(round) || isCustomBooking(round)
-                    ? undefined
-                    : round.declarerId
-                      ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
-                      : 'Ansager: unbekannt'
-                }
-                stockDeposit={round.stockAction === 'deposit'}
-                stockBooking={
-                  round.stockAction === 'carryIn'
-                    ? 'Stock übernommen'
-                    : round.stockAction === 'carryOut'
-                      ? 'Stock übertragen'
-                      : round.stockAction === 'refund'
-                        ? 'Stock zurückgegeben'
-                        : undefined
-                }
-                amount={formatAmount(
-                  round.amount +
+            <View key={round.id} style={styles.stack}>
+              <RoundHistoryActions
+                table={table}
+                players={players}
+                rounds={rounds}
+                round={round}
+              >
+                <MatchHistoryCard
+                  misdealPlayer={
+                    round.misdealPlayerId
+                      ? getPlayerName(round.misdealPlayerId)
+                      : undefined
+                  }
+                  customAmounts={
+                    isCustomBooking(round)
+                      ? round.customAmounts!.map((entry) => ({
+                          name: getPlayerName(entry.playerId),
+                          amount: entry.amount,
+                        }))
+                      : undefined
+                  }
+                  participation={
+                    round.participantIds
+                      ? `Mitgespielt: ${round.participantIds.map(getPlayerName).join(', ')}${round.roundContext ? ` · Geber: ${getPlayerName(round.roundContext.dealerIdBefore)}` : ''}`
+                      : undefined
+                  }
+                  stockMovement={
+                    round.stockRulesVersion === 1 &&
+                    (round.stockAction === 'double' ||
+                      round.stockAction === 'payout')
+                      ? `Stock ${round.stockAction === 'double' ? 'verdoppelt' : 'ausgezahlt'}: ${formatAmount((round.stockBeforeCents ?? 0) / 100)} → ${formatAmount((round.stockAfterCents ?? 0) / 100)}`
+                      : undefined
+                  }
+                  details={
+                    isStockBooking(round) || isCustomBooking(round)
+                      ? undefined
+                      : round.declarerId
+                        ? `Ansager: ${getPlayerName(round.declarerId)}${round.partnerId ? ` · Partner: ${getPlayerName(round.partnerId)}` : ''}`
+                        : 'Ansager: unbekannt'
+                  }
+                  stockDeposit={round.stockAction === 'deposit'}
+                  stockBooking={
+                    round.stockAction === 'carryIn'
+                      ? 'Stock übernommen'
+                      : round.stockAction === 'carryOut'
+                        ? 'Stock übertragen'
+                        : round.stockAction === 'refund'
+                          ? 'Stock zurückgegeben'
+                          : undefined
+                  }
+                  amount={formatAmount(
+                    round.amount +
+                      (round.stockAction === 'payout'
+                        ? getStockBalanceCents(
+                            rounds.slice(
+                              0,
+                              rounds.findIndex(
+                                (entry) => entry.id === round.id,
+                              ),
+                            ),
+                          ) / 100
+                        : 0),
+                  )}
+                  gameType={
+                    formatRoundGameType(round.gameType, round.suit) +
                     (round.stockAction === 'payout'
-                      ? getStockBalanceCents(
-                          rounds.slice(
-                            0,
-                            rounds.findIndex((entry) => entry.id === round.id),
-                          ),
-                        ) / 100
-                      : 0),
-                )}
-                gameType={
-                  formatRoundGameType(round.gameType, round.suit) +
-                  (round.stockAction === 'payout'
-                    ? ` + Stock ${formatAmount(
-                        getStockBalanceCents(
-                          rounds.slice(
-                            0,
-                            rounds.findIndex((entry) => entry.id === round.id),
-                          ),
-                        ) / 100,
-                      )}`
-                    : '')
-                }
-                losers={round.loserIds.map(getPlayerName).join(', ')}
-                winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
-                time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              />
-            </RoundHistoryActions>
+                      ? ` + Stock ${formatAmount(
+                          getStockBalanceCents(
+                            rounds.slice(
+                              0,
+                              rounds.findIndex(
+                                (entry) => entry.id === round.id,
+                              ),
+                            ),
+                          ) / 100,
+                        )}`
+                      : '')
+                  }
+                  losers={round.loserIds.map(getPlayerName).join(', ')}
+                  winner={roundWinnerIds(round).map(getPlayerName).join(' & ')}
+                  time={new Date(round.createdAt).toLocaleTimeString('de-DE', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                />
+              </RoundHistoryActions>
+              {canCorrect &&
+              !round.misdealPlayerId &&
+              (!round.stockAction ||
+                ['deposit', 'payout', 'double'].includes(round.stockAction)) ? (
+                <StatAction onPress={() => setCorrectionRound(round)}>
+                  Spiel im Abschluss korrigieren
+                </StatAction>
+              ) : null}
+            </View>
           ))}
         </View>
+        {!!table.settlementRevisions?.length && (
+          <StatPanel>
+            <StatHeading>Frühere Abrechnungsversionen</StatHeading>
+            {table.settlementRevisions.map((revision) => (
+              <View key={revision.id} style={styles.stack}>
+                <AppText>
+                  {revision.actor.name} ·{' '}
+                  {new Date(revision.occurredAt).toLocaleString('de-DE')}
+                </AppText>
+                {revision.settlements.map((payment) => (
+                  <AppText key={payment.id}>
+                    {getPlayerName(payment.fromPlayerId)} an{' '}
+                    {getPlayerName(payment.toPlayerId)}:{' '}
+                    {formatAmount(payment.amount)}
+                    {revision.carriedPaymentIds.includes(payment.id)
+                      ? ' · bestätigt übernommen'
+                      : ''}
+                  </AppText>
+                ))}
+              </View>
+            ))}
+          </StatPanel>
+        )}
+        {correctionRound ? (
+          <RoundEntrySheet
+            table={table}
+            players={players}
+            editingRound={correctionRound}
+            visible
+            onClose={() => setCorrectionRound(null)}
+            onDismiss={() => {}}
+            onSaved={() => {}}
+            onPreviewCorrection={previewCorrection}
+          />
+        ) : null}
+        {preview ? (
+          <InteractionSheet
+            visible
+            dismissible={!correctionBusy}
+            onClose={() => setPreview(null)}
+          >
+            <ScrollView
+              contentContainerStyle={{
+                padding: authSpacing.xl,
+                gap: authSpacing.md,
+              }}
+            >
+              <AppText variant="subtitle">
+                Vorschau der Differenzabrechnung
+              </AppText>
+              {preview.day.balances.map((balance) => (
+                <AppText key={balance.playerId}>
+                  {getPlayerName(balance.playerId)}:{' '}
+                  {formatAmount(
+                    preview.day.table.settlementRevisions
+                      ?.at(-1)
+                      ?.balances.find(
+                        (old) => old.playerId === balance.playerId,
+                      )?.amount ?? 0,
+                  )}
+                  {' → '}
+                  {formatAmount(balance.amount)}
+                </AppText>
+              ))}
+              {preview.day.settlements
+                .filter(
+                  (payment) =>
+                    !preview.day.table.settlementRevisions
+                      ?.at(-1)
+                      ?.carriedPaymentIds.includes(payment.id),
+                )
+                .map((payment) => (
+                  <AppText key={payment.id}>
+                    {getPlayerName(payment.fromPlayerId)} an{' '}
+                    {getPlayerName(payment.toPlayerId)}:{' '}
+                    {formatAmount(payment.amount)}
+                  </AppText>
+                ))}
+              {preview.pending ? (
+                <AppText accessibilityRole="alert">
+                  Gemeldete Zahlungen müssen vor dem Speichern bestätigt oder
+                  zurückgenommen werden.
+                </AppText>
+              ) : null}
+              {correctionError ? (
+                <AppText accessibilityRole="alert">{correctionError}</AppText>
+              ) : null}
+              <AppButton
+                title="Korrektur verbindlich speichern"
+                disabled={preview.pending}
+                loading={correctionBusy}
+                onPress={() => void saveCorrection()}
+              />
+              <AppButton
+                title="Abbrechen"
+                variant="secondary"
+                disabled={correctionBusy}
+                onPress={() => setPreview(null)}
+              />
+            </ScrollView>
+          </InteractionSheet>
+        ) : null}
         <GoldButton
           title="Zur Tischübersicht"
           onPress={() =>

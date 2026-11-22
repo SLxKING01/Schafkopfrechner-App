@@ -7,11 +7,11 @@ export type AuthStackParamList = {
   RequestPassword: { email?: string } | undefined;
   Register: undefined;
   MainTabs: undefined;
-  CloseMatchDay: undefined;
   MatchDayDetails: { matchDayId: string };
 };
 
 export type AppStackParamList = {
+  PersonalSettlements: undefined;
   TableInvitations: { tableId?: string } | undefined;
   Friends: undefined;
   EditProfile: undefined;
@@ -25,7 +25,6 @@ export type AppStackParamList = {
   QuickRound: undefined;
   TableStatistics: { tableKey: string };
   Settlement: { tableId: string; roundId?: string } | undefined;
-  TableArchive: undefined;
 };
 
 export type AppTabParamList = {
@@ -47,7 +46,6 @@ export type RootStackParamList = {
   AuthStack: NavigatorScreenParams<AuthStackParamList> | undefined;
   AppStack: NavigatorScreenParams<AppStackParamList> | undefined;
   MainTabs: undefined;
-  CloseMatchDay: undefined;
   MatchDayDetails: { matchDayId: string };
 };
 

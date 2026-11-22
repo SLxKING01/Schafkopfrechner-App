@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -26,6 +25,7 @@ import { CardSuitIcon } from '../../components/game/CardSuitIcon';
 import { FriendChip } from '../../components/game/FriendChip';
 import { FriendPickerSheet } from '../../components/game/FriendPickerSheet';
 import { TableSettingsEditor } from '../../components/game/TableSettingsEditor';
+import { appAlert } from '../../components/ui/AppDialog';
 import { AppText } from '../../components/ui/AppText';
 import {
   DEFAULT_USER_APPEARANCE,
@@ -148,10 +148,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
         (player) => player.name.trim().toLowerCase() === nextName.toLowerCase(),
       )
     ) {
-      Alert.alert(
-        'Name bereits vorhanden',
-        'Dieser Spieler ist schon am Tisch.',
-      );
+      appAlert('Name bereits vorhanden', 'Dieser Spieler ist schon am Tisch.');
       return;
     }
     setPlayers((currentPlayers) => [
@@ -216,7 +213,7 @@ export function CreateTableScreen({ navigation }: CreateTableScreenProps) {
     const didCreate = await createTable(tableName, players, tableSettings);
 
     if (!didCreate) {
-      Alert.alert(
+      appAlert(
         'Tisch nicht bereit',
         useGameStore.getState().activeGame
           ? 'Es läuft bereits ein Tisch. Bitte schließe diesen zuerst ab.'

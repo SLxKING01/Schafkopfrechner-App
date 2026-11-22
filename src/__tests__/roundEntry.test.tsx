@@ -737,7 +737,7 @@ it('keeps an open entry from silently recording a changed roster', async () => {
   await ui.press('Runde speichern');
   expect(useGameStore.getState().rounds).toHaveLength(0);
   expect(JSON.stringify(ui.view.toJSON())).toContain(
-    'Die Besetzung oder Sitzordnung hat sich ge�ndert',
+    'Die Besetzung oder Sitzordnung hat sich geändert',
   );
   expect(ui.onSaved).not.toHaveBeenCalled();
   await act(async () => ui.view.unmount());

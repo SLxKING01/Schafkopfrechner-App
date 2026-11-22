@@ -80,8 +80,14 @@ let db;
   await db.exec(
     fs.readFileSync('supabase/verify-settlement-events.sql', 'utf8'),
   );
+  await db.exec(
+    fs.readFileSync('supabase/verify-account-deletion.sql', 'utf8'),
+  );
+  await db.exec(
+    fs.readFileSync('supabase/verify-table-exits-and-corrections.sql', 'utf8'),
+  );
   console.log(
-    'PASS: migrations, shared permissions, CAS, round identities, profiles, friendships, invitations and settlement events on isolated PostgreSQL.',
+    'PASS: migrations, shared permissions, CAS, round identities, profiles, friendships, invitations, settlement events and account deletion on isolated PostgreSQL.',
   );
 })()
   .catch((e) => {
