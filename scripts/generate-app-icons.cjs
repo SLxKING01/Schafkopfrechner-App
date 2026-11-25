@@ -14,8 +14,8 @@ const BG = '#07110B';
 const GOLD = '#D4AF37';
 
 // size: canvas px; disc: circle diameter as share of canvas (0 = no circle);
-// markScale: how much larger the mark is drawn than in the app's 78 px circle.
-function page({ size, background, disc, ring, color, glow, markScale = 1.45 }) {
+// markScale: how much larger the mark is drawn than the disc (the mark's viewBox is the disc).
+function page({ size, background, disc, ring, color, glow, markScale = 1 }) {
   const d = size * disc;
   const markPx = d ? d : size * 0.62;
   const drawPx = markPx * markScale;
@@ -85,12 +85,15 @@ const outputs = [
     ring: 'rgba(212,175,55,0.55)',
     color: GOLD,
     opaque: true,
-    markScale: 1.7,
+    markScale: 1.2,
   },
 ];
 
 (async () => {
-  const browser = await chromium.launch();
+  // PW_CHANNEL=msedge uses the installed Edge instead of a downloaded Chromium.
+  const browser = await chromium.launch(
+    process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {},
+  );
   for (const o of outputs) {
     const p = await browser.newPage({
       viewport: { width: o.size, height: o.size },
@@ -105,7 +108,7 @@ const outputs = [
     await p.screenshot({ path: target, omitBackground: !o.opaque && !o.solid });
     await p.close();
     if (o.opaque || o.solid)
-      execFileSync('python3', [
+      execFileSync(process.env.PYTHON || 'python3', [
         '-c',
         'import sys;from PIL import Image;Image.open(sys.argv[1]).convert("RGB").save(sys.argv[1])',
         target,
