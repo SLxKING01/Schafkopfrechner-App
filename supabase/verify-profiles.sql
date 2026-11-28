@@ -35,7 +35,17 @@ select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000003'
 do $$
 declare cards jsonb; n int;
 begin
- select count(*) into n from storage.objects; assert n=0,'Unrelated photo visible before search';
+ cards:=public.sk_player_accounts('Gleicher');
+ assert jsonb_array_length(cards)=0,'Stranger found by account search';
+ select count(*) into n from storage.objects; assert n=0,'Unrelated photo visible after stranger search';
+end $$;
+reset role;
+insert into private.sk_friend_pairs(low_id,high_id,state,version) values('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003','friends',1)
+on conflict(low_id,high_id) do update set state='friends',sender_id=null,request_id=null;
+set local role authenticated;
+do $$
+declare cards jsonb; n int;
+begin
  cards:=public.sk_player_accounts('Gleicher');
  assert jsonb_array_length(cards)=1,'Profile search failed';
  assert not ((cards->0)?'firstName') and not ((cards->0)?'birthDate'),'Private fields leaked through search';
@@ -45,6 +55,26 @@ begin
  delete from storage.objects; get diagnostics n=row_count; assert n=0,'Foreign photo deleted';
  begin perform public.sk_profile_save((public.sk_profile_own()-array['id','version','updatedAt'])||'{"avatarKind":"photo","photoPath":"00000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001.jpg"}',1,'20000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000003'); raise exception 'Foreign photo reference accepted'; exception when invalid_parameter_value then null; end;
 end $$;
+do $$
+declare i int; limited boolean:=false;
+begin
+ for i in 1..61 loop
+  begin perform public.sk_player_accounts('Gleicher'); exception when sqlstate 'PT429' then limited:=true; exit; end;
+ end loop;
+ assert limited,'Account search is not rate limited';
+end $$;
+reset role;
+insert into private.sk_friend_blocks(blocker_id,blocked_id,label) values('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003','Test');
+delete from private.sk_friend_limits where category='account_search';
+set local role authenticated;
+do $$
+begin
+ assert jsonb_array_length(public.sk_player_accounts('Gleicher'))=0,'Blocked friend found by account search';
+end $$;
+reset role;
+delete from private.sk_friend_blocks where blocker_id='00000000-0000-4000-8000-000000000001';
+delete from private.sk_friend_pairs where low_id='00000000-0000-4000-8000-000000000001' and high_id='00000000-0000-4000-8000-000000000003';
+set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
 do $$
 declare result jsonb;

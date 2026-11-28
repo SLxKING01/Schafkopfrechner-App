@@ -51,14 +51,16 @@ export function usePlayerAccounts(query = '', enabled = true) {
                   : {}),
               }));
             if (active) setResult({ userId, query, accounts, error: null });
-          } catch {
+          } catch (error) {
             if (active)
               setResult({
                 userId,
                 query,
                 accounts: [],
                 error:
-                  'Benutzerkonten konnten nicht geladen werden. Bitte die Verbindung prüfen.',
+                  (error as { code?: unknown } | null)?.code === 'PT429'
+                    ? 'Zu viele Suchanfragen. Bitte kurz warten.'
+                    : 'Benutzerkonten konnten nicht geladen werden. Bitte die Verbindung prüfen.',
               });
           }
         })();

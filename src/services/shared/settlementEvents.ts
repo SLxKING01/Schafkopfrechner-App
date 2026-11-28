@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { supabase } from '../../lib/supabase';
 import type { GameTable, Player, Settlement } from '../../types/game';
@@ -111,8 +112,12 @@ export function useSettlementEvents(
     if (!scope || !tableId) return;
     let active = true;
     let loading = false;
+    let queued = false;
     async function load() {
-      if (loading) return;
+      if (loading) {
+        queued = true;
+        return;
+      }
       loading = true;
       try {
         const { data, error } = await supabase.rpc(
@@ -147,13 +152,51 @@ export function useSettlementEvents(
         }
       } finally {
         loading = false;
+        if (queued && active) {
+          queued = false;
+          void load();
+        }
       }
     }
+    // A Realtime revision bump triggers a reload; polling is only a fallback.
+    let live = false;
+    let poll: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(poll);
+      if (active) poll = setTimeout(tick, live ? 60000 : 15000);
+    };
+    const tick = () => {
+      if (AppState.currentState === 'active') void load();
+      schedule();
+    };
+    const channel = supabase
+      .channel(`settlement-signal:${scope}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sk_settlement_signals',
+          filter: `table_id=eq.${tableId}`,
+        },
+        () => void load(),
+      )
+      .subscribe((status) => {
+        const wasLive = live;
+        live = status === 'SUBSCRIBED';
+        if (live && !wasLive) void load();
+        schedule();
+      });
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void load();
+    });
     void load();
-    const interval = setInterval(load, 5000);
+    schedule();
     return () => {
       active = false;
-      clearInterval(interval);
+      clearTimeout(poll);
+      appState.remove();
+      void supabase.removeChannel(channel);
     };
   }, [scope, tableId, refresh]);
 
