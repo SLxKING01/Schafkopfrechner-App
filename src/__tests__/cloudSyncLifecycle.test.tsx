@@ -149,3 +149,34 @@ it('waits for hydration before starting automatic sync', async () => {
   expect(mockSync).toHaveBeenCalledTimes(1);
   await act(async () => view.unmount());
 });
+
+it('polls rarely when nothing is pending and backs off failed retries', async () => {
+  let view: ReturnType<typeof renderer.create>;
+  await act(async () => {
+    view = renderer.create(<Harness />);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    jest.advanceTimersByTime(14000);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(1);
+  mockSync.mockRejectedValueOnce(new Error('offline'));
+  await act(async () => {
+    jest.advanceTimersByTime(1000);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(2);
+  mockSync.mockRejectedValueOnce(new Error('offline'));
+  await act(async () => {
+    jest.advanceTimersByTime(5000);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(3);
+  await act(async () => {
+    jest.advanceTimersByTime(9000);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(3);
+  await act(async () => {
+    jest.advanceTimersByTime(1000);
+  });
+  expect(mockSync).toHaveBeenCalledTimes(4);
+  await act(async () => view.unmount());
+});

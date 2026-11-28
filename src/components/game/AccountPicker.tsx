@@ -76,7 +76,8 @@ export function AccountPicker({
             ))}
           {query.trim().length >= 2 && !accounts.length && !error ? (
             <AppText style={styles.hint}>
-              Noch keine passenden Konten gefunden.
+              Keine passenden Konten gefunden. Die Suche zeigt nur Freunde und
+              Mitspieler.
             </AppText>
           ) : null}
         </ScrollView>
